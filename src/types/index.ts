@@ -108,6 +108,13 @@ export interface Message {
   sender?: User;
 }
 
+// Typing indicator types
+export interface TypingIndicator {
+  user_id: string;
+  started_at: string;
+  expires_at: string;
+}
+
 // Filter types
 export type PriceRange = '$' | '$$' | '$$$';
 

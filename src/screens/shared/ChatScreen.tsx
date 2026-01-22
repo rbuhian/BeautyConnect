@@ -22,6 +22,9 @@ import {
   markMessagesAsRead,
   getChatBookingDetails,
   subscribeToMessages,
+  startTyping,
+  stopTyping,
+  subscribeToTypingIndicators,
   MessageWithSender,
 } from '../../services/chat';
 import { Loading } from '../../components';
@@ -42,6 +45,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [chatDetails, setChatDetails] = useState<{
     booking_id: string;
     service_name: string;
@@ -54,6 +59,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     };
   } | null>(null);
   const flatListRef = useRef<FlatList>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -79,6 +85,33 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       console.error('Error fetching chat details:', err);
     }
   }, [bookingId, user?.id]);
+
+  const handleTyping = useCallback(
+    async (text: string) => {
+      setNewMessage(text);
+
+      if (!user?.id) return;
+
+      // Clear previous timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Send typing indicator
+      if (text.length > 0) {
+        await startTyping(bookingId, user.id);
+
+        // Set timeout to stop typing after 3 seconds of inactivity
+        typingTimeoutRef.current = setTimeout(async () => {
+          await stopTyping(bookingId, user.id);
+        }, 3000);
+      } else {
+        // Stop typing if message is empty
+        await stopTyping(bookingId, user.id);
+      }
+    },
+    [bookingId, user?.id]
+  );
 
   useEffect(() => {
     fetchMessages();
@@ -112,6 +145,38 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     };
   }, [bookingId, user?.id]);
 
+   // Subscribe to typing indicators
+   useEffect(() => {
+     const unsubscribe = subscribeToTypingIndicators(bookingId, (typingUserIds) => {
+       setTypingUsers(typingUserIds);
+       // Check if the other user is typing
+       if (chatDetails && typingUserIds.includes(chatDetails.other_user.id)) {
+         setOtherUserTyping(true);
+       } else {
+         setOtherUserTyping(false);
+       }
+     });
+
+     return () => {
+       unsubscribe();
+     };
+   }, [bookingId, chatDetails?.other_user.id]);
+
+   // Cleanup typing timeout on unmount
+   useEffect(() => {
+     return () => {
+       if (typingTimeoutRef.current) {
+         clearTimeout(typingTimeoutRef.current);
+       }
+       // Stop typing when leaving the screen
+       if (user?.id) {
+         stopTyping(bookingId, user.id).catch(() => {
+           // Silently fail - user is already gone
+         });
+       }
+     };
+   }, [bookingId, user?.id]);
+
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (messages.length > 0) {
@@ -127,6 +192,12 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
     const messageText = newMessage.trim();
     setNewMessage('');
     setSending(true);
+
+    // Stop typing indicator when sending
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    await stopTyping(bookingId, user.id);
 
     try {
       const { data, error } = await sendMessage(bookingId, user.id, messageText);
@@ -257,29 +328,43 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           }
         />
 
-        {/* Input */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Type a message..."
-            placeholderTextColor={COLORS.textSecondary}
-            value={newMessage}
-            onChangeText={setNewMessage}
-            multiline
-            maxLength={1000}
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, (!newMessage.trim() || sending) && styles.sendButtonDisabled]}
-            onPress={handleSend}
-            disabled={!newMessage.trim() || sending}
-          >
-            {sending ? (
-              <ActivityIndicator size="small" color={COLORS.white} />
-            ) : (
-              <Send size={20} color={COLORS.white} />
-            )}
-          </TouchableOpacity>
-        </View>
+         {/* Input */}
+         <View style={styles.inputContainer}>
+           {otherUserTyping && (
+             <View style={styles.typingIndicator}>
+               <Text style={styles.typingText}>
+                 {chatDetails?.other_user.name} is typing
+               </Text>
+               <View style={styles.typingDots}>
+                 <View style={styles.dot} />
+                 <View style={styles.dot} />
+                 <View style={styles.dot} />
+               </View>
+             </View>
+           )}
+           <View style={styles.inputRow}>
+             <TextInput
+               style={styles.input}
+               placeholder="Type a message..."
+               placeholderTextColor={COLORS.textSecondary}
+               value={newMessage}
+               onChangeText={handleTyping}
+               multiline
+               maxLength={1000}
+             />
+             <TouchableOpacity
+               style={[styles.sendButton, (!newMessage.trim() || sending) && styles.sendButtonDisabled]}
+               onPress={handleSend}
+               disabled={!newMessage.trim() || sending}
+             >
+               {sending ? (
+                 <ActivityIndicator size="small" color={COLORS.white} />
+               ) : (
+                 <Send size={20} color={COLORS.white} />
+               )}
+             </TouchableOpacity>
+           </View>
+         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -422,15 +507,14 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
   },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
+   inputContainer: {
+     flexDirection: 'column',
+     paddingHorizontal: SPACING.md,
+     paddingVertical: SPACING.sm,
+     backgroundColor: COLORS.white,
+     borderTopWidth: 1,
+     borderTopColor: COLORS.border,
+   },
   input: {
     flex: 1,
     backgroundColor: COLORS.inputBackground,
@@ -450,7 +534,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sendButtonDisabled: {
-    backgroundColor: COLORS.textSecondary,
-  },
+   sendButtonDisabled: {
+     backgroundColor: COLORS.textSecondary,
+   },
+   inputRow: {
+     flexDirection: 'row',
+     alignItems: 'flex-end',
+     flex: 1,
+   },
+   typingIndicator: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     paddingHorizontal: SPACING.md,
+     paddingVertical: SPACING.xs,
+     backgroundColor: COLORS.chipBackground,
+     borderRadius: RADIUS.lg,
+     marginBottom: SPACING.xs,
+   },
+   typingText: {
+     fontSize: FONT_SIZES.sm,
+     color: COLORS.textSecondary,
+     marginRight: SPACING.sm,
+   },
+   typingDots: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     gap: SPACING.xs,
+   },
+   dot: {
+     width: 6,
+     height: 6,
+     borderRadius: 3,
+     backgroundColor: COLORS.primary,
+     opacity: 0.6,
+   },
 });

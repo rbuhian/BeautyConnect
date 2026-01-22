@@ -15,7 +15,7 @@ export interface ConversationPreview {
   unread_count: number;
 }
 
-export interface MessageWithSender extends Message {
+export interface MessageWithSender extends Omit<Message, 'sender'> {
   sender: {
     id: string;
     name: string;
@@ -328,3 +328,130 @@ export async function getUnreadMessageCount(userId: string): Promise<{ count: nu
     return { count: 0, error: error as Error };
   }
 }
+
+/**
+ * Start typing indicator
+ */
+export async function startTyping(
+  bookingId: string,
+  userId: string
+): Promise<{ error: Error | null }> {
+  try {
+    // First, try to insert
+    const { error: insertError } = await supabase
+      .from('typing_indicators')
+      .insert({
+        booking_id: bookingId,
+        user_id: userId,
+        expires_at: new Date(Date.now() + 30 * 1000).toISOString(), // 30 seconds from now
+      })
+      .select()
+      .single();
+
+    if (insertError && insertError.code !== '23505') {
+      // 23505 is unique constraint violation - that's okay, user is already typing
+      throw insertError;
+    }
+
+    // If unique constraint violation, update the existing record
+    if (insertError?.code === '23505') {
+      const { error: updateError } = await supabase
+        .from('typing_indicators')
+        .update({
+          started_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 30 * 1000).toISOString(),
+        })
+        .eq('booking_id', bookingId)
+        .eq('user_id', userId);
+
+      if (updateError) throw updateError;
+    }
+
+    return { error: null };
+  } catch (error) {
+    console.error('Error starting typing indicator:', error);
+    return { error: error as Error };
+  }
+}
+
+/**
+ * Stop typing indicator
+ */
+export async function stopTyping(
+  bookingId: string,
+  userId: string
+): Promise<{ error: Error | null }> {
+  try {
+    const { error } = await supabase
+      .from('typing_indicators')
+      .delete()
+      .eq('booking_id', bookingId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    return { error: null };
+  } catch (error) {
+    console.error('Error stopping typing indicator:', error);
+    return { error: error as Error };
+  }
+}
+
+/**
+ * Get who is currently typing in a booking
+ */
+export async function getTypingUsers(bookingId: string): Promise<{
+  data: Array<{
+    user_id: string;
+    started_at: string;
+    expires_at: string;
+  }> | null;
+  error: Error | null;
+}> {
+  try {
+    const { data, error } = await supabase
+      .from('typing_indicators')
+      .select('user_id, started_at, expires_at')
+      .eq('booking_id', bookingId)
+      .gt('expires_at', new Date().toISOString()); // Only get non-expired indicators
+
+    if (error) throw error;
+
+    return { data: data as any[], error: null };
+  } catch (error) {
+    console.error('Error fetching typing users:', error);
+    return { data: null, error: error as Error };
+  }
+}
+
+/**
+ * Subscribe to typing indicator changes
+ */
+export function subscribeToTypingIndicators(
+  bookingId: string,
+  onTypingChange: (typingUsers: string[]) => void
+) {
+  const channel = supabase
+    .channel(`typing:${bookingId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+        schema: 'public',
+        table: 'typing_indicators',
+        filter: `booking_id=eq.${bookingId}`,
+      },
+      async (payload) => {
+        // Get current list of typing users
+        const { data } = await getTypingUsers(bookingId);
+        const typingUserIds = data?.map((u) => u.user_id) || [];
+        onTypingChange(typingUserIds);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+

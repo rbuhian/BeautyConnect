@@ -128,6 +128,16 @@ CREATE TABLE messages (
   read_at TIMESTAMPTZ
 );
 
+-- Typing indicators (real-time)
+CREATE TABLE typing_indicators (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '30 seconds'),
+  UNIQUE(booking_id, user_id)
+);
+
 -- Favorites (clients can save professionals)
 CREATE TABLE favorites (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -153,6 +163,8 @@ CREATE INDEX idx_bookings_date ON bookings(date);
 CREATE INDEX idx_bookings_status ON bookings(status);
 CREATE INDEX idx_reviews_reviewee_id ON reviews(reviewee_id);
 CREATE INDEX idx_messages_booking_id ON messages(booking_id);
+CREATE INDEX idx_typing_indicators_booking_id ON typing_indicators(booking_id);
+CREATE INDEX idx_typing_indicators_user_id ON typing_indicators(user_id);
 CREATE INDEX idx_favorites_user_id ON favorites(user_id);
 
 -- ============================================
@@ -168,6 +180,7 @@ ALTER TABLE blocked_dates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE typing_indicators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 
 -- Users policies
@@ -282,6 +295,51 @@ CREATE POLICY "Recipients can update messages (mark as read)" ON messages
       )
     )
   );
+
+-- Typing indicators policies
+CREATE POLICY "Booking participants can view typing indicators" ON typing_indicators
+  FOR SELECT USING (
+    booking_id IN (
+      SELECT id FROM bookings
+      WHERE client_id = auth.uid() OR professional_id IN (
+        SELECT id FROM professional_profiles WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "Booking participants can start typing" ON typing_indicators
+  FOR INSERT WITH CHECK (
+    user_id = auth.uid() AND
+    booking_id IN (
+      SELECT id FROM bookings
+      WHERE client_id = auth.uid() OR professional_id IN (
+        SELECT id FROM professional_profiles WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "Users can update own typing status" ON typing_indicators
+  FOR UPDATE USING (
+    user_id = auth.uid() AND
+    booking_id IN (
+      SELECT id FROM bookings
+      WHERE client_id = auth.uid() OR professional_id IN (
+        SELECT id FROM professional_profiles WHERE user_id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "Users can delete own typing status" ON typing_indicators
+  FOR DELETE USING (
+    user_id = auth.uid() AND
+    booking_id IN (
+      SELECT id FROM bookings
+      WHERE client_id = auth.uid() OR professional_id IN (
+        SELECT id FROM professional_profiles WHERE user_id = auth.uid()
+      )
+    )
+  );
+
 
 -- Favorites policies
 CREATE POLICY "Users can view own favorites" ON favorites
