@@ -17,7 +17,7 @@ import { getConversations, ConversationPreview } from '../../services/chat';
 import { Loading } from '../../components';
 
 export default function MessagesScreen({ navigation }: any) {
-  const { user } = useAuth();
+  const { user, professionalProfile } = useAuth();
   const [conversations, setConversations] = useState<ConversationPreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -26,7 +26,8 @@ export default function MessagesScreen({ navigation }: any) {
     if (!user?.id) return;
 
     try {
-      const { data, error } = await getConversations(user.id);
+      // Pass professionalProfileId for professionals to find their bookings
+      const { data, error } = await getConversations(user.id, professionalProfile?.id);
       if (data && !error) {
         setConversations(data);
       }
@@ -36,7 +37,7 @@ export default function MessagesScreen({ navigation }: any) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user?.id]);
+  }, [user?.id, professionalProfile?.id]);
 
   useEffect(() => {
     fetchConversations();

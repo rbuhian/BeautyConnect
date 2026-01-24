@@ -26,8 +26,16 @@ export interface MessageWithSender extends Omit<Message, 'sender'> {
 /**
  * Get all conversations (bookings with messages) for a user
  */
-export async function getConversations(userId: string): Promise<{ data: ConversationPreview[] | null; error: Error | null }> {
+export async function getConversations(userId: string, professionalProfileId?: string): Promise<{ data: ConversationPreview[] | null; error: Error | null }> {
   try {
+    // Build the OR condition based on user type
+    // - For clients: check client_id = userId
+    // - For professionals: check professional_id = professionalProfileId (not userId!)
+    let orCondition = `client_id.eq.${userId}`;
+    if (professionalProfileId) {
+      orCondition += `,professional_id.eq.${professionalProfileId}`;
+    }
+
     // Get all bookings where user is either client or professional
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
@@ -39,10 +47,11 @@ export async function getConversations(userId: string): Promise<{ data: Conversa
         service:services(name),
         client:users!bookings_client_id_fkey(id, name, avatar),
         professional:professional_profiles!bookings_professional_id_fkey(
+          id,
           user:users(id, name, avatar)
         )
       `)
-      .or(`client_id.eq.${userId},professional_id.eq.${userId}`)
+      .or(orCondition)
       .in('status', ['pending', 'confirmed', 'completed'])
       .order('created_at', { ascending: false });
 
@@ -73,8 +82,11 @@ export async function getConversations(userId: string): Promise<{ data: Conversa
         .is('read_at', null);
 
       // Determine other user (if current user is client, show professional and vice versa)
+      // Check both client_id and professional_id to determine role
       const isClient = booking.client_id === userId;
-      const otherUser = isClient
+      const isProfessional = professionalProfileId && booking.professional_id === professionalProfileId;
+
+      const otherUser = isClient && !isProfessional
         ? {
             id: (booking.professional as any)?.user?.id || '',
             name: (booking.professional as any)?.user?.name || 'Professional',
@@ -142,7 +154,7 @@ export async function sendMessage(
   bookingId: string,
   senderId: string,
   text: string
-): Promise<{ data: Message | null; error: Error | null }> {
+): Promise<{ data: MessageWithSender | null; error: Error | null }> {
   try {
     const { data, error } = await supabase
       .from('messages')
@@ -151,12 +163,15 @@ export async function sendMessage(
         sender_id: senderId,
         text: text.trim(),
       })
-      .select()
+      .select(`
+        *,
+        sender:users!messages_sender_id_fkey(id, name, avatar)
+      `)
       .single();
 
     if (error) throw error;
 
-    return { data, error: null };
+    return { data: data as MessageWithSender, error: null };
   } catch (error) {
     console.error('Error sending message:', error);
     return { data: null, error: error as Error };
@@ -297,13 +312,19 @@ export function subscribeToMessages(
 /**
  * Get total unread message count for a user
  */
-export async function getUnreadMessageCount(userId: string): Promise<{ count: number; error: Error | null }> {
+export async function getUnreadMessageCount(userId: string, professionalProfileId?: string): Promise<{ count: number; error: Error | null }> {
   try {
+    // Build the OR condition based on user type
+    let orCondition = `client_id.eq.${userId}`;
+    if (professionalProfileId) {
+      orCondition += `,professional_id.eq.${professionalProfileId}`;
+    }
+
     // First get all bookings for this user
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
       .select('id')
-      .or(`client_id.eq.${userId},professional_id.eq.${userId}`);
+      .or(orCondition);
 
     if (bookingsError) throw bookingsError;
     if (!bookings || bookings.length === 0) {

@@ -26,6 +26,7 @@ interface AuthState {
   verifyOtp: (phone: string, token: string) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
   updateProfile: (updates: Partial<Pick<User, 'name' | 'avatar' | 'role'>>) => Promise<{ success: boolean; error?: string }>;
   setRole: (role: 'client' | 'professional') => Promise<{ success: boolean; error?: string }>;
+  refreshProfessionalProfile: () => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -106,6 +107,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data: user } = await getCurrentUser();
     set({ user });
 
+    // If professional, fetch professional profile
+    if (user?.role === 'professional') {
+      const { data: proProfile } = await getProfessionalProfile(user.id);
+      set({ professionalProfile: proProfile });
+    }
+
     return { success: true, isNewUser: data?.isNewUser };
   },
 
@@ -160,6 +167,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     set({ loading: false });
     return { success: true };
+  },
+
+  refreshProfessionalProfile: async () => {
+    const { user } = get();
+    if (user?.role === 'professional') {
+      const { data: proProfile } = await getProfessionalProfile(user.id);
+      set({ professionalProfile: proProfile });
+    }
   },
 
   logout: async () => {

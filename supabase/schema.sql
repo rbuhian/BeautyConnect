@@ -416,20 +416,8 @@ CREATE TRIGGER update_rating_on_review
   AFTER INSERT ON reviews
   FOR EACH ROW EXECUTE FUNCTION update_professional_rating();
 
--- Function to handle new user creation from auth
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO users (id, phone, role)
-  VALUES (NEW.id, NEW.phone, 'client');
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Trigger to auto-create user profile on signup
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+-- NOTE: User profile creation is handled at the app level (src/services/auth.ts)
+-- This allows for seamless seed data migration when using phone authentication
 
 -- ============================================
 -- STORAGE BUCKETS

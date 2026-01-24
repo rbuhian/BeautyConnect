@@ -19,16 +19,18 @@ import {
   AlertCircle,
   ChevronRight,
   User,
+  Star,
 } from 'lucide-react-native';
 import { ProfessionalTabScreenProps } from '../../navigation/types';
 import { Card, Loading } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
-import { Booking } from '../../types';
+import { Booking, Review } from '../../types';
 import {
   getUpcomingBookings,
   getProfessionalStats,
 } from '../../services/professional';
+import { getReviewsReceived, ReviewWithDetails } from '../../services/review';
 import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 
 export default function DashboardScreen({
@@ -36,6 +38,7 @@ export default function DashboardScreen({
 }: ProfessionalTabScreenProps<'Dashboard'>) {
   const { user, professionalProfile } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [reviews, setReviews] = useState<ReviewWithDetails[]>([]);
   const [stats, setStats] = useState({
     totalBookings: 0,
     completedBookings: 0,
@@ -46,12 +49,13 @@ export default function DashboardScreen({
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(async () => {
-    if (!professionalProfile?.id) return;
+    if (!professionalProfile?.id || !user?.id) return;
 
     try {
-      const [bookingsRes, statsRes] = await Promise.all([
+      const [bookingsRes, statsRes, reviewsRes] = await Promise.all([
         getUpcomingBookings(professionalProfile.id),
         getProfessionalStats(professionalProfile.id),
+        getReviewsReceived(user.id, 5), // Get last 5 reviews
       ]);
 
       if (bookingsRes.data) {
@@ -60,13 +64,16 @@ export default function DashboardScreen({
       if (statsRes.data) {
         setStats(statsRes.data);
       }
+      if (reviewsRes.data) {
+        setReviews(reviewsRes.data);
+      }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [professionalProfile?.id]);
+  }, [professionalProfile?.id, user?.id]);
 
   useEffect(() => {
     fetchData();
@@ -447,6 +454,80 @@ export default function DashboardScreen({
               <Text style={styles.actionText}>Settings</Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Recent Reviews Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Reviews</Text>
+            {professionalProfile && (
+              <View style={styles.ratingBadge}>
+                <Star size={14} color="#FFB800" fill="#FFB800" />
+                <Text style={styles.ratingBadgeText}>
+                  {professionalProfile.avg_rating?.toFixed(1) || '0.0'} ({professionalProfile.total_reviews || 0})
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {reviews.length === 0 ? (
+            <Card style={styles.emptyCard}>
+              <Star size={40} color={COLORS.textLight} />
+              <Text style={styles.emptyText}>No reviews yet</Text>
+              <Text style={styles.emptySubtext}>
+                Client reviews will appear here
+              </Text>
+            </Card>
+          ) : (
+            reviews.map((review) => (
+              <Card key={review.id} style={styles.reviewCard}>
+                <View style={styles.reviewHeader}>
+                  <View style={styles.reviewerInfo}>
+                    {review.reviewer?.avatar ? (
+                      <Image
+                        source={{ uri: review.reviewer.avatar }}
+                        style={styles.reviewerAvatar}
+                      />
+                    ) : (
+                      <View style={styles.reviewerAvatarPlaceholder}>
+                        <User size={14} color={COLORS.textSecondary} />
+                      </View>
+                    )}
+                    <View style={styles.reviewerDetails}>
+                      <Text style={styles.reviewerName}>
+                        {review.reviewer?.name || 'Client'}
+                      </Text>
+                      <Text style={styles.reviewServiceName}>
+                        {review.service_name}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.reviewRating}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        size={12}
+                        color="#FFB800"
+                        fill={star <= review.rating ? '#FFB800' : 'transparent'}
+                      />
+                    ))}
+                  </View>
+                </View>
+                {review.text && (
+                  <Text style={styles.reviewText} numberOfLines={2}>
+                    {review.text}
+                  </Text>
+                )}
+                <Text style={styles.reviewDate}>
+                  {new Date(review.created_at).toLocaleDateString('en-PH', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </Text>
+              </Card>
+            ))
+          )}
         </View>
 
         <View style={{ height: 100 }} />

@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Calendar, MessageCircle, User } from 'lucide-react-native';
 import { ProfessionalStackParamList, ProfessionalTabParamList } from './types';
 import { COLORS } from '../constants';
@@ -25,6 +26,8 @@ const Tab = createBottomTabNavigator<ProfessionalTabParamList>();
 const Stack = createNativeStackNavigator<ProfessionalStackParamList>();
 
 function ProfessionalTabs() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -35,8 +38,8 @@ function ProfessionalTabs() {
           borderTopLeftRadius: 30,
           borderTopRightRadius: 30,
           paddingTop: 10,
-          paddingBottom: 25,
-          height: 80,
+          paddingBottom: 10 + insets.bottom,
+          height: 70 + insets.bottom,
           backgroundColor: COLORS.white,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -5 },

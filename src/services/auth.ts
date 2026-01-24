@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { User, UserRole, ProfessionalProfile } from '../types';
+import { User, ProfessionalProfile } from '../types';
 
 export interface AuthError {
   message: string;
@@ -28,6 +28,408 @@ export async function signInWithPhone(phone: string): Promise<AuthResponse> {
   }
 }
 
+// Helper function to migrate seed data
+async function migrateSeedDataToNewUser(newUserId: string, phone: string): Promise<boolean> {
+  try {
+    // Check if seed data exists for this phone number
+    const { data: seedUser, error: seedError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('phone', phone)
+      .neq('id', newUserId)
+      .single();
+
+    if (seedError || !seedUser) {
+      // No seed data found, this is a genuinely new user
+      return false;
+    }
+
+    console.log('Found seed data for', phone, '- migrating to new user ID', newUserId);
+
+    // Create or update user record with seed data
+    // Use upsert in case a basic user record was already created
+    const { error: userUpsertError } = await supabase
+      .from('users')
+      .upsert({
+        id: newUserId,
+        phone: phone,
+        name: seedUser.name,
+        avatar: seedUser.avatar,
+        role: seedUser.role,
+      }, {
+        onConflict: 'id'
+      });
+
+    if (userUpsertError) {
+      console.error('Error upserting user:', userUpsertError);
+      return false;
+    }
+
+    // If professional, copy professional data
+    if (seedUser.role === 'professional') {
+      // Get professional profile
+      const { data: seedProfile } = await supabase
+        .from('professional_profiles')
+        .select('*')
+        .eq('user_id', seedUser.id)
+        .single();
+
+      if (seedProfile) {
+        const oldProfileId = seedProfile.id;
+
+        // Check if professional profile already exists
+        const { data: existingProfile } = await supabase
+          .from('professional_profiles')
+          .select('id')
+          .eq('user_id', newUserId)
+          .single();
+
+        // If profile exists, check if migration was already completed (has services)
+        if (existingProfile) {
+          const { data: existingServices } = await supabase
+            .from('services')
+            .select('id')
+            .eq('professional_id', existingProfile.id);
+
+          if (existingServices && existingServices.length > 0) {
+            console.log('Professional data already migrated, skipping');
+            return true;
+          }
+        }
+
+        let newProfileId: string;
+
+        if (existingProfile) {
+          // Update existing profile
+          const { data: updatedProfile, error: updateError } = await supabase
+            .from('professional_profiles')
+            .update({
+              bio: seedProfile.bio,
+              categories: seedProfile.categories,
+              portfolio_photos: seedProfile.portfolio_photos,
+              service_area: seedProfile.service_area,
+              location_type: seedProfile.location_type,
+              salon_address: seedProfile.salon_address,
+              is_live: seedProfile.is_live,
+              avg_rating: seedProfile.avg_rating,
+              total_reviews: seedProfile.total_reviews,
+            })
+            .eq('user_id', newUserId)
+            .select()
+            .single();
+
+          if (updateError || !updatedProfile) {
+            console.error('Failed to update professional profile:', updateError);
+            return false;
+          }
+
+          newProfileId = updatedProfile.id;
+          console.log('Updated existing professional profile:', newProfileId);
+        } else {
+          // Create new profile
+          const { data: newProfile, error: insertError } = await supabase
+            .from('professional_profiles')
+            .insert({
+              user_id: newUserId,
+              bio: seedProfile.bio,
+              categories: seedProfile.categories,
+              portfolio_photos: seedProfile.portfolio_photos,
+              service_area: seedProfile.service_area,
+              location_type: seedProfile.location_type,
+              salon_address: seedProfile.salon_address,
+              is_live: seedProfile.is_live,
+              avg_rating: seedProfile.avg_rating,
+              total_reviews: seedProfile.total_reviews,
+            })
+            .select()
+            .single();
+
+          if (insertError || !newProfile) {
+            console.error('Failed to create professional profile:', insertError);
+            return false;
+          }
+
+          newProfileId = newProfile.id;
+          console.log('Created new professional profile:', newProfileId);
+        }
+
+        // Copy services and track old->new ID mapping
+        const { data: seedServices } = await supabase
+          .from('services')
+          .select('*')
+          .eq('professional_id', oldProfileId);
+
+        const serviceIdMap: Record<string, string> = {};
+
+        if (seedServices && seedServices.length > 0) {
+          for (const service of seedServices) {
+            const { data: newService } = await supabase
+              .from('services')
+              .insert({
+                professional_id: newProfileId,
+                name: service.name,
+                category: service.category,
+                duration_minutes: service.duration_minutes,
+                price: service.price,
+                booking_type: service.booking_type,
+                is_active: service.is_active,
+              })
+              .select()
+              .single();
+
+            if (newService) {
+              serviceIdMap[service.id] = newService.id;
+            }
+          }
+          console.log('Copied', seedServices.length, 'services');
+        }
+
+        // Copy availability
+        const { data: seedAvailability } = await supabase
+          .from('availability')
+          .select('*')
+          .eq('professional_id', oldProfileId);
+
+        if (seedAvailability && seedAvailability.length > 0) {
+          const newAvailability = seedAvailability.map(avail => ({
+            professional_id: newProfileId,
+            day_of_week: avail.day_of_week,
+            start_time: avail.start_time,
+            end_time: avail.end_time,
+            is_available: avail.is_available,
+          }));
+          await supabase.from('availability').insert(newAvailability);
+          console.log('Copied', newAvailability.length, 'availability slots');
+        }
+
+        // Copy bookings and track old->new ID mapping
+        const { data: seedBookings } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('professional_id', oldProfileId);
+
+        const bookingIdMap: Record<string, string> = {};
+
+        if (seedBookings && seedBookings.length > 0) {
+          for (const booking of seedBookings) {
+            // Map the service_id to the new service ID
+            const mappedServiceId = serviceIdMap[booking.service_id] || booking.service_id;
+
+            const { data: newBooking } = await supabase
+              .from('bookings')
+              .insert({
+                client_id: booking.client_id,
+                professional_id: newProfileId,
+                service_id: mappedServiceId,
+                date: booking.date,
+                time_slot: booking.time_slot,
+                location_type: booking.location_type,
+                client_address: booking.client_address,
+                status: booking.status,
+                deposit_paid: booking.deposit_paid,
+                deposit_amount: booking.deposit_amount,
+                total_price: booking.total_price,
+                cancelled_at: booking.cancelled_at,
+                cancelled_by: booking.cancelled_by,
+              })
+              .select()
+              .single();
+
+            if (newBooking) {
+              bookingIdMap[booking.id] = newBooking.id;
+            }
+          }
+          console.log('Copied', seedBookings.length, 'bookings');
+        }
+
+        // Copy messages with updated booking_id references
+        const oldBookingIds = Object.keys(bookingIdMap);
+        if (oldBookingIds.length > 0) {
+          const { data: seedMessages } = await supabase
+            .from('messages')
+            .select('*')
+            .in('booking_id', oldBookingIds);
+
+          if (seedMessages && seedMessages.length > 0) {
+            const newMessages = seedMessages.map(message => ({
+              booking_id: bookingIdMap[message.booking_id],
+              sender_id: message.sender_id === seedUser.id ? newUserId : message.sender_id,
+              text: message.text,
+              created_at: message.created_at,
+              read_at: message.read_at,
+            }));
+            await supabase.from('messages').insert(newMessages);
+            console.log('Copied', newMessages.length, 'messages');
+          }
+
+          // Copy reviews with updated booking_id and user references
+          const { data: seedReviews } = await supabase
+            .from('reviews')
+            .select('*')
+            .in('booking_id', oldBookingIds);
+
+          if (seedReviews && seedReviews.length > 0) {
+            const newReviews = seedReviews.map(review => ({
+              booking_id: bookingIdMap[review.booking_id],
+              reviewer_id: review.reviewer_id,
+              reviewee_id: review.reviewee_id === seedUser.id ? newUserId : review.reviewee_id,
+              rating: review.rating,
+              text: review.text,
+              service_name: review.service_name,
+              created_at: review.created_at,
+            }));
+            await supabase.from('reviews').insert(newReviews);
+            console.log('Copied', newReviews.length, 'reviews');
+          }
+        }
+
+        // Copy favorites
+        const { data: seedFavorites } = await supabase
+          .from('favorites')
+          .select('*')
+          .eq('professional_id', oldProfileId);
+
+        if (seedFavorites && seedFavorites.length > 0) {
+          const newFavorites = seedFavorites.map(fav => ({
+            user_id: fav.user_id,
+            professional_id: newProfileId,
+          }));
+          await supabase.from('favorites').insert(newFavorites);
+          console.log('Copied', newFavorites.length, 'favorites');
+        }
+      }
+    }
+
+    // If client, copy client-side data (bookings as client, messages, reviews, favorites)
+    if (seedUser.role === 'client') {
+      // Check if client data was already migrated
+      const { data: existingBookings } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('client_id', newUserId);
+
+      if (existingBookings && existingBookings.length > 0) {
+        console.log('Client data already migrated, skipping');
+        return true;
+      }
+
+      // Copy bookings where client_id = oldUserId
+      const { data: seedBookings } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('client_id', seedUser.id);
+
+      const bookingIdMap: Record<string, string> = {};
+
+      if (seedBookings && seedBookings.length > 0) {
+        for (const booking of seedBookings) {
+          const { data: newBooking } = await supabase
+            .from('bookings')
+            .insert({
+              client_id: newUserId,
+              professional_id: booking.professional_id,
+              service_id: booking.service_id,
+              date: booking.date,
+              time_slot: booking.time_slot,
+              location_type: booking.location_type,
+              client_address: booking.client_address,
+              status: booking.status,
+              deposit_paid: booking.deposit_paid,
+              deposit_amount: booking.deposit_amount,
+              total_price: booking.total_price,
+              cancelled_at: booking.cancelled_at,
+              cancelled_by: booking.cancelled_by === seedUser.id ? newUserId : booking.cancelled_by,
+            })
+            .select()
+            .single();
+
+          if (newBooking) {
+            bookingIdMap[booking.id] = newBooking.id;
+          }
+        }
+        console.log('Copied', seedBookings.length, 'client bookings');
+      }
+
+      // Copy messages with updated booking_id references
+      const oldBookingIds = Object.keys(bookingIdMap);
+      if (oldBookingIds.length > 0) {
+        const { data: seedMessages } = await supabase
+          .from('messages')
+          .select('*')
+          .in('booking_id', oldBookingIds);
+
+        if (seedMessages && seedMessages.length > 0) {
+          const newMessages = seedMessages.map(message => ({
+            booking_id: bookingIdMap[message.booking_id],
+            sender_id: message.sender_id === seedUser.id ? newUserId : message.sender_id,
+            text: message.text,
+            created_at: message.created_at,
+            read_at: message.read_at,
+          }));
+          await supabase.from('messages').insert(newMessages);
+          console.log('Copied', newMessages.length, 'client messages');
+        }
+
+        // Copy reviews with updated booking_id and user references
+        const { data: seedReviews } = await supabase
+          .from('reviews')
+          .select('*')
+          .in('booking_id', oldBookingIds);
+
+        if (seedReviews && seedReviews.length > 0) {
+          const newReviews = seedReviews.map(review => ({
+            booking_id: bookingIdMap[review.booking_id],
+            reviewer_id: review.reviewer_id === seedUser.id ? newUserId : review.reviewer_id,
+            reviewee_id: review.reviewee_id,
+            rating: review.rating,
+            text: review.text,
+            service_name: review.service_name,
+            created_at: review.created_at,
+          }));
+          await supabase.from('reviews').insert(newReviews);
+          console.log('Copied', newReviews.length, 'client reviews');
+        }
+      }
+
+      // Copy favorites where user_id = oldUserId
+      const { data: seedFavorites } = await supabase
+        .from('favorites')
+        .select('*')
+        .eq('user_id', seedUser.id);
+
+      if (seedFavorites && seedFavorites.length > 0) {
+        const newFavorites = seedFavorites.map(fav => ({
+          user_id: newUserId,
+          professional_id: fav.professional_id,
+        }));
+        await supabase.from('favorites').insert(newFavorites);
+        console.log('Copied', newFavorites.length, 'client favorites');
+      }
+    }
+
+    // Delete old seed user record using database function (bypasses RLS)
+    // This prevents duplicate phone number entries
+    const { error: deleteError } = await supabase
+      .rpc('delete_seed_user_by_phone', {
+        target_phone: phone,
+        keep_user_id: newUserId
+      });
+
+    if (deleteError) {
+      console.error('Error deleting old seed user:', deleteError);
+      // Don't fail the migration, just log the error
+    } else {
+      console.log('Deleted old seed user for phone:', phone);
+    }
+
+    console.log('Seed data migration completed successfully');
+    return true;
+  } catch (err) {
+    console.error('Error migrating seed data:', err);
+    return false;
+  }
+}
+
 // Verify OTP
 export async function verifyOtp(
   phone: string,
@@ -44,17 +446,48 @@ export async function verifyOtp(
       return { data: null, error: { message: error.message, code: error.code } };
     }
 
-    // Check if user profile exists
-    const { data: userProfile } = await supabase
+    if (!data.user?.id) {
+      return { data: null, error: { message: 'User ID not found after verification' } };
+    }
+
+    const authUserId = data.user.id;
+
+    // Always try to migrate seed data if it exists
+    // This handles cases where a basic user record may have been created by old triggers
+    await migrateSeedDataToNewUser(authUserId, phone);
+
+    // Fetch the user profile (either newly migrated or existing)
+    let { data: userProfile } = await supabase
       .from('users')
       .select('*')
-      .eq('id', data.user?.id)
+      .eq('id', authUserId)
       .single();
+
+    // If no user profile exists, create a basic one for new users
+    if (!userProfile) {
+      console.log('Creating new user profile for:', phone);
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({
+          id: authUserId,
+          phone: phone,
+          role: 'client', // Default role, will be updated in role selection
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating user profile:', createError);
+      } else {
+        userProfile = newUser;
+      }
+    }
 
     const isNewUser = !userProfile?.name;
 
     return { data: { isNewUser }, error: null };
   } catch (err) {
+    console.error('Error in verifyOtp:', err);
     return { data: null, error: { message: 'Failed to verify OTP. Please try again.' } };
   }
 }

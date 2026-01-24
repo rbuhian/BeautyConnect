@@ -39,8 +39,17 @@ interface ChatScreenProps {
 }
 
 export default function ChatScreen({ route, navigation }: ChatScreenProps) {
-  const { bookingId } = route.params;
+  const { bookingId } = route.params || {};
   const { user } = useAuth();
+  
+  // Validate bookingId on mount
+  useEffect(() => {
+    if (!bookingId) {
+      console.error('ChatScreen: bookingId is missing from route params');
+      navigation.goBack();
+      return;
+    }
+  }, [bookingId, navigation]);
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -205,6 +214,13 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
         // Restore message if send failed
         setNewMessage(messageText);
         console.error('Error sending message:', error);
+      } else if (data) {
+        // Immediately add the sent message to the state
+        setMessages((prev) => {
+          // Avoid duplicates in case subscription fires
+          if (prev.some((m) => m.id === data.id)) return prev;
+          return [...prev, data];
+        });
       }
     } catch (err) {
       setNewMessage(messageText);
@@ -276,7 +292,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -317,6 +333,7 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           data={messages}
           renderItem={renderMessage}
           keyExtractor={(item) => item.id}
+          style={{ flex: 1 }}
           contentContainerStyle={styles.messagesList}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
@@ -540,7 +557,6 @@ const styles = StyleSheet.create({
    inputRow: {
      flexDirection: 'row',
      alignItems: 'flex-end',
-     flex: 1,
    },
    typingIndicator: {
      flexDirection: 'row',

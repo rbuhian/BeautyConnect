@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, Calendar, MessageCircle, User } from 'lucide-react-native';
 import { ClientStackParamList, ClientTabParamList } from './types';
 import { COLORS } from '../constants';
@@ -19,11 +20,14 @@ import ChatScreen from '../screens/shared/ChatScreen';
 import FavoritesScreen from '../screens/client/FavoritesScreen';
 import EditProfileScreen from '../screens/shared/EditProfileScreen';
 import SettingsScreen from '../screens/shared/SettingsScreen';
+import WriteReviewScreen from '../screens/client/WriteReviewScreen';
 
 const Tab = createBottomTabNavigator<ClientTabParamList>();
 const Stack = createNativeStackNavigator<ClientStackParamList>();
 
 function ClientTabs() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -34,8 +38,8 @@ function ClientTabs() {
           borderTopLeftRadius: 30,
           borderTopRightRadius: 30,
           paddingTop: 10,
-          paddingBottom: 25,
-          height: 80,
+          paddingBottom: 10 + insets.bottom,
+          height: 70 + insets.bottom,
           backgroundColor: COLORS.white,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -5 },
@@ -94,6 +98,7 @@ export default function ClientNavigator() {
       <Stack.Screen name="BookingFlow" component={BookingFlowScreen} />
       <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen name="WriteReview" component={WriteReviewScreen} />
       <Stack.Screen name="Favorites" component={FavoritesScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />

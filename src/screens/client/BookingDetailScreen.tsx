@@ -122,7 +122,7 @@ export default function BookingDetailScreen({ navigation, route }: any) {
   };
 
   const handleMessage = () => {
-    navigation.navigate('Chat', { professionalId: booking?.professional_id });
+    navigation.navigate('Chat', { bookingId: bookingId });
   };
 
   const handleDirections = () => {
@@ -140,8 +140,9 @@ export default function BookingDetailScreen({ navigation, route }: any) {
   const handleReview = () => {
     navigation.navigate('WriteReview', {
       bookingId,
-      professionalId: booking?.professional_id,
+      professionalId: (booking?.professional as any)?.user_id,
       professionalName: (booking?.professional as any)?.user?.name,
+      professionalAvatar: (booking?.professional as any)?.user?.avatar || null,
       serviceName: (booking?.service as any)?.name,
     });
   };

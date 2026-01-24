@@ -28,6 +28,13 @@ export type ClientStackParamList = {
   BookingFlow: { professional: ProfessionalProfile };
   BookingDetail: { booking: Booking };
   Chat: { bookingId: string };
+  WriteReview: {
+    bookingId: string;
+    serviceName: string;
+    professionalId: string;
+    professionalName: string;
+    professionalAvatar: string | null;
+  };
   Favorites: undefined;
   EditProfile: undefined;
   Settings: undefined;

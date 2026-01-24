@@ -23,12 +23,14 @@ import { GradientButton, Input, Card } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES, LOCATION_TYPES } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
 import { Category, LocationType } from '../../types';
-import { updateUserProfile } from '../../services/auth';
-import { updateProfessionalProfile } from '../../services/professional';
+import { updateProfessionalProfile, getProfessionalProfile } from '../../services/professional';
 import { supabase } from '../../services/supabase';
+import { useAuthStore } from '../../stores/authStore';
 
 export default function EditProfileScreen({ navigation }: any) {
   const { user, professionalProfile } = useAuth();
+  const updateProfile = useAuthStore((state) => state.updateProfile);
+  const refreshProfessionalProfile = useAuthStore((state) => state.refreshProfessionalProfile);
   const isProfessional = user?.role === 'professional';
 
   // User fields
@@ -86,12 +88,17 @@ export default function EditProfileScreen({ navigation }: any) {
     setUploadingAvatar(true);
     try {
       const fileName = `${user?.id}-${Date.now()}.jpg`;
+
+      // Convert image to ArrayBuffer for React Native
       const response = await fetch(uri);
-      const blob = await response.blob();
+      const arrayBuffer = await response.arrayBuffer();
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, blob, { contentType: 'image/jpeg' });
+        .upload(fileName, arrayBuffer, {
+          contentType: 'image/jpeg',
+          upsert: false
+        });
 
       if (uploadError) throw uploadError;
 
@@ -117,12 +124,17 @@ export default function EditProfileScreen({ navigation }: any) {
     setUploadingPortfolio(true);
     try {
       const fileName = `${professionalProfile?.id}-${Date.now()}.jpg`;
+
+      // Convert image to ArrayBuffer for React Native
       const response = await fetch(uri);
-      const blob = await response.blob();
+      const arrayBuffer = await response.arrayBuffer();
 
       const { error: uploadError } = await supabase.storage
         .from('portfolios')
-        .upload(fileName, blob, { contentType: 'image/jpeg' });
+        .upload(fileName, arrayBuffer, {
+          contentType: 'image/jpeg',
+          upsert: false
+        });
 
       if (uploadError) throw uploadError;
 
@@ -196,9 +208,11 @@ export default function EditProfileScreen({ navigation }: any) {
     setLoading(true);
 
     try {
-      // Update user profile
-      if (user?.id) {
-        await updateUserProfile(user.id, { name, avatar });
+      // Update user profile through store (updates both DB and local state)
+      const result = await updateProfile({ name, avatar });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update profile');
       }
 
       // Update professional profile
@@ -213,6 +227,9 @@ export default function EditProfileScreen({ navigation }: any) {
           salon_address: salonAddress,
           is_live: liveStatus,
         });
+
+        // Refresh professional profile in store
+        await refreshProfessionalProfile();
       }
 
       Alert.alert('Success', 'Profile updated successfully!', [
