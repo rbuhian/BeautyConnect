@@ -755,4 +755,72 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
   },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: '#FFF8E1',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.sm,
+  },
+  ratingBadgeText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: '#F57C00',
+  },
+  reviewCard: {
+    marginBottom: SPACING.sm,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.sm,
+  },
+  reviewerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    flex: 1,
+  },
+  reviewerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  reviewerAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.inputBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reviewerDetails: {
+    flex: 1,
+  },
+  reviewerName: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  reviewServiceName: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+  },
+  reviewRating: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  reviewText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+    marginBottom: SPACING.sm,
+  },
+  reviewDate: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textLight,
+  },
 });
