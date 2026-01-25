@@ -28,6 +28,7 @@ import {
   MessageWithSender,
 } from '../../services/chat';
 import { Loading } from '../../components';
+import { sendNewMessageNotification } from '../../services/notifications';
 
 interface ChatScreenProps {
   route: {
@@ -221,6 +222,16 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
           if (prev.some((m) => m.id === data.id)) return prev;
           return [...prev, data];
         });
+
+        // Send notification to the other user
+        if (chatDetails?.other_user.id) {
+          await sendNewMessageNotification(
+            chatDetails.other_user.id,
+            user.name || 'Someone',
+            messageText,
+            bookingId
+          );
+        }
       }
     } catch (err) {
       setNewMessage(messageText);

@@ -28,9 +28,18 @@ import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { Booking } from '../../types';
 import { updateBookingStatus } from '../../services/professional';
 import { format, parseISO, differenceInHours } from 'date-fns';
+import { useAuth } from '../../hooks/useAuth';
+import {
+  sendBookingConfirmedNotification,
+  sendBookingDeclinedNotification,
+  sendBookingCancelledNotification,
+  sendReviewRequestNotification,
+  scheduleBookingReminder,
+} from '../../services/notifications';
 
 export default function BookingDetailScreen({ navigation, route }: any) {
   const { booking: initialBooking } = route.params as { booking: Booking };
+  const { user } = useAuth();
   const [booking, setBooking] = useState<Booking>(initialBooking);
   const [loading, setLoading] = useState(false);
 
@@ -82,6 +91,30 @@ export default function BookingDetailScreen({ navigation, route }: any) {
               const result = await updateBookingStatus(booking.id, 'confirmed');
               if (result.data) {
                 setBooking(result.data);
+
+                // Send notification to client
+                if (booking.client_id) {
+                  const formattedDate = format(parseISO(booking.date), 'MMM d, yyyy');
+                  await sendBookingConfirmedNotification(
+                    booking.client_id,
+                    user?.name || 'Professional',
+                    booking.service?.name || 'Service',
+                    formattedDate,
+                    booking.id
+                  );
+
+                  // Schedule reminder notification for both parties
+                  const bookingDate = parseISO(booking.date);
+                  await scheduleBookingReminder(
+                    booking.client_id,
+                    booking.service?.name || 'Service',
+                    user?.name || 'Professional',
+                    bookingDate,
+                    booking.time_slot,
+                    booking.id
+                  );
+                }
+
                 Alert.alert('Success', 'Booking confirmed!');
               } else if (result.error) {
                 Alert.alert('Error', result.error.message);
@@ -112,6 +145,17 @@ export default function BookingDetailScreen({ navigation, route }: any) {
               const result = await updateBookingStatus(booking.id, 'cancelled', 'professional');
               if (result.data) {
                 setBooking(result.data);
+
+                // Send notification to client
+                if (booking.client_id) {
+                  await sendBookingDeclinedNotification(
+                    booking.client_id,
+                    user?.name || 'Professional',
+                    booking.service?.name || 'Service',
+                    booking.id
+                  );
+                }
+
                 Alert.alert('Booking Declined', 'The client has been notified.');
               } else if (result.error) {
                 Alert.alert('Error', result.error.message);
@@ -141,6 +185,17 @@ export default function BookingDetailScreen({ navigation, route }: any) {
               const result = await updateBookingStatus(booking.id, 'completed');
               if (result.data) {
                 setBooking(result.data);
+
+                // Send review request notification to client
+                if (booking.client_id) {
+                  await sendReviewRequestNotification(
+                    booking.client_id,
+                    user?.name || 'Professional',
+                    booking.service?.name || 'Service',
+                    booking.id
+                  );
+                }
+
                 Alert.alert('Success', 'Booking marked as completed!');
               } else if (result.error) {
                 Alert.alert('Error', result.error.message);
@@ -176,6 +231,19 @@ export default function BookingDetailScreen({ navigation, route }: any) {
             const result = await updateBookingStatus(booking.id, 'cancelled', 'professional');
             if (result.data) {
               setBooking(result.data);
+
+              // Send notification to client
+              if (booking.client_id) {
+                const formattedDate = format(parseISO(booking.date), 'MMM d');
+                await sendBookingCancelledNotification(
+                  booking.client_id,
+                  user?.name || 'Professional',
+                  booking.service?.name || 'Service',
+                  formattedDate,
+                  booking.id
+                );
+              }
+
               Alert.alert('Booking Cancelled', 'The client has been notified.');
             } else if (result.error) {
               Alert.alert('Error', result.error.message);

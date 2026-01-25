@@ -23,7 +23,7 @@ import {
   X,
   Check,
 } from 'lucide-react-native';
-import { Card, Loading } from '../../components';
+import { Card, Loading, EmptyState, SkeletonList } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES, LOCATION_TYPES, PRICE_RANGES } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
 import { ProfessionalFilters, Category, LocationType, PriceRange } from '../../types';
@@ -356,9 +356,11 @@ export default function DiscoverScreen({ navigation }: any) {
     </Modal>
   );
 
-  if (loading) {
-    return <Loading fullScreen message="Finding beauty pros..." />;
-  }
+  const renderSkeletonLoading = () => (
+    <View style={styles.skeletonContainer}>
+      <SkeletonList type="professional" count={4} />
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -471,19 +473,15 @@ export default function DiscoverScreen({ navigation }: any) {
 
       {/* Results */}
       <View style={styles.resultsContainer}>
-        {professionals.length === 0 ? (
-          <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No professionals found</Text>
-          <Text style={styles.emptySubtitle}>
-            Try adjusting your filters or search terms
-          </Text>
-          {activeFilterCount > 0 && (
-            <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
-              <Text style={styles.clearFiltersText}>Clear Filters</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      ) : (
+        {loading ? (
+          renderSkeletonLoading()
+        ) : professionals.length === 0 ? (
+          <EmptyState
+            type={searchText || activeFilterCount > 0 ? 'search' : 'professionals'}
+            actionLabel={activeFilterCount > 0 ? 'Clear Filters' : undefined}
+            onAction={activeFilterCount > 0 ? clearFilters : undefined}
+          />
+        ) : (
         <FlatList
           data={professionals}
           renderItem={renderProfessionalCard}
@@ -622,6 +620,9 @@ const styles = StyleSheet.create({
   resultsContainer: {
     flex: 1,
   },
+  skeletonContainer: {
+    padding: SPACING.md,
+  },
   listContent: {
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.lg,
@@ -751,35 +752,6 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     fontWeight: '600',
     color: COLORS.primary,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  emptyTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
-  },
-  emptySubtitle: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  clearFiltersButton: {
-    marginTop: SPACING.lg,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.primary,
-    borderRadius: RADIUS.md,
-  },
-  clearFiltersText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.white,
   },
   // Modal styles
   modalOverlay: {

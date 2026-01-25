@@ -27,6 +27,7 @@ import { COLORS, SPACING, FONT_SIZES, RADIUS, CANCELLATION_HOURS } from '../../c
 import { useAuth } from '../../hooks/useAuth';
 import { Booking } from '../../types';
 import { getBookingById, cancelBooking, hasReviewedBooking } from '../../services/client';
+import { sendBookingCancelledNotification } from '../../services/notifications';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   pending: { bg: '#FFF3E0', text: '#E65100' },
@@ -93,13 +94,29 @@ export default function BookingDetailScreen({ navigation, route }: any) {
           text: 'Yes, Cancel',
           style: 'destructive',
           onPress: async () => {
-            if (!user?.id) return;
+            if (!user?.id || !booking) return;
             setCancelling(true);
             try {
               const result = await cancelBooking(bookingId, user.id);
               if (result.error) {
                 Alert.alert('Error', result.error.message);
               } else {
+                // Send notification to professional
+                const professionalUserId = (booking.professional as any)?.user_id;
+                if (professionalUserId) {
+                  const formattedDate = new Date(booking.date).toLocaleDateString('en-PH', {
+                    month: 'short',
+                    day: 'numeric',
+                  });
+                  await sendBookingCancelledNotification(
+                    professionalUserId,
+                    user.name || 'Client',
+                    (booking.service as any)?.name || 'Service',
+                    formattedDate,
+                    bookingId
+                  );
+                }
+
                 Alert.alert('Booking Cancelled', 'Your booking has been cancelled.');
                 fetchBooking();
               }

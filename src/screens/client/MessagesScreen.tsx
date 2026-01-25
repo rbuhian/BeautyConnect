@@ -14,7 +14,7 @@ import { MessageCircle } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
 import { getConversations, ConversationPreview } from '../../services/chat';
-import { Loading } from '../../components';
+import { Loading, EmptyState, SkeletonList } from '../../components';
 
 export default function MessagesScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -120,26 +120,22 @@ export default function MessagesScreen({ navigation }: any) {
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return <Loading fullScreen message="Loading messages..." />;
-  }
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Messages</Text>
       </View>
 
-      {conversations.length === 0 ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIconContainer}>
-            <MessageCircle size={48} color={COLORS.textSecondary} />
-          </View>
-          <Text style={styles.emptyTitle}>No conversations yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Book a service to start chatting with beauty professionals
-          </Text>
+      {loading ? (
+        <View style={styles.skeletonContainer}>
+          <SkeletonList type="message" count={6} />
         </View>
+      ) : conversations.length === 0 ? (
+        <EmptyState
+          type="messages"
+          actionLabel="Discover Professionals"
+          onAction={() => navigation.navigate('Discover')}
+        />
       ) : (
         <FlatList
           data={conversations}
@@ -175,6 +171,9 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingVertical: SPACING.sm,
+  },
+  skeletonContainer: {
+    flex: 1,
   },
   conversationItem: {
     flexDirection: 'row',
@@ -252,31 +251,5 @@ const styles = StyleSheet.create({
   lastMessageUnread: {
     color: COLORS.textPrimary,
     fontWeight: '500',
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  emptyIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.chipBackground,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
-  emptyTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
-  },
-  emptySubtitle: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
   },
 });

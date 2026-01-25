@@ -8,6 +8,7 @@ import {
   Image,
   Dimensions,
   FlatList,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -91,8 +92,18 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
   };
 
   const handleMessage = () => {
-    // Navigate to chat - will be implemented in Phase 6
-    navigation.navigate('Chat', { professionalId });
+    // Chat requires a booking - show alert if no booking exists
+    Alert.alert(
+      'Start a Conversation',
+      'To message this professional, please book a service first. You can chat about your booking details after making a reservation.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'View Services',
+          onPress: () => setActiveTab('services'),
+        },
+      ]
+    );
   };
 
   const getLocationLabel = () => {
@@ -422,8 +433,15 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
           <GradientButton
             title="Book Now"
             onPress={() => {
-              if (activeServices.length > 0) {
+              if (activeServices.length === 0) {
+                Alert.alert('No Services', 'This professional has no available services at the moment.');
+              } else if (activeServices.length === 1) {
+                // If only one service, book it directly
+                handleBookService(activeServices[0]);
+              } else {
+                // Switch to services tab and prompt user to select
                 setActiveTab('services');
+                Alert.alert('Select a Service', 'Please choose a service from the list to book.');
               }
             }}
           />

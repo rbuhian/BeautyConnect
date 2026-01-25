@@ -248,6 +248,52 @@ The `eas.json` file contains build profiles:
 - **preview**: APK for internal testing
 - **production**: AAB for Play Store
 
+## Push Notifications Setup
+
+Push notifications require Firebase Cloud Messaging (FCM) configuration for Android.
+
+### Setting Up FCM for Android
+
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+
+2. Create a new project or select existing one
+
+3. Add Android app:
+   - Package name: `com.beautyconnect.app`
+   - Download `google-services.json`
+
+4. Place `google-services.json` in your project root
+
+5. Update `app.json` to include:
+```json
+{
+  "expo": {
+    "android": {
+      "googleServicesFile": "./google-services.json"
+    }
+  }
+}
+```
+
+6. Rebuild the app:
+```bash
+eas build --platform android --profile development
+```
+
+### Common Push Notification Error
+
+If you see this error:
+```
+ERROR  Error getting push token: [Error: Make sure to complete the guide at
+https://docs.expo.dev/push-notifications/fcm-credentials/ : Default FirebaseApp
+is not initialized in this process com.beautyconnect.app. Make sure to call
+FirebaseApp.initializeApp(Context) first.]
+```
+
+**Solution:** This means Firebase is not configured. Follow the steps above to set up FCM credentials, then rebuild the app. The app will still work without push notifications - this error is handled gracefully.
+
+For detailed instructions, see: https://docs.expo.dev/push-notifications/fcm-credentials/
+
 ## Troubleshooting
 
 ### Build Fails
@@ -264,6 +310,12 @@ The `eas.json` file contains build profiles:
 - Check Supabase credentials in `.env` file
 - Verify database schema is set up correctly
 - Check logs: `adb logcat | grep -i react`
+
+### Push Notifications Not Working
+- Ensure `google-services.json` is in project root
+- Verify Firebase project has the correct package name
+- Rebuild the app after adding Firebase config
+- Check that notifications are enabled in device settings
 
 ## License
 

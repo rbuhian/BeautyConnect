@@ -25,6 +25,7 @@ import {
   createBooking,
   ProfessionalWithDetails,
 } from '../../services/client';
+import { sendNewBookingNotification } from '../../services/notifications';
 
 interface BookingFlowProps {
   navigation: any;
@@ -173,6 +174,21 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
       if (result.error) {
         Alert.alert('Error', result.error.message);
       } else {
+        // Send notification to professional about new booking
+        if (professional.user_id) {
+          const formattedDate = new Date(selectedDate).toLocaleDateString('en-PH', {
+            month: 'short',
+            day: 'numeric',
+          });
+          await sendNewBookingNotification(
+            professional.user_id,
+            user.name || 'Client',
+            service.name,
+            formattedDate,
+            result.data?.id || ''
+          );
+        }
+
         Alert.alert(
           'Booking Confirmed!',
           service.booking_type === 'instant'

@@ -16,7 +16,7 @@ import {
   MapPin,
   ChevronRight,
 } from 'lucide-react-native';
-import { Card, Loading } from '../../components';
+import { Card, Loading, EmptyState, SkeletonList } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
 import { Booking } from '../../types';
@@ -170,10 +170,6 @@ export default function BookingsScreen({ navigation }: any) {
 
   const bookings = activeTab === 'upcoming' ? upcomingBookings : pastBookings;
 
-  if (loading) {
-    return <Loading fullScreen message="Loading bookings..." />;
-  }
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -205,33 +201,16 @@ export default function BookingsScreen({ navigation }: any) {
       </View>
 
       {/* Bookings List */}
-      {bookings.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Calendar size={48} color={COLORS.textLight} />
-          <Text style={styles.emptyTitle}>
-            {activeTab === 'upcoming' ? 'No upcoming bookings' : 'No past bookings'}
-          </Text>
-          <Text style={styles.emptySubtitle}>
-            {activeTab === 'upcoming'
-              ? 'Book your first appointment with a beauty professional'
-              : 'Your completed bookings will appear here'}
-          </Text>
-          {activeTab === 'upcoming' && (
-            <TouchableOpacity
-              style={styles.discoverButton}
-              onPress={() => navigation.navigate('Discover')}
-            >
-              <LinearGradient
-                colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.discoverButtonGradient}
-              >
-                <Text style={styles.discoverButtonText}>Discover Professionals</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
+      {loading ? (
+        <View style={styles.skeletonContainer}>
+          <SkeletonList type="booking" count={4} />
         </View>
+      ) : bookings.length === 0 ? (
+        <EmptyState
+          type={activeTab === 'upcoming' ? 'bookings' : 'history'}
+          actionLabel={activeTab === 'upcoming' ? 'Discover Professionals' : undefined}
+          onAction={activeTab === 'upcoming' ? () => navigation.navigate('Discover') : undefined}
+        />
       ) : (
         <FlatList
           data={bookings}
@@ -290,6 +269,9 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     paddingTop: SPACING.sm,
     gap: SPACING.md,
+  },
+  skeletonContainer: {
+    padding: SPACING.lg,
   },
   bookingCard: {
     padding: SPACING.md,
@@ -377,38 +359,5 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.lg,
     fontWeight: '700',
     color: COLORS.primary,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  emptyTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.sm,
-  },
-  emptySubtitle: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  discoverButton: {
-    marginTop: SPACING.lg,
-    borderRadius: RADIUS.md,
-    overflow: 'hidden',
-  },
-  discoverButtonGradient: {
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.xl,
-  },
-  discoverButtonText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.white,
   },
 });

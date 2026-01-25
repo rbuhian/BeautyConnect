@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "beautyconnect",
+    "name": "BeautyConnect",
     "slug": "beautyconnect",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,21 +10,41 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#C9A0DC"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.beautyconnect.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to take photos for your profile and portfolio.",
+        "NSPhotoLibraryUsageDescription": "This app accesses your photos to upload profile pictures and portfolio images."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#C9A0DC"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.beautyconnect.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "color": "#C9A0DC"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6ac2a904-8c21-42b9-9117-00581378b37b"
+      }
     }
   }
 }

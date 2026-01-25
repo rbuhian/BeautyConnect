@@ -250,13 +250,13 @@ export async function getProfessionalAvailability(
 // ============================================
 
 export async function getFavorites(
-  clientId: string
+  userId: string
 ): Promise<ServiceResponse<string[]>> {
   try {
     const { data, error } = await supabase
       .from('favorites')
       .select('professional_id')
-      .eq('client_id', clientId);
+      .eq('user_id', userId);
 
     if (error) {
       return { data: null, error: { message: error.message, code: error.code } };
@@ -268,15 +268,63 @@ export async function getFavorites(
   }
 }
 
+export async function getFavoriteProfessionals(
+  userId: string
+): Promise<ServiceResponse<ProfessionalWithDetails[]>> {
+  try {
+    const { data: favorites, error: favError } = await supabase
+      .from('favorites')
+      .select('professional_id')
+      .eq('user_id', userId);
+
+    if (favError) {
+      return { data: null, error: { message: favError.message, code: favError.code } };
+    }
+
+    if (!favorites || favorites.length === 0) {
+      return { data: [], error: null };
+    }
+
+    const professionalIds = favorites.map((f) => f.professional_id);
+
+    const { data, error } = await supabase
+      .from('professional_profiles')
+      .select(`
+        *,
+        user:users!professional_profiles_user_id_fkey(id, name, avatar),
+        services:services(*)
+      `)
+      .in('id', professionalIds);
+
+    if (error) {
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    const professionals = (data || []).map((pro) => {
+      const activeServices = (pro.services || []).filter((s: Service) => s.is_active);
+      const prices = activeServices.map((s: Service) => s.price);
+      return {
+        ...pro,
+        min_price: prices.length > 0 ? Math.min(...prices) : 0,
+        max_price: prices.length > 0 ? Math.max(...prices) : 0,
+      };
+    }) as ProfessionalWithDetails[];
+
+    return { data: professionals, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch favorite professionals' } };
+  }
+}
+
 export async function toggleFavorite(
-  clientId: string,
+  userId: string,
   professionalId: string,
   isFavorite: boolean
 ): Promise<ServiceResponse> {
   try {
     if (isFavorite) {
       const { error } = await supabase.from('favorites').insert({
-        client_id: clientId,
+        user_id: userId,
         professional_id: professionalId,
       });
 
@@ -287,7 +335,7 @@ export async function toggleFavorite(
       const { error } = await supabase
         .from('favorites')
         .delete()
-        .eq('client_id', clientId)
+        .eq('user_id', userId)
         .eq('professional_id', professionalId);
 
       if (error) {

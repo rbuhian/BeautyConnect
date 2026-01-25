@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Star, Calendar, MessageCircle } from 'lucide-react-native';
 import { AuthScreenProps } from '../../navigation/types';
 import { Button } from '../../components';
-import { COLORS, SPACING, FONT_SIZES, APP_NAME, APP_TAGLINE } from '../../constants';
+import { COLORS, SPACING, FONT_SIZES, APP_TAGLINE } from '../../constants';
+
+const AppLogo = require('../../../BeautyConnect.png');
 
 export default function SplashScreen({ navigation }: AuthScreenProps<'Splash'>) {
   return (
@@ -17,10 +19,7 @@ export default function SplashScreen({ navigation }: AuthScreenProps<'Splash'>) 
       <View style={styles.content}>
         {/* Logo */}
         <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>BC</Text>
-          </View>
-          <Text style={styles.title}>{APP_NAME}</Text>
+          <Image source={AppLogo} style={styles.logoImage} />
           <Text style={styles.tagline}>{APP_TAGLINE}</Text>
         </View>
 
@@ -74,25 +73,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.xxl,
   },
-  logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  logoImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 24,
     marginBottom: SPACING.md,
-  },
-  logoText: {
-    fontSize: FONT_SIZES.xxxl,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  title: {
-    fontSize: FONT_SIZES.title,
-    fontWeight: '700',
-    color: COLORS.white,
-    marginBottom: SPACING.xs,
   },
   tagline: {
     fontSize: FONT_SIZES.md,

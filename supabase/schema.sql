@@ -147,6 +147,32 @@ CREATE TABLE favorites (
   UNIQUE(user_id, professional_id)
 );
 
+-- Push tokens for notifications
+CREATE TABLE push_tokens (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT NOT NULL,
+  platform TEXT NOT NULL CHECK (platform IN ('ios', 'android', 'web')),
+  device_name TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, token)
+);
+
+-- Notification logs
+CREATE TABLE notification_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  data JSONB,
+  type TEXT NOT NULL CHECK (type IN ('booking_new', 'booking_confirmed', 'booking_declined', 'booking_cancelled', 'message', 'reminder', 'review_request')),
+  related_id UUID,
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  read_at TIMESTAMPTZ
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -166,6 +192,11 @@ CREATE INDEX idx_messages_booking_id ON messages(booking_id);
 CREATE INDEX idx_typing_indicators_booking_id ON typing_indicators(booking_id);
 CREATE INDEX idx_typing_indicators_user_id ON typing_indicators(user_id);
 CREATE INDEX idx_favorites_user_id ON favorites(user_id);
+CREATE INDEX idx_push_tokens_user_id ON push_tokens(user_id);
+CREATE INDEX idx_push_tokens_is_active ON push_tokens(is_active);
+CREATE INDEX idx_notification_logs_user_id ON notification_logs(user_id);
+CREATE INDEX idx_notification_logs_type ON notification_logs(type);
+CREATE INDEX idx_notification_logs_read_at ON notification_logs(read_at);
 
 -- ============================================
 -- ROW LEVEL SECURITY (RLS)
@@ -182,6 +213,8 @@ ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE typing_indicators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_logs ENABLE ROW LEVEL SECURITY;
 
 -- Users policies
 CREATE POLICY "Users can view all users" ON users
@@ -348,6 +381,26 @@ CREATE POLICY "Users can view own favorites" ON favorites
 CREATE POLICY "Users can manage own favorites" ON favorites
   FOR ALL USING (user_id = auth.uid());
 
+-- Push tokens policies
+CREATE POLICY "Users can view own push tokens" ON push_tokens
+  FOR SELECT USING (user_id = auth.uid());
+
+CREATE POLICY "Users can insert own push tokens" ON push_tokens
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update own push tokens" ON push_tokens
+  FOR UPDATE USING (user_id = auth.uid());
+
+CREATE POLICY "Users can delete own push tokens" ON push_tokens
+  FOR DELETE USING (user_id = auth.uid());
+
+-- Notification logs policies
+CREATE POLICY "Users can view own notifications" ON notification_logs
+  FOR SELECT USING (user_id = auth.uid());
+
+CREATE POLICY "Users can update own notifications (mark as read)" ON notification_logs
+  FOR UPDATE USING (user_id = auth.uid());
+
 -- ============================================
 -- FUNCTIONS & TRIGGERS
 -- ============================================
@@ -376,6 +429,10 @@ CREATE TRIGGER update_services_updated_at
 
 CREATE TRIGGER update_bookings_updated_at
   BEFORE UPDATE ON bookings
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER update_push_tokens_updated_at
+  BEFORE UPDATE ON push_tokens
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- Function to update professional avg_rating
@@ -420,11 +477,115 @@ CREATE TRIGGER update_rating_on_review
 -- This allows for seamless seed data migration when using phone authentication
 
 -- ============================================
--- STORAGE BUCKETS
+-- UTILITY FUNCTIONS
 -- ============================================
 
--- Run these in Supabase Dashboard > Storage > Create bucket
--- Or use the Supabase client to create them
+-- Function to delete old seed user after migration
+-- This bypasses RLS to allow cleanup of duplicate records
+CREATE OR REPLACE FUNCTION delete_seed_user_by_phone(target_phone TEXT, keep_user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  -- Delete old seed user with matching phone but different ID
+  DELETE FROM users
+  WHERE phone = target_phone
+  AND id != keep_user_id;
 
+  -- Also try to delete from auth.users (may fail due to permissions, that's OK)
+  BEGIN
+    DELETE FROM auth.users
+    WHERE phone = target_phone
+    AND id != keep_user_id;
+  EXCEPTION WHEN OTHERS THEN
+    -- Ignore errors - auth.users deletion requires admin privileges
+    NULL;
+  END;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION delete_seed_user_by_phone TO authenticated;
+
+-- ============================================
+-- STORAGE BUCKETS & POLICIES
+-- ============================================
+
+-- Create buckets (run these in Supabase Dashboard > Storage > Create bucket)
 -- Bucket: avatars (public)
 -- Bucket: portfolios (public)
+
+-- Or via SQL (uncomment if running fresh):
+-- INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true);
+-- INSERT INTO storage.buckets (id, name, public) VALUES ('portfolios', 'portfolios', true);
+
+-- ============================================
+-- STORAGE POLICIES
+-- ============================================
+
+-- Avatars bucket policies
+-- Anyone can view avatars (public bucket)
+CREATE POLICY "Avatar images are publicly accessible"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'avatars');
+
+-- Authenticated users can upload their own avatar
+CREATE POLICY "Users can upload their own avatar"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'avatars'
+  AND auth.role() = 'authenticated'
+);
+
+-- Users can update their own avatar
+CREATE POLICY "Users can update their own avatar"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'avatars'
+  AND auth.role() = 'authenticated'
+);
+
+-- Users can delete their own avatar
+CREATE POLICY "Users can delete their own avatar"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'avatars'
+  AND auth.role() = 'authenticated'
+);
+
+-- Portfolios bucket policies
+-- Anyone can view portfolio images (public bucket)
+CREATE POLICY "Portfolio images are publicly accessible"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'portfolios');
+
+-- Authenticated users can upload portfolio images
+CREATE POLICY "Professionals can upload portfolio images"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'portfolios'
+  AND auth.role() = 'authenticated'
+);
+
+-- Users can update their portfolio images
+CREATE POLICY "Professionals can update portfolio images"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'portfolios'
+  AND auth.role() = 'authenticated'
+);
+
+-- Users can delete their portfolio images
+CREATE POLICY "Professionals can delete portfolio images"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'portfolios'
+  AND auth.role() = 'authenticated'
+);
+
+-- ============================================
+-- CLEANUP (for existing databases)
+-- ============================================
+
+-- Remove old trigger that conflicts with app-level profile creation
+-- Uncomment and run once if migrating from old database:
+-- DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+-- DROP FUNCTION IF EXISTS handle_new_user();

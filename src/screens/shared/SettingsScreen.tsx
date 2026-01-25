@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,29 +6,112 @@ import {
   ScrollView,
   TouchableOpacity,
   Linking,
+  Switch,
+  Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Bell,
+  BellOff,
   Shield,
   HelpCircle,
   FileText,
   Mail,
   ChevronRight,
+  Smartphone,
+  Info,
 } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
+import { useAuth } from '../../hooks/useAuth';
+import {
+  registerForPushNotifications,
+  savePushToken,
+  deactivatePushToken,
+} from '../../services/notifications';
 
 export default function SettingsScreen({ navigation }: any) {
+  const { user } = useAuth();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [pushToken, setPushToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Check if notifications are already enabled
+    checkNotificationStatus();
+  }, []);
+
+  const checkNotificationStatus = async () => {
+    try {
+      const token = await registerForPushNotifications();
+      if (token) {
+        setPushToken(token);
+        setNotificationsEnabled(true);
+      }
+    } catch (error) {
+      console.log('Notifications not available');
+    }
+  };
+
+  const handleNotificationToggle = async (enabled: boolean) => {
+    if (!user?.id) return;
+
+    setLoading(true);
+    try {
+      if (enabled) {
+        const token = await registerForPushNotifications();
+        if (token) {
+          await savePushToken(user.id, token);
+          setPushToken(token);
+          setNotificationsEnabled(true);
+        } else {
+          Alert.alert(
+            'Notifications Unavailable',
+            'Push notifications could not be enabled. Please check your device settings and ensure notifications are allowed for this app.',
+            [{ text: 'OK' }]
+          );
+        }
+      } else {
+        if (pushToken) {
+          await deactivatePushToken(user.id, pushToken);
+        }
+        setPushToken(null);
+        setNotificationsEnabled(false);
+      }
+    } catch (error) {
+      console.error('Error toggling notifications:', error);
+      Alert.alert('Error', 'Failed to update notification settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openAppSettings = () => {
+    if (Platform.OS === 'ios') {
+      Linking.openURL('app-settings:');
+    } else {
+      Linking.openSettings();
+    }
+  };
+
   const settingsGroups = [
     {
       title: 'Notifications',
       items: [
         {
-          icon: Bell,
+          icon: notificationsEnabled ? Bell : BellOff,
           label: 'Push Notifications',
-          subtitle: 'Coming soon',
-          onPress: () => {},
+          subtitle: notificationsEnabled ? 'Enabled' : 'Disabled',
+          type: 'toggle' as const,
+          value: notificationsEnabled,
+          onToggle: handleNotificationToggle,
+        },
+        {
+          icon: Smartphone,
+          label: 'Device Settings',
+          subtitle: 'Manage app permissions',
+          onPress: openAppSettings,
         },
       ],
     },
@@ -38,12 +121,42 @@ export default function SettingsScreen({ navigation }: any) {
         {
           icon: HelpCircle,
           label: 'Help Center',
-          onPress: () => {},
+          subtitle: 'FAQs and guides',
+          onPress: () => {
+            Alert.alert(
+              'Help Center',
+              'Visit our help center for answers to common questions and guides on using BeautyConnect.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Visit',
+                  onPress: () => Linking.openURL('https://beautyconnect.ph/help'),
+                },
+              ]
+            );
+          },
         },
         {
           icon: Mail,
           label: 'Contact Support',
+          subtitle: 'support@beautyconnect.ph',
           onPress: () => Linking.openURL('mailto:support@beautyconnect.ph'),
+        },
+      ],
+    },
+    {
+      title: 'About',
+      items: [
+        {
+          icon: Info,
+          label: 'About BeautyConnect',
+          onPress: () => {
+            Alert.alert(
+              'BeautyConnect',
+              'BeautyConnect is the premier platform connecting beauty professionals with clients in the Philippines.\n\nVersion 1.0.0\nBuild 1',
+              [{ text: 'OK' }]
+            );
+          },
         },
       ],
     },
@@ -53,16 +166,85 @@ export default function SettingsScreen({ navigation }: any) {
         {
           icon: FileText,
           label: 'Terms of Service',
-          onPress: () => {},
+          onPress: () => {
+            Alert.alert(
+              'Terms of Service',
+              'By using BeautyConnect, you agree to our terms of service which govern the use of our platform.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Read Terms',
+                  onPress: () => Linking.openURL('https://beautyconnect.ph/terms'),
+                },
+              ]
+            );
+          },
         },
         {
           icon: Shield,
           label: 'Privacy Policy',
-          onPress: () => {},
+          onPress: () => {
+            Alert.alert(
+              'Privacy Policy',
+              'Your privacy is important to us. Read our privacy policy to understand how we collect and use your data.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Read Policy',
+                  onPress: () => Linking.openURL('https://beautyconnect.ph/privacy'),
+                },
+              ]
+            );
+          },
         },
       ],
     },
   ];
+
+  const renderSettingItem = (item: any, itemIndex: number) => {
+    if (item.type === 'toggle') {
+      return (
+        <View key={itemIndex} style={styles.settingItem}>
+          <View style={styles.settingIconContainer}>
+            <item.icon size={20} color={COLORS.primary} />
+          </View>
+          <View style={styles.settingContent}>
+            <Text style={styles.settingLabel}>{item.label}</Text>
+            {item.subtitle && (
+              <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
+            )}
+          </View>
+          <Switch
+            value={item.value}
+            onValueChange={item.onToggle}
+            disabled={loading}
+            trackColor={{ false: COLORS.border, true: COLORS.primary }}
+            thumbColor={COLORS.white}
+          />
+        </View>
+      );
+    }
+
+    return (
+      <TouchableOpacity
+        key={itemIndex}
+        style={styles.settingItem}
+        onPress={item.onPress}
+        activeOpacity={0.7}
+      >
+        <View style={styles.settingIconContainer}>
+          <item.icon size={20} color={COLORS.primary} />
+        </View>
+        <View style={styles.settingContent}>
+          <Text style={styles.settingLabel}>{item.label}</Text>
+          {item.subtitle && (
+            <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
+          )}
+        </View>
+        <ChevronRight size={20} color={COLORS.textSecondary} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -82,25 +264,7 @@ export default function SettingsScreen({ navigation }: any) {
         {settingsGroups.map((group, groupIndex) => (
           <View key={groupIndex} style={styles.settingsGroup}>
             <Text style={styles.groupTitle}>{group.title}</Text>
-            {group.items.map((item, itemIndex) => (
-              <TouchableOpacity
-                key={itemIndex}
-                style={styles.settingItem}
-                onPress={item.onPress}
-                activeOpacity={0.7}
-              >
-                <View style={styles.settingIconContainer}>
-                  <item.icon size={20} color={COLORS.primary} />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
-                  {'subtitle' in item && item.subtitle && (
-                    <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
-                  )}
-                </View>
-                <ChevronRight size={20} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            ))}
+            {group.items.map((item, itemIndex) => renderSettingItem(item, itemIndex))}
           </View>
         ))}
 
@@ -108,6 +272,11 @@ export default function SettingsScreen({ navigation }: any) {
         <View style={styles.versionSection}>
           <Text style={styles.versionText}>BeautyConnect v1.0.0</Text>
           <Text style={styles.versionSubtext}>© 2026 BeautyConnect Philippines</Text>
+          {pushToken && (
+            <Text style={styles.tokenText} numberOfLines={1}>
+              Push Token: ...{pushToken.slice(-20)}
+            </Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -195,5 +364,11 @@ const styles = StyleSheet.create({
   versionSubtext: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textSecondary,
+  },
+  tokenText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textLight,
+    marginTop: SPACING.sm,
+    maxWidth: '80%',
   },
 });
