@@ -516,31 +516,68 @@ export async function getAvailableTimeSlots(
     // Get day of week (0-6)
     const dayOfWeek = new Date(date).getDay();
 
-    // Get availability for that day
-    const { data: availability } = await supabase
-      .from('availability')
-      .select('*')
-      .eq('professional_id', professionalId)
-      .eq('day_of_week', dayOfWeek)
-      .eq('is_available', true)
+    // Check if this professional has a business (salon)
+    const { data: professional } = await supabase
+      .from('professional_profiles')
+      .select('id, business_id')
+      .eq('id', professionalId)
       .single();
 
-    if (!availability) {
+    let startTime = '09:00';
+    let endTime = '18:00';
+    let hasAvailability = false;
+
+    if (professional?.business_id) {
+      // This is a salon - check staff availability
+      const { data: staffAvailability } = await supabase
+        .from('staff_availability')
+        .select('*, staff_member:staff_members!inner(id, business_id, is_active)')
+        .eq('staff_member.business_id', professional.business_id)
+        .eq('staff_member.is_active', true)
+        .eq('day_of_week', dayOfWeek)
+        .eq('is_available', true);
+
+      if (staffAvailability && staffAvailability.length > 0) {
+        // Find the earliest start and latest end time across all available staff
+        const startTimes = staffAvailability.map(a => a.start_time);
+        const endTimes = staffAvailability.map(a => a.end_time);
+        startTime = startTimes.sort()[0]; // Earliest start
+        endTime = endTimes.sort().reverse()[0]; // Latest end
+        hasAvailability = true;
+      }
+    } else {
+      // Individual professional - check regular availability
+      const { data: availability } = await supabase
+        .from('availability')
+        .select('*')
+        .eq('professional_id', professionalId)
+        .eq('day_of_week', dayOfWeek)
+        .eq('is_available', true)
+        .single();
+
+      if (availability) {
+        startTime = availability.start_time;
+        endTime = availability.end_time;
+        hasAvailability = true;
+      }
+    }
+
+    if (!hasAvailability) {
       return { data: [], error: null };
     }
 
     // Get existing bookings for that date
     const { data: existingBookings } = await supabase
       .from('bookings')
-      .select('time_slot, service:services(duration_minutes)')
+      .select('time_slot, staff_member_id, service:services(duration_minutes)')
       .eq('professional_id', professionalId)
       .eq('date', date)
       .in('status', ['pending', 'confirmed']);
 
     // Generate available time slots
     const slots: string[] = [];
-    const startHour = parseInt(availability.start_time.split(':')[0]);
-    const endHour = parseInt(availability.end_time.split(':')[0]);
+    const startHour = parseInt(startTime.split(':')[0]);
+    const endHour = parseInt(endTime.split(':')[0]);
 
     for (let hour = startHour; hour < endHour; hour++) {
       for (const minutes of ['00', '30']) {
@@ -550,6 +587,8 @@ export async function getAvailableTimeSlots(
         const slotMinutes = hour * 60 + parseInt(minutes);
         const slotEndMinutes = slotMinutes + serviceDuration;
 
+        // For salons, we only block the slot if ALL staff are booked
+        // For individuals, any booking blocks the slot
         const hasConflict = (existingBookings || []).some((booking) => {
           const bookingHour = parseInt(booking.time_slot.split(':')[0]);
           const bookingMinutes = parseInt(booking.time_slot.split(':')[1]);
@@ -574,6 +613,7 @@ export async function getAvailableTimeSlots(
 
     return { data: slots, error: null };
   } catch (err) {
+    console.error('Error fetching time slots:', err);
     return { data: null, error: { message: 'Failed to fetch time slots' } };
   }
 }

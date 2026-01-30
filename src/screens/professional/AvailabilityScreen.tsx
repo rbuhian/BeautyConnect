@@ -73,7 +73,21 @@ export default function AvailabilityScreen({ navigation }: any) {
         });
         setSchedule(loadedSchedule);
       } else {
-        setSchedule(getDefaultSchedule());
+        // No availability exists - create default schedule automatically
+        const defaultSchedule = getDefaultSchedule();
+        setSchedule(defaultSchedule);
+
+        // Auto-save default availability to database for existing professionals
+        const availabilityData = DAYS.map((day) => ({
+          professional_id: professionalProfile.id,
+          day_of_week: day.value,
+          is_available: defaultSchedule[day.value].is_available,
+          start_time: defaultSchedule[day.value].start_time,
+          end_time: defaultSchedule[day.value].end_time,
+        }));
+
+        await setAvailabilityBulk(professionalProfile.id, availabilityData);
+        console.log('Default availability created for professional');
       }
     } catch (err) {
       console.error('Error fetching availability:', err);
@@ -305,7 +319,7 @@ export default function AvailabilityScreen({ navigation }: any) {
           />
         </View>
 
-        <View style={{ height: 50 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
     </SafeAreaView>
   );

@@ -175,6 +175,20 @@ export async function createStaffMember(
     .single();
 
   if (error) throw error;
+
+  // Create default availability schedule for the staff member (Mon-Fri, 9am-6pm)
+  const defaultAvailability = [
+    { staff_member_id: staffMember.id, day_of_week: 0, is_available: false, start_time: '09:00:00', end_time: '18:00:00' }, // Sunday
+    { staff_member_id: staffMember.id, day_of_week: 1, is_available: true, start_time: '09:00:00', end_time: '18:00:00' },  // Monday
+    { staff_member_id: staffMember.id, day_of_week: 2, is_available: true, start_time: '09:00:00', end_time: '18:00:00' },  // Tuesday
+    { staff_member_id: staffMember.id, day_of_week: 3, is_available: true, start_time: '09:00:00', end_time: '18:00:00' },  // Wednesday
+    { staff_member_id: staffMember.id, day_of_week: 4, is_available: true, start_time: '09:00:00', end_time: '18:00:00' },  // Thursday
+    { staff_member_id: staffMember.id, day_of_week: 5, is_available: true, start_time: '09:00:00', end_time: '18:00:00' },  // Friday
+    { staff_member_id: staffMember.id, day_of_week: 6, is_available: false, start_time: '09:00:00', end_time: '18:00:00' }, // Saturday
+  ];
+
+  await supabase.from('staff_availability').insert(defaultAvailability);
+
   return staffMember;
 }
 

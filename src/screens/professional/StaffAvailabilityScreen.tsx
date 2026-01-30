@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Clock } from 'lucide-react-native';
+import { ArrowLeft, Clock, X, Check } from 'lucide-react-native';
 import { ProfessionalScreenProps } from '../../navigation/types';
 import { GradientButton, Card, Loading } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
@@ -30,9 +32,16 @@ const DAYS_OF_WEEK = [
   { value: 6, label: 'Saturday', short: 'Sat' },
 ];
 
-const TIME_OPTIONS = Array.from({ length: 24 }, (_, i) => {
-  const hour = i.toString().padStart(2, '0');
-  return { label: `${hour}:00`, value: `${hour}:00:00` };
+// Generate time options from 6am to 11pm
+const TIME_OPTIONS = Array.from({ length: 18 }, (_, i) => {
+  const hour = i + 6; // Start from 6am
+  const hourStr = hour.toString().padStart(2, '0');
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+  return {
+    label: `${hour12}:00 ${ampm}`,
+    value: `${hourStr}:00:00`
+  };
 });
 
 interface DaySchedule {
@@ -51,6 +60,24 @@ export default function StaffAvailabilityScreen({
   const [schedule, setSchedule] = useState<DaySchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Time picker modal state
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [editingDay, setEditingDay] = useState<number | null>(null);
+  const [editingField, setEditingField] = useState<'start_time' | 'end_time'>('start_time');
+
+  const openTimePicker = (dayOfWeek: number, field: 'start_time' | 'end_time') => {
+    setEditingDay(dayOfWeek);
+    setEditingField(field);
+    setShowTimePicker(true);
+  };
+
+  const selectTime = (value: string) => {
+    if (editingDay !== null) {
+      updateTime(editingDay, editingField, value);
+    }
+    setShowTimePicker(false);
+  };
 
   useEffect(() => {
     fetchData();
@@ -71,12 +98,18 @@ export default function StaffAvailabilityScreen({
         return {
           day_of_week: day.value,
           start_time: existing?.start_time || '09:00:00',
-          end_time: existing?.end_time || '17:00:00',
-          is_available: existing?.is_available ?? false,
+          end_time: existing?.end_time || '18:00:00',
+          is_available: existing?.is_available ?? (day.value >= 1 && day.value <= 5), // Mon-Fri by default
         };
       });
 
       setSchedule(initialSchedule);
+
+      // Auto-save default availability for existing staff who don't have any
+      if (!availabilityData || availabilityData.length === 0) {
+        console.log('No availability found, creating default schedule for staff');
+        await setStaffAvailability(staffId, initialSchedule);
+      }
     } catch (err) {
       console.error('Error fetching data:', err);
       Alert.alert('Error', 'Failed to load availability');
@@ -141,6 +174,21 @@ export default function StaffAvailabilityScreen({
     } finally {
       setSaving(false);
     }
+  };
+
+  // Format time for display (e.g., "09:00:00" -> "9:00 AM")
+  const formatTimeDisplay = (time: string) => {
+    const hour = parseInt(time.split(':')[0]);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    return `${hour12}:00 ${ampm}`;
+  };
+
+  // Get current time value for highlighting in picker
+  const getCurrentTimeValue = () => {
+    if (editingDay === null) return '';
+    const daySchedule = schedule.find(s => s.day_of_week === editingDay);
+    return daySchedule ? daySchedule[editingField] : '';
   };
 
   if (loading) {
@@ -210,37 +258,19 @@ export default function StaffAvailabilityScreen({
                     <View style={styles.timePickerContainer}>
                       <TouchableOpacity
                         style={styles.timePicker}
-                        onPress={() => {
-                          // In a real app, this would open a time picker
-                          // For simplicity, cycling through common hours
-                          const currentHour = parseInt(day.start_time.split(':')[0]);
-                          const nextHour = (currentHour + 1) % 24;
-                          updateTime(
-                            day.day_of_week,
-                            'start_time',
-                            `${nextHour.toString().padStart(2, '0')}:00:00`
-                          );
-                        }}
+                        onPress={() => openTimePicker(day.day_of_week, 'start_time')}
                       >
                         <Text style={styles.timeText}>
-                          {day.start_time.substring(0, 5)}
+                          {formatTimeDisplay(day.start_time)}
                         </Text>
                       </TouchableOpacity>
                       <Text style={styles.timeSeparator}>to</Text>
                       <TouchableOpacity
                         style={styles.timePicker}
-                        onPress={() => {
-                          const currentHour = parseInt(day.end_time.split(':')[0]);
-                          const nextHour = (currentHour + 1) % 24;
-                          updateTime(
-                            day.day_of_week,
-                            'end_time',
-                            `${nextHour.toString().padStart(2, '0')}:00:00`
-                          );
-                        }}
+                        onPress={() => openTimePicker(day.day_of_week, 'end_time')}
                       >
                         <Text style={styles.timeText}>
-                          {day.end_time.substring(0, 5)}
+                          {formatTimeDisplay(day.end_time)}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -258,6 +288,57 @@ export default function StaffAvailabilityScreen({
           style={styles.saveButton}
         />
       </ScrollView>
+
+      {/* Time Picker Modal */}
+      <Modal
+        visible={showTimePicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowTimePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                Select {editingField === 'start_time' ? 'Start' : 'End'} Time
+              </Text>
+              <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                <X size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={TIME_OPTIONS}
+              keyExtractor={(item) => item.value}
+              renderItem={({ item }) => {
+                const isSelected = item.value === getCurrentTimeValue();
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.timeOption,
+                      isSelected && styles.timeOptionSelected,
+                    ]}
+                    onPress={() => selectTime(item.value)}
+                  >
+                    <Text
+                      style={[
+                        styles.timeOptionText,
+                        isSelected && styles.timeOptionTextSelected,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    {isSelected && (
+                      <Check size={20} color={COLORS.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.timeList}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -292,6 +373,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.lg,
+    paddingBottom: 100,
   },
   quickActions: {
     flexDirection: 'row',
@@ -367,5 +449,56 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     marginTop: SPACING.md,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    maxHeight: '60%',
+    paddingBottom: SPACING.xxl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  modalTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  timeList: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  timeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginVertical: SPACING.xs,
+  },
+  timeOptionSelected: {
+    backgroundColor: COLORS.chipBackground,
+  },
+  timeOptionText: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textPrimary,
+  },
+  timeOptionTextSelected: {
+    fontWeight: '600',
+    color: COLORS.primary,
   },
 });

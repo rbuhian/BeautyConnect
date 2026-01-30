@@ -600,6 +600,19 @@ export async function createProfessionalProfile(
       return { data: null, error: { message: error.message } };
     }
 
+    // Create default availability schedule (Mon-Fri, 9am-6pm)
+    const defaultAvailability = [
+      { professional_id: data.id, day_of_week: 0, is_available: false, start_time: '09:00', end_time: '18:00' }, // Sunday
+      { professional_id: data.id, day_of_week: 1, is_available: true, start_time: '09:00', end_time: '18:00' },  // Monday
+      { professional_id: data.id, day_of_week: 2, is_available: true, start_time: '09:00', end_time: '18:00' },  // Tuesday
+      { professional_id: data.id, day_of_week: 3, is_available: true, start_time: '09:00', end_time: '18:00' },  // Wednesday
+      { professional_id: data.id, day_of_week: 4, is_available: true, start_time: '09:00', end_time: '18:00' },  // Thursday
+      { professional_id: data.id, day_of_week: 5, is_available: true, start_time: '09:00', end_time: '18:00' },  // Friday
+      { professional_id: data.id, day_of_week: 6, is_available: false, start_time: '09:00', end_time: '18:00' }, // Saturday
+    ];
+
+    await supabase.from('availability').insert(defaultAvailability);
+
     return { data: data as ProfessionalProfile, error: null };
   } catch (err) {
     return { data: null, error: { message: 'Failed to create professional profile.' } };
