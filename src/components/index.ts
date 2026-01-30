@@ -17,3 +17,7 @@ export {
   MessageCardSkeleton,
   ServiceCardSkeleton,
 } from './SkeletonLoader';
+export { default as CalendarFilterModal } from './CalendarFilterModal';
+export { default as WeekTimeline } from './WeekTimeline';
+export { default as CreateBookingModal } from './CreateBookingModal';
+export { default as BlockTimeModal } from './BlockTimeModal';

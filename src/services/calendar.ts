@@ -195,3 +195,116 @@ export async function blockProfessionalDate(
     };
   }
 }
+
+/**
+ * Create a booking (for professionals)
+ */
+export async function createProfessionalBooking(
+  booking: {
+    professionalId: string;
+    clientName: string;
+    clientPhone: string;
+    serviceId: string;
+    date: string;
+    timeSlot: string;
+    locationType: 'home' | 'salon';
+    clientAddress?: string;
+    staffMemberId?: string;
+  }
+): Promise<ServiceResponse<Booking>> {
+  try {
+    // Get service details to calculate total price
+    const { data: service, error: serviceError } = await supabase
+      .from('services')
+      .select('price, booking_type, duration_minutes')
+      .eq('id', booking.serviceId)
+      .single();
+
+    if (serviceError || !service) {
+      return {
+        data: null,
+        error: { message: 'Service not found', code: 'SERVICE_NOT_FOUND' },
+      };
+    }
+
+    // Create a temporary client user (or search for existing)
+    // For now, we'll create a minimal client entry
+    // In production, you might want to search for existing clients first
+    const { data: existingClient } = await supabase
+      .from('users')
+      .select('id')
+      .eq('phone', booking.clientPhone)
+      .single();
+
+    let clientId = existingClient?.id;
+
+    if (!clientId) {
+      // Create new client user
+      const { data: newClient, error: clientError } = await supabase
+        .from('users')
+        .insert({
+          name: booking.clientName,
+          phone: booking.clientPhone,
+          user_type: 'client',
+        })
+        .select('id')
+        .single();
+
+      if (clientError || !newClient) {
+        return {
+          data: null,
+          error: { message: 'Failed to create client', code: 'CLIENT_CREATE_ERROR' },
+        };
+      }
+
+      clientId = newClient.id;
+    }
+
+    // Calculate deposit (20% of total price)
+    const totalPrice = service.price;
+    const depositAmount = totalPrice * 0.2;
+
+    // Determine status based on booking type
+    const status = service.booking_type === 'instant' ? 'confirmed' : 'pending';
+
+    // Create booking
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert({
+        client_id: clientId,
+        professional_id: booking.professionalId,
+        service_id: booking.serviceId,
+        date: booking.date,
+        time_slot: booking.timeSlot,
+        location_type: booking.locationType,
+        client_address: booking.clientAddress || null,
+        staff_member_id: booking.staffMemberId || null,
+        deposit_amount: depositAmount,
+        total_price: totalPrice,
+        status,
+        deposit_paid: true, // Professional-created bookings are considered paid
+      })
+      .select(
+        `
+        *,
+        service:services(*),
+        client:users!bookings_client_id_fkey(*),
+        staff_member:staff_members(*)
+      `
+      )
+      .single();
+
+    if (error) {
+      console.error('Error creating booking:', error);
+      return { data: null, error };
+    }
+
+    return { data: data as Booking, error: null };
+  } catch (err) {
+    console.error('Unexpected error in createProfessionalBooking:', err);
+    return {
+      data: null,
+      error: { message: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' },
+    };
+  }
+}

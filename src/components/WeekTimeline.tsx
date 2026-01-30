@@ -63,7 +63,7 @@ const getBookingHeight = (durationMinutes: number): number => {
   return (durationMinutes / 30) * SLOT_HEIGHT;
 };
 
-export default function WeekTimeline({
+const WeekTimeline = React.memo(function WeekTimeline({
   selectedDate,
   bookings,
   onDateSelect,
@@ -225,7 +225,9 @@ export default function WeekTimeline({
       </ScrollView>
     </View>
   );
-}
+});
+
+export default WeekTimeline;
 
 const styles = StyleSheet.create({
   container: {

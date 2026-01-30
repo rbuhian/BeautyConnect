@@ -26,15 +26,19 @@ import {
 } from 'lucide-react-native';
 
 import { useAuth } from '../../hooks/useAuth';
-import { Booking, BookingStatus, StaffMember } from '../../types';
-import { getBookingsByDateRange, getBusinessBookingsByDateRange } from '../../services/calendar';
-import { getActiveStaffMembers } from '../../services/business';
+import { Booking, BookingStatus, StaffMember, Service } from '../../types';
+import { getBookingsByDateRange, getBusinessBookingsByDateRange, createProfessionalBooking } from '../../services/calendar';
+import { getActiveStaffMembers, addStaffBlockedDate } from '../../services/business';
+import { getServices } from '../../services/professional';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
 import EmptyState from '../../components/EmptyState';
 import Loading from '../../components/Loading';
 import WeekTimeline from '../../components/WeekTimeline';
+import CalendarFilterModal from '../../components/CalendarFilterModal';
+import CreateBookingModal from '../../components/CreateBookingModal';
+import BlockTimeModal from '../../components/BlockTimeModal';
 
 type ViewMode = 'month' | 'week';
 
@@ -47,7 +51,6 @@ export default function CalendarScreen({ navigation }: any) {
     format(new Date(), 'yyyy-MM-dd')
   );
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [markedDates, setMarkedDates] = useState<Record<string, any>>({});
   const [statusFilters, setStatusFilters] = useState<BookingStatus[]>([
     'pending',
     'confirmed',
@@ -56,6 +59,7 @@ export default function CalendarScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -76,6 +80,20 @@ export default function CalendarScreen({ navigation }: any) {
 
     loadStaffMembers();
   }, [isSalon, businessId]);
+
+  // Load services
+  useEffect(() => {
+    const loadServices = async () => {
+      if (!professionalProfile) return;
+
+      const result = await getServices(professionalProfile.id);
+      if (result.data) {
+        setServices(result.data);
+      }
+    };
+
+    loadServices();
+  }, [professionalProfile]);
 
   // Fetch bookings
   const fetchBookings = useCallback(async () => {
@@ -110,7 +128,6 @@ export default function CalendarScreen({ navigation }: any) {
 
       if (result.data) {
         setBookings(result.data);
-        generateMarkedDates(result.data);
       }
     } catch (err) {
       console.error('Error fetching bookings:', err);
@@ -131,13 +148,46 @@ export default function CalendarScreen({ navigation }: any) {
     fetchBookings();
   }, [fetchBookings]);
 
-  // Generate marked dates for calendar
-  const generateMarkedDates = (bookingsData: Booking[]) => {
+  // Get status color
+  const getStatusColor = useCallback((status: BookingStatus): string => {
+    switch (status) {
+      case 'pending':
+        return COLORS.warning;
+      case 'confirmed':
+        return COLORS.success;
+      case 'completed':
+        return COLORS.primary;
+      case 'cancelled':
+        return COLORS.error;
+      default:
+        return COLORS.textSecondary;
+    }
+  }, []);
+
+  // Get staff color
+  const getStaffColor = useCallback((staffId: string): string => {
+    const colors = [
+      '#8B5CF6',
+      '#3B82F6',
+      '#10B981',
+      '#F59E0B',
+      '#EF4444',
+      '#EC4899',
+      '#14B8A6',
+    ];
+    const hash = staffId
+      .split('')
+      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  }, []);
+
+  // Generate marked dates for calendar - memoized
+  const markedDatesGenerated = useMemo(() => {
     const marked: Record<string, any> = {};
 
     // Group bookings by date
     const bookingsByDate: Record<string, Booking[]> = {};
-    bookingsData.forEach(booking => {
+    bookings.forEach(booking => {
       if (!bookingsByDate[booking.date]) {
         bookingsByDate[booking.date] = [];
       }
@@ -172,41 +222,8 @@ export default function CalendarScreen({ navigation }: any) {
       };
     }
 
-    setMarkedDates(marked);
-  };
-
-  // Get status color
-  const getStatusColor = (status: BookingStatus): string => {
-    switch (status) {
-      case 'pending':
-        return COLORS.warning;
-      case 'confirmed':
-        return COLORS.success;
-      case 'completed':
-        return COLORS.primary;
-      case 'cancelled':
-        return COLORS.error;
-      default:
-        return COLORS.textSecondary;
-    }
-  };
-
-  // Get staff color
-  const getStaffColor = (staffId: string): string => {
-    const colors = [
-      '#8B5CF6',
-      '#3B82F6',
-      '#10B981',
-      '#F59E0B',
-      '#EF4444',
-      '#EC4899',
-      '#14B8A6',
-    ];
-    const hash = staffId
-      .split('')
-      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  };
+    return marked;
+  }, [bookings, selectedDate, getStatusColor]);
 
   // Filter bookings
   const filteredBookings = useMemo(() => {
@@ -235,36 +252,87 @@ export default function CalendarScreen({ navigation }: any) {
   }, [filteredBookings, selectedDate]);
 
   // Format booking date
-  const formatBookingDate = (dateStr: string) => {
+  const formatBookingDate = useCallback((dateStr: string) => {
     const date = parseISO(dateStr);
     if (isToday(date)) return 'Today';
     if (isTomorrow(date)) return 'Tomorrow';
     return format(date, 'EEE, MMM d');
-  };
+  }, []);
 
   // Handle date selection
-  const handleDayPress = (day: DateData) => {
+  const handleDayPress = useCallback((day: DateData) => {
     setSelectedDate(day.dateString);
-    if (viewMode === 'month') {
-      setViewMode('week');
-    }
-  };
+    setViewMode('week');
+  }, []);
 
   // Handle month change
-  const handleMonthChange = (month: DateData) => {
+  const handleMonthChange = useCallback((month: DateData) => {
     setSelectedDate(month.dateString);
-  };
+  }, []);
 
   // Handle refresh
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchBookings();
-  };
+  }, [fetchBookings]);
 
   // Handle booking press
-  const handleBookingPress = (booking: Booking) => {
+  const handleBookingPress = useCallback((booking: Booking) => {
     navigation.navigate('BookingDetail', { booking });
-  };
+  }, [navigation]);
+
+  // Handle create booking
+  const handleCreateBooking = useCallback(async (bookingData: {
+    clientName: string;
+    clientPhone: string;
+    serviceId: string;
+    date: string;
+    timeSlot: string;
+    locationType: 'home' | 'salon';
+    clientAddress?: string;
+    staffMemberId?: string;
+  }) => {
+    if (!professionalProfile) return;
+
+    const result = await createProfessionalBooking({
+      professionalId: professionalProfile.id,
+      ...bookingData,
+    });
+
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+
+    // Refresh bookings
+    await fetchBookings();
+  }, [professionalProfile, fetchBookings]);
+
+  // Handle block time
+  const handleBlockTime = useCallback(async (blockData: {
+    date: string;
+    staffMemberIds: string[];
+    reason?: string;
+  }) => {
+    if (!isSalon || !staffMembers.length) {
+      // For solo professionals, would need separate implementation
+      console.warn('Block time not yet implemented for solo professionals');
+      return;
+    }
+
+    // Block time for each selected staff member
+    const promises = blockData.staffMemberIds.map(staffId =>
+      addStaffBlockedDate(staffId, blockData.date, blockData.reason)
+    );
+
+    try {
+      await Promise.all(promises);
+      // Refresh bookings to show blocked times
+      await fetchBookings();
+    } catch (error) {
+      console.error('Error blocking time:', error);
+      throw error;
+    }
+  }, [isSalon, staffMembers, fetchBookings]);
 
   if (loading) {
     return <Loading />;
@@ -348,7 +416,7 @@ export default function CalendarScreen({ navigation }: any) {
               current={selectedDate}
               onDayPress={handleDayPress}
               onMonthChange={handleMonthChange}
-              markedDates={markedDates}
+              markedDates={markedDatesGenerated}
               markingType="multi-dot"
               theme={{
                 backgroundColor: COLORS.background,
@@ -376,7 +444,7 @@ export default function CalendarScreen({ navigation }: any) {
 
               {bookingsForSelectedDate.length === 0 ? (
                 <EmptyState
-                  icon={<CalendarIcon size={48} color={COLORS.textLight} />}
+                  icon={CalendarIcon}
                   title="No bookings"
                   description={`No bookings for ${formatBookingDate(selectedDate)}`}
                 />
@@ -477,8 +545,43 @@ export default function CalendarScreen({ navigation }: any) {
         </View>
       )}
 
-      {/* Modals - Placeholders */}
-      {/* TODO: Implement FilterModal, CreateBookingModal, BlockTimeModal */}
+      {/* Filter Modal */}
+      <CalendarFilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        statusFilters={statusFilters}
+        onStatusChange={(filters) => {
+          setStatusFilters(filters);
+          fetchBookings();
+        }}
+        staffMembers={staffMembers}
+        selectedStaffIds={selectedStaffIds}
+        onStaffChange={(ids) => {
+          setSelectedStaffIds(ids);
+          fetchBookings();
+        }}
+      />
+
+      {/* Create Booking Modal */}
+      <CreateBookingModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreateBooking={handleCreateBooking}
+        initialDate={selectedDate}
+        services={services}
+        staffMembers={staffMembers}
+        isSalon={isSalon}
+      />
+
+      {/* Block Time Modal */}
+      <BlockTimeModal
+        visible={showBlockModal}
+        onClose={() => setShowBlockModal(false)}
+        onBlockTime={handleBlockTime}
+        initialDate={selectedDate}
+        staffMembers={staffMembers}
+        isSalon={isSalon}
+      />
     </SafeAreaView>
   );
 }
