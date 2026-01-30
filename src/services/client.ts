@@ -628,13 +628,15 @@ export async function createReview(
 }
 
 export async function hasReviewedBooking(
-  bookingId: string
+  bookingId: string,
+  userId: string
 ): Promise<ServiceResponse<boolean>> {
   try {
     const { data, error } = await supabase
       .from('reviews')
       .select('id')
       .eq('booking_id', bookingId)
+      .eq('reviewer_id', userId)
       .single();
 
     if (error && error.code !== 'PGRST116') {

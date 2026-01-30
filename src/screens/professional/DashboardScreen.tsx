@@ -31,6 +31,7 @@ import { Booking, Review } from '../../types';
 import {
   getUpcomingBookings,
   getProfessionalStats,
+  getCompletedBookingsNeedingReview,
 } from '../../services/professional';
 import { getReviewsReceived, ReviewWithDetails } from '../../services/review';
 import { format, isToday, isTomorrow, parseISO } from 'date-fns';
@@ -40,6 +41,7 @@ export default function DashboardScreen({
 }: ProfessionalTabScreenProps<'Dashboard'>) {
   const { user, professionalProfile } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [pendingReviews, setPendingReviews] = useState<Booking[]>([]);
   const [reviews, setReviews] = useState<ReviewWithDetails[]>([]);
   const [stats, setStats] = useState({
     totalBookings: 0,
@@ -54,14 +56,18 @@ export default function DashboardScreen({
     if (!professionalProfile?.id || !user?.id) return;
 
     try {
-      const [bookingsRes, statsRes, reviewsRes] = await Promise.all([
+      const [bookingsRes, pendingReviewsRes, statsRes, reviewsRes] = await Promise.all([
         getUpcomingBookings(professionalProfile.id),
+        getCompletedBookingsNeedingReview(user.id),
         getProfessionalStats(professionalProfile.id),
         getReviewsReceived(user.id, 5), // Get last 5 reviews
       ]);
 
       if (bookingsRes.data) {
         setBookings(bookingsRes.data);
+      }
+      if (pendingReviewsRes.data) {
+        setPendingReviews(pendingReviewsRes.data);
       }
       if (statsRes.data) {
         setStats(statsRes.data);
@@ -318,6 +324,73 @@ export default function DashboardScreen({
                       ₱{booking.total_price?.toLocaleString()}
                     </Text>
                     <ChevronRight size={20} color={COLORS.textSecondary} />
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Pending Reviews Section */}
+        {pendingReviews.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Pending Reviews</Text>
+              <View style={styles.reviewBadge}>
+                <Text style={styles.reviewBadgeText}>{pendingReviews.length}</Text>
+              </View>
+            </View>
+
+            {pendingReviews.slice(0, 3).map((booking) => (
+              <TouchableOpacity
+                key={booking.id}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('BookingDetail', { booking })}
+              >
+                <Card style={styles.reviewCard}>
+                  <View style={styles.reviewCardHeader}>
+                    <View style={styles.bookingClientInfo}>
+                      {booking.client?.avatar ? (
+                        <Image
+                          source={{ uri: booking.client.avatar }}
+                          style={styles.clientAvatar}
+                        />
+                      ) : (
+                        <View style={styles.clientAvatarPlaceholder}>
+                          <User size={16} color={COLORS.textSecondary} />
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.clientName}>
+                          {booking.client?.name || 'Client'}
+                        </Text>
+                        <Text style={styles.serviceName}>
+                          {booking.service?.name}
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.reviewButton}
+                      onPress={() => navigation.navigate('BookingDetail', { booking })}
+                    >
+                      <Star size={16} color={COLORS.primary} />
+                      <Text style={styles.reviewButtonText}>Review</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.bookingDetails}>
+                    <View style={styles.bookingDetail}>
+                      <Calendar size={14} color={COLORS.textSecondary} />
+                      <Text style={styles.bookingDetailText}>
+                        {formatBookingDate(booking.date)}
+                      </Text>
+                    </View>
+                    <View style={styles.bookingDetail}>
+                      <Clock size={14} color={COLORS.textSecondary} />
+                      <Text style={styles.bookingDetailText}>
+                        {booking.time_slot}
+                      </Text>
+                    </View>
                   </View>
                 </Card>
               </TouchableOpacity>
@@ -886,5 +959,43 @@ const styles = StyleSheet.create({
   reviewDate: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textLight,
+  },
+  reviewBadge: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewBadgeText: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  reviewCard: {
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  reviewCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
+  },
+  reviewButtonText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.primary,
   },
 });

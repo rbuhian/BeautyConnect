@@ -14,6 +14,7 @@ import {
   User,
   Edit,
   Heart,
+  Star,
   Settings,
   LogOut,
   Phone,
@@ -48,6 +49,11 @@ export default function ProfileScreen({ navigation }: any) {
       icon: Edit,
       label: 'Edit Profile',
       onPress: () => navigation.navigate('EditProfile'),
+    },
+    {
+      icon: Star,
+      label: 'My Reviews',
+      onPress: () => navigation.navigate('Reviews'),
     },
     {
       icon: Heart,

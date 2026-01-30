@@ -327,6 +327,66 @@ export async function getUpcomingBookings(
   }
 }
 
+/**
+ * Get completed bookings that haven't been reviewed by the professional yet
+ */
+export async function getCompletedBookingsNeedingReview(
+  professionalUserId: string
+): Promise<ServiceResponse<Booking[]>> {
+  try {
+    // Get all completed bookings where professional is the service provider
+    const { data: completedBookings, error: bookingsError } = await supabase
+      .from('bookings')
+      .select(`
+        *,
+        service:services(*),
+        client:users!bookings_client_id_fkey(*),
+        staff_member:staff_members(id, name, avatar),
+        professional:professional_profiles!bookings_professional_id_fkey(user_id)
+      `)
+      .eq('status', 'completed')
+      .order('date', { ascending: false })
+      .limit(20); // Get last 20 completed bookings
+
+    if (bookingsError) {
+      return { data: null, error: { message: bookingsError.message, code: bookingsError.code } };
+    }
+
+    if (!completedBookings || completedBookings.length === 0) {
+      return { data: [], error: null };
+    }
+
+    // Filter to only bookings where this professional was the provider
+    const professionalBookings = completedBookings.filter(
+      (booking: any) => booking.professional?.user_id === professionalUserId
+    );
+
+    if (professionalBookings.length === 0) {
+      return { data: [], error: null };
+    }
+
+    // Get all reviews written by this professional
+    const { data: reviews, error: reviewsError } = await supabase
+      .from('reviews')
+      .select('booking_id')
+      .eq('reviewer_id', professionalUserId);
+
+    if (reviewsError) {
+      return { data: null, error: { message: reviewsError.message, code: reviewsError.code } };
+    }
+
+    // Filter out bookings that have already been reviewed
+    const reviewedBookingIds = new Set(reviews?.map(r => r.booking_id) || []);
+    const needingReview = professionalBookings.filter(
+      booking => !reviewedBookingIds.has(booking.id)
+    );
+
+    return { data: needingReview as Booking[], error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch completed bookings needing review' } };
+  }
+}
+
 export async function updateBookingStatus(
   bookingId: string,
   status: 'confirmed' | 'completed' | 'cancelled',

@@ -35,6 +35,7 @@ export type ClientStackParamList = {
     professionalName: string;
     professionalAvatar: string | null;
   };
+  Reviews: undefined;
   Favorites: undefined;
   EditProfile: undefined;
   Settings: undefined;
@@ -53,6 +54,14 @@ export type ProfessionalStackParamList = {
   ProfessionalTabs: NavigatorScreenParams<ProfessionalTabParamList>;
   BookingDetail: { booking: Booking };
   Chat: { bookingId: string };
+  WriteReview: {
+    bookingId: string;
+    serviceName: string;
+    clientId: string;
+    clientName: string;
+    clientAvatar: string | null;
+  };
+  Reviews: undefined;
   EditProfile: undefined;
   ManageServices: undefined;
   AddService: undefined;

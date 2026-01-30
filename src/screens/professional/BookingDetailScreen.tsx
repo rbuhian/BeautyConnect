@@ -45,6 +45,7 @@ import {
   getActiveStaffMembers,
   reassignBookingStaff,
 } from '../../services/business';
+import { getBookingReview } from '../../services/review';
 
 export default function BookingDetailScreen({ navigation, route }: any) {
   const { booking: initialBooking } = route.params as { booking: Booking };
@@ -55,6 +56,8 @@ export default function BookingDetailScreen({ navigation, route }: any) {
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [reassigning, setReassigning] = useState(false);
+  const [hasReviewedClient, setHasReviewedClient] = useState(false);
+  const [myReview, setMyReview] = useState<any>(null);
 
   const hasBusiness = !!professionalProfile?.business;
 
@@ -63,6 +66,28 @@ export default function BookingDetailScreen({ navigation, route }: any) {
       loadStaffMembers();
     }
   }, [hasBusiness, professionalProfile?.business?.id]);
+
+  // Check if professional has reviewed the client
+  useEffect(() => {
+    const checkReview = async () => {
+      if (!user?.id || booking.status !== 'completed') return;
+
+      try {
+        const { data } = await getBookingReview(booking.id, user.id);
+        if (data) {
+          setHasReviewedClient(true);
+          setMyReview(data);
+        } else {
+          setHasReviewedClient(false);
+          setMyReview(null);
+        }
+      } catch (err) {
+        console.error('Error checking review status:', err);
+      }
+    };
+
+    checkReview();
+  }, [booking.id, booking.status, user?.id]);
 
   const loadStaffMembers = async () => {
     if (!professionalProfile?.business?.id) return;
@@ -285,6 +310,16 @@ export default function BookingDetailScreen({ navigation, route }: any) {
         },
       ]
     );
+  };
+
+  const handleReviewClient = () => {
+    navigation.navigate('WriteReview', {
+      bookingId: booking.id,
+      serviceName: booking.service?.name || 'Service',
+      clientId: booking.client_id,
+      clientName: booking.client?.name || 'Client',
+      clientAvatar: booking.client?.avatar,
+    });
   };
 
   const handleCancel = async () => {
@@ -606,12 +641,50 @@ export default function BookingDetailScreen({ navigation, route }: any) {
           )}
 
           {booking.status === 'completed' && (
-            <View style={styles.completedBanner}>
-              <Check size={24} color={COLORS.success} />
-              <Text style={styles.completedText}>
-                This booking has been completed
-              </Text>
-            </View>
+            <>
+              <View style={styles.completedBanner}>
+                <Check size={24} color={COLORS.success} />
+                <Text style={styles.completedText}>
+                  This booking has been completed
+                </Text>
+              </View>
+
+              {!hasReviewedClient && (
+                <GradientButton
+                  title="Review Client"
+                  onPress={handleReviewClient}
+                  style={styles.actionButton}
+                />
+              )}
+
+              {hasReviewedClient && myReview && (
+                <Card style={styles.myReviewCard}>
+                  <View style={styles.myReviewHeader}>
+                    <Text style={styles.myReviewTitle}>Your Review</Text>
+                    <View style={styles.ratingStars}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          size={16}
+                          color="#FFB800"
+                          fill={star <= myReview.rating ? '#FFB800' : 'transparent'}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  {myReview.text && (
+                    <Text style={styles.myReviewText}>{myReview.text}</Text>
+                  )}
+                  <Text style={styles.myReviewDate}>
+                    Posted on {new Date(myReview.created_at).toLocaleDateString('en-PH', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                </Card>
+              )}
+            </>
           )}
 
           {booking.status === 'cancelled' && (
@@ -1014,6 +1087,38 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     color: COLORS.success,
     fontWeight: '500',
+  },
+  myReviewCard: {
+    padding: SPACING.md,
+    marginTop: SPACING.sm,
+    backgroundColor: COLORS.primaryLight,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+  },
+  myReviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  myReviewTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  ratingStars: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  myReviewText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textPrimary,
+    lineHeight: 20,
+    marginBottom: SPACING.sm,
+  },
+  myReviewDate: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
   },
   cancelledBanner: {
     flexDirection: 'row',

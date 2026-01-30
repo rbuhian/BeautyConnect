@@ -26,6 +26,7 @@ import { Category, LocationType } from '../../types';
 import { updateProfessionalProfile, getProfessionalProfile } from '../../services/professional';
 import { supabase } from '../../services/supabase';
 import { useAuthStore } from '../../stores/authStore';
+// import { optimizeAvatar, optimizePortfolioImage, formatBytes } from '../../utils/imageOptimization';
 
 export default function EditProfileScreen({ navigation }: any) {
   const { user, professionalProfile } = useAuth();
@@ -87,6 +88,10 @@ export default function EditProfileScreen({ navigation }: any) {
   const uploadAvatar = async (uri: string) => {
     setUploadingAvatar(true);
     try {
+      // Optimize image before upload (TEMPORARILY DISABLED - requires native modules)
+      // const optimized = await optimizeAvatar(uri);
+      // console.log(`Avatar optimized: ${formatBytes(optimized.size)} (${optimized.width}x${optimized.height})`);
+
       const fileName = `${user?.id}-${Date.now()}.jpg`;
 
       // Convert image to ArrayBuffer for React Native
@@ -123,6 +128,10 @@ export default function EditProfileScreen({ navigation }: any) {
 
     setUploadingPortfolio(true);
     try {
+      // Optimize image before upload (TEMPORARILY DISABLED - requires native modules)
+      // const optimized = await optimizePortfolioImage(uri);
+      // console.log(`Portfolio image optimized: ${formatBytes(optimized.size)} (${optimized.width}x${optimized.height})`);
+
       const fileName = `${professionalProfile?.id}-${Date.now()}.jpg`;
 
       // Convert image to ArrayBuffer for React Native

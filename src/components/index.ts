@@ -21,3 +21,4 @@ export { default as CalendarFilterModal } from './CalendarFilterModal';
 export { default as WeekTimeline } from './WeekTimeline';
 export { default as CreateBookingModal } from './CreateBookingModal';
 export { default as BlockTimeModal } from './BlockTimeModal';
+export { default as ProfessionalCard } from './ProfessionalCard';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -77,24 +77,24 @@ export default function BookingsScreen({ navigation }: any) {
     fetchBookings();
   };
 
-  const formatDate = (dateStr: string) => {
+  const formatDate = useCallback((dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-PH', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
     });
-  };
+  }, []);
 
-  const formatTime = (time: string) => {
+  const formatTime = useCallback((time: string) => {
     const [hours, minutes] = time.split(':');
     const hour = parseInt(hours);
     const ampm = hour >= 12 ? 'PM' : 'AM';
     const hour12 = hour % 12 || 12;
     return `${hour12}:${minutes} ${ampm}`;
-  };
+  }, []);
 
-  const renderBookingCard = ({ item }: { item: Booking }) => {
+  const renderBookingCard = useCallback(({ item }: { item: Booking }) => {
     const statusColors = STATUS_COLORS[item.status] || STATUS_COLORS.pending;
     const proName = (item.professional as any)?.user?.name || 'Beauty Professional';
     const proAvatar = (item.professional as any)?.user?.avatar;
@@ -176,9 +176,12 @@ export default function BookingsScreen({ navigation }: any) {
         </Card>
       </TouchableOpacity>
     );
-  };
+  }, [navigation, formatDate, formatTime]);
 
-  const bookings = activeTab === 'upcoming' ? upcomingBookings : pastBookings;
+  const bookings = useMemo(
+    () => (activeTab === 'upcoming' ? upcomingBookings : pastBookings),
+    [activeTab, upcomingBookings, pastBookings]
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

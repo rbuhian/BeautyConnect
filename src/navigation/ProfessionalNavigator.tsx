@@ -15,6 +15,8 @@ import ProfileScreen from '../screens/professional/ProfileScreen';
 // Stack Screens (will be created later)
 import BookingDetailScreen from '../screens/professional/BookingDetailScreen';
 import ChatScreen from '../screens/shared/ChatScreen';
+import WriteReviewScreen from '../screens/professional/WriteReviewScreen';
+import ProfessionalReviewsScreen from '../screens/professional/ProfessionalReviewsScreen';
 import EditProfileScreen from '../screens/shared/EditProfileScreen';
 import ManageServicesScreen from '../screens/professional/ManageServicesScreen';
 import AddServiceScreen from '../screens/professional/AddServiceScreen';
@@ -101,6 +103,8 @@ export default function ProfessionalNavigator() {
       <Stack.Screen name="ProfessionalTabs" component={ProfessionalTabs} />
       <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
+      <Stack.Screen name="WriteReview" component={WriteReviewScreen} />
+      <Stack.Screen name="Reviews" component={ProfessionalReviewsScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="ManageServices" component={ManageServicesScreen} />
       <Stack.Screen name="AddService" component={AddServiceScreen} />

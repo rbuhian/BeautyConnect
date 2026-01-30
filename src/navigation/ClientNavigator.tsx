@@ -17,10 +17,11 @@ import ProfessionalProfileScreen from '../screens/client/ProfessionalProfileScre
 import BookingFlowScreen from '../screens/client/BookingFlowScreen';
 import BookingDetailScreen from '../screens/client/BookingDetailScreen';
 import ChatScreen from '../screens/shared/ChatScreen';
+import WriteReviewScreen from '../screens/client/WriteReviewScreen';
+import ClientReviewsScreen from '../screens/client/ClientReviewsScreen';
 import FavoritesScreen from '../screens/client/FavoritesScreen';
 import EditProfileScreen from '../screens/shared/EditProfileScreen';
 import SettingsScreen from '../screens/shared/SettingsScreen';
-import WriteReviewScreen from '../screens/client/WriteReviewScreen';
 
 const Tab = createBottomTabNavigator<ClientTabParamList>();
 const Stack = createNativeStackNavigator<ClientStackParamList>();
@@ -99,6 +100,7 @@ export default function ClientNavigator() {
       <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="WriteReview" component={WriteReviewScreen} />
+      <Stack.Screen name="Reviews" component={ClientReviewsScreen} />
       <Stack.Screen name="Favorites" component={FavoritesScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />

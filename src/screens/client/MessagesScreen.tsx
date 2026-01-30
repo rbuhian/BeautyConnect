@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -55,7 +55,7 @@ export default function MessagesScreen({ navigation }: any) {
     fetchConversations();
   };
 
-  const formatTime = (dateString: string | null) => {
+  const formatTime = useCallback((dateString: string | null) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     const now = new Date();
@@ -70,9 +70,9 @@ export default function MessagesScreen({ navigation }: any) {
     } else {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
-  };
+  }, []);
 
-  const renderConversation = ({ item }: { item: ConversationPreview }) => (
+  const renderConversation = useCallback(({ item }: { item: ConversationPreview }) => (
     <TouchableOpacity
       style={styles.conversationItem}
       onPress={() => navigation.navigate('Chat', { bookingId: item.booking_id })}
@@ -118,7 +118,7 @@ export default function MessagesScreen({ navigation }: any) {
         </Text>
       </View>
     </TouchableOpacity>
-  );
+  ), [navigation, formatTime]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

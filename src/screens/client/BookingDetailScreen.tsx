@@ -28,7 +28,9 @@ import { COLORS, SPACING, FONT_SIZES, RADIUS, CANCELLATION_HOURS } from '../../c
 import { useAuth } from '../../hooks/useAuth';
 import { Booking } from '../../types';
 import { getBookingById, cancelBooking, hasReviewedBooking } from '../../services/client';
+import { getBookingReview } from '../../services/review';
 import { sendBookingCancelledNotification } from '../../services/notifications';
+import { Review } from '../../types';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   pending: { bg: '#FFF3E0', text: '#E65100' },
@@ -51,16 +53,27 @@ export default function BookingDetailScreen({ navigation, route }: any) {
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
+  const [myReview, setMyReview] = useState<Review | null>(null);
 
   const fetchBooking = useCallback(async () => {
+    if (!user?.id) return;
+
     try {
       const result = await getBookingById(bookingId);
       if (result.data) {
         setBooking(result.data);
 
         if (result.data.status === 'completed') {
-          const reviewResult = await hasReviewedBooking(bookingId);
+          const reviewResult = await hasReviewedBooking(bookingId, user.id);
           setHasReviewed(reviewResult.data || false);
+
+          // Fetch the review if it exists
+          if (reviewResult.data) {
+            const myReviewResult = await getBookingReview(bookingId, user.id);
+            if (myReviewResult.data) {
+              setMyReview(myReviewResult.data);
+            }
+          }
         }
       }
     } catch (err) {
@@ -68,11 +81,19 @@ export default function BookingDetailScreen({ navigation, route }: any) {
     } finally {
       setLoading(false);
     }
-  }, [bookingId]);
+  }, [bookingId, user?.id]);
 
   useEffect(() => {
     fetchBooking();
   }, [fetchBooking]);
+
+  // Refresh booking when returning from WriteReviewScreen
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchBooking();
+    });
+    return unsubscribe;
+  }, [navigation, fetchBooking]);
 
   const canCancel = () => {
     if (!booking) return false;
@@ -391,6 +412,35 @@ export default function BookingDetailScreen({ navigation, route }: any) {
           </TouchableOpacity>
         )}
 
+        {/* My Review */}
+        {booking.status === 'completed' && hasReviewed && myReview && (
+          <Card style={styles.myReviewCard}>
+            <View style={styles.myReviewHeader}>
+              <Text style={styles.myReviewTitle}>Your Review</Text>
+              <View style={styles.ratingStars}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    size={16}
+                    color="#FFB800"
+                    fill={star <= myReview.rating ? '#FFB800' : 'transparent'}
+                  />
+                ))}
+              </View>
+            </View>
+            {myReview.text && (
+              <Text style={styles.myReviewText}>{myReview.text}</Text>
+            )}
+            <Text style={styles.myReviewDate}>
+              Posted on {new Date(myReview.created_at).toLocaleDateString('en-PH', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </Text>
+          </Card>
+        )}
+
         {canCancel() && (
           <TouchableOpacity
             style={styles.cancelButton}
@@ -689,6 +739,38 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     lineHeight: 18,
     textAlign: 'center',
+  },
+  myReviewCard: {
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    backgroundColor: COLORS.primaryLight,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+  },
+  myReviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  myReviewTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  ratingStars: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  myReviewText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textPrimary,
+    lineHeight: 20,
+    marginBottom: SPACING.sm,
+  },
+  myReviewDate: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
   },
   errorState: {
     flex: 1,

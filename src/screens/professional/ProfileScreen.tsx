@@ -310,13 +310,24 @@ export default function ProfileScreen({ navigation }: any) {
         {/* Stats */}
         <View style={styles.statsSection}>
           {stats.map((stat, index) => (
-            <Card key={index} style={styles.statCard}>
-              <View style={[styles.statIconContainer, { backgroundColor: `${stat.color}20` }]}>
-                <stat.icon size={24} color={stat.color} />
-              </View>
-              <Text style={styles.statValue}>{stat.value}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
-            </Card>
+            <TouchableOpacity
+              key={index}
+              style={{ flex: 1 }}
+              onPress={() => {
+                if (stat.label === 'Reviews') {
+                  navigation.navigate('Reviews');
+                }
+              }}
+              activeOpacity={stat.label === 'Reviews' ? 0.7 : 1}
+            >
+              <Card style={styles.statCard}>
+                <View style={[styles.statIconContainer, { backgroundColor: `${stat.color}20` }]}>
+                  <stat.icon size={24} color={stat.color} />
+                </View>
+                <Text style={styles.statValue}>{stat.value}</Text>
+                <Text style={styles.statLabel}>{stat.label}</Text>
+              </Card>
+            </TouchableOpacity>
           ))}
         </View>
 

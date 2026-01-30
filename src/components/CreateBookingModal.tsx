@@ -6,11 +6,10 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  TextInput,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Search, Calendar, Clock, MapPin, User } from 'lucide-react-native';
+import { X, Calendar, Clock } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../constants';
 import { Service, StaffMember } from '../types';
@@ -169,7 +168,6 @@ const CreateBookingModal = React.memo(function CreateBookingModal({
               value={clientName}
               onChangeText={setClientName}
               placeholder="Enter client name"
-              icon={<User size={20} color={COLORS.textSecondary} />}
             />
             <Input
               label="Phone Number"
@@ -181,44 +179,46 @@ const CreateBookingModal = React.memo(function CreateBookingModal({
           </View>
 
           {/* Service Selection */}
-          <View style={styles.section}>
+          <View style={[styles.section, { zIndex: 30 }]}>
             <Text style={styles.sectionTitle}>Service</Text>
-            <TouchableOpacity
-              style={styles.pickerButton}
-              onPress={() => setShowServicePicker(!showServicePicker)}
-            >
-              <Text
-                style={[
-                  styles.pickerButtonText,
-                  !selectedServiceId && styles.placeholderText,
-                ]}
+            <View style={styles.pickerContainer}>
+              <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => setShowServicePicker(!showServicePicker)}
               >
-                {selectedService ? selectedService.name : 'Select service'}
-              </Text>
-            </TouchableOpacity>
-            {showServicePicker && (
-              <View style={styles.pickerDropdown}>
-                {services.filter(s => s.is_active).map(service => (
-                  <TouchableOpacity
-                    key={service.id}
-                    style={styles.pickerOption}
-                    onPress={() => {
-                      setSelectedServiceId(service.id);
-                      setShowServicePicker(false);
-                    }}
-                  >
-                    <Text style={styles.pickerOptionText}>{service.name}</Text>
-                    <Text style={styles.pickerOptionSubtext}>
-                      ₱{service.price} • {service.duration_minutes} mins
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+                <Text
+                  style={[
+                    styles.pickerButtonText,
+                    !selectedServiceId && styles.placeholderText,
+                  ]}
+                >
+                  {selectedService ? selectedService.name : 'Select service'}
+                </Text>
+              </TouchableOpacity>
+              {showServicePicker && (
+                <ScrollView style={styles.pickerDropdown} nestedScrollEnabled>
+                  {services.filter(s => s.is_active).map(service => (
+                    <TouchableOpacity
+                      key={service.id}
+                      style={styles.pickerOption}
+                      onPress={() => {
+                        setSelectedServiceId(service.id);
+                        setShowServicePicker(false);
+                      }}
+                    >
+                      <Text style={styles.pickerOptionText}>{service.name}</Text>
+                      <Text style={styles.pickerOptionSubtext}>
+                        ₱{service.price} • {service.duration_minutes} mins
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
           </View>
 
           {/* Date & Time */}
-          <View style={styles.section}>
+          <View style={[styles.section, { zIndex: 20 }]}>
             <Text style={styles.sectionTitle}>Date & Time</Text>
             <View style={styles.row}>
               <View style={styles.dateInput}>
@@ -273,40 +273,42 @@ const CreateBookingModal = React.memo(function CreateBookingModal({
 
           {/* Staff Selection (Salon only) */}
           {isSalon && staffMembers.length > 0 && (
-            <View style={styles.section}>
+            <View style={[styles.section, { zIndex: 10 }]}>
               <Text style={styles.sectionTitle}>Staff Member</Text>
-              <TouchableOpacity
-                style={styles.pickerButton}
-                onPress={() => setShowStaffPicker(!showStaffPicker)}
-              >
-                <Text
-                  style={[
-                    styles.pickerButtonText,
-                    !selectedStaffId && styles.placeholderText,
-                  ]}
+              <View style={styles.pickerContainer}>
+                <TouchableOpacity
+                  style={styles.pickerButton}
+                  onPress={() => setShowStaffPicker(!showStaffPicker)}
                 >
-                  {selectedStaff ? selectedStaff.name : 'Select staff member'}
-                </Text>
-              </TouchableOpacity>
-              {showStaffPicker && (
-                <View style={styles.pickerDropdown}>
-                  {staffMembers.map(staff => (
-                    <TouchableOpacity
-                      key={staff.id}
-                      style={styles.pickerOption}
-                      onPress={() => {
-                        setSelectedStaffId(staff.id);
-                        setShowStaffPicker(false);
-                      }}
-                    >
-                      <Text style={styles.pickerOptionText}>{staff.name}</Text>
-                      <Text style={styles.pickerOptionSubtext}>
-                        {staff.specialties.join(', ')}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+                  <Text
+                    style={[
+                      styles.pickerButtonText,
+                      !selectedStaffId && styles.placeholderText,
+                    ]}
+                  >
+                    {selectedStaff ? selectedStaff.name : 'Select staff member'}
+                  </Text>
+                </TouchableOpacity>
+                {showStaffPicker && (
+                  <ScrollView style={styles.pickerDropdown} nestedScrollEnabled>
+                    {staffMembers.map(staff => (
+                      <TouchableOpacity
+                        key={staff.id}
+                        style={styles.pickerOption}
+                        onPress={() => {
+                          setSelectedStaffId(staff.id);
+                          setShowStaffPicker(false);
+                        }}
+                      >
+                        <Text style={styles.pickerOptionText}>{staff.name}</Text>
+                        <Text style={styles.pickerOptionSubtext}>
+                          {staff.specialties.join(', ')}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
+              </View>
             </View>
           )}
 
@@ -354,7 +356,6 @@ const CreateBookingModal = React.memo(function CreateBookingModal({
                 value={clientAddress}
                 onChangeText={setClientAddress}
                 placeholder="Enter client address"
-                icon={<MapPin size={20} color={COLORS.textSecondary} />}
                 multiline
                 numberOfLines={3}
               />
@@ -416,12 +417,17 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: SPACING.xl,
+    zIndex: 1,
   },
   sectionTitle: {
     fontSize: FONT_SIZES.lg,
     fontWeight: '600',
     color: COLORS.textPrimary,
     marginBottom: SPACING.md,
+  },
+  pickerContainer: {
+    position: 'relative',
+    zIndex: 1,
   },
   pickerButton: {
     backgroundColor: COLORS.white,
@@ -526,7 +532,7 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   timeSlotSelected: {
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: COLORS.chipBackground,
   },
   timeSlotText: {
     fontSize: FONT_SIZES.md,
@@ -553,7 +559,7 @@ const styles = StyleSheet.create({
   },
   locationTypeButtonActive: {
     borderColor: COLORS.primary,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: COLORS.chipBackground,
   },
   locationTypeText: {
     fontSize: FONT_SIZES.md,
