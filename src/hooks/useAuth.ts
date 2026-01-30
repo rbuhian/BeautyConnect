@@ -30,6 +30,7 @@ export function useAuth() {
     verifyOtp: store.verifyOtp,
     updateProfile: store.updateProfile,
     setRole: store.setRole,
+    refreshProfessionalProfile: store.refreshProfessionalProfile,
     logout: store.logout,
     clearError: store.clearError,
   };

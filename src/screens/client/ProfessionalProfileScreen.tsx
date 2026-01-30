@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
-  FlatList,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,9 +16,7 @@ import {
   Star,
   MapPin,
   Clock,
-  MessageCircle,
   Calendar,
-  ChevronRight,
   Home,
   Building2,
 } from 'lucide-react-native';
@@ -89,21 +85,6 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
       professional,
       service,
     });
-  };
-
-  const handleMessage = () => {
-    // Chat requires a booking - show alert if no booking exists
-    Alert.alert(
-      'Start a Conversation',
-      'To message this professional, please book a service first. You can chat about your booking details after making a reservation.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'View Services',
-          onPress: () => setActiveTab('services'),
-        },
-      ]
-    );
   };
 
   const getLocationLabel = () => {
@@ -419,34 +400,8 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
               </>
             )}
           </View>
-
-          <View style={{ height: 100 }} />
         </View>
       </ScrollView>
-
-      {/* Bottom Actions */}
-      <View style={styles.bottomActions}>
-        <TouchableOpacity style={styles.messageButton} onPress={handleMessage}>
-          <MessageCircle size={22} color={COLORS.primary} />
-        </TouchableOpacity>
-        <View style={styles.bookNowButton}>
-          <GradientButton
-            title="Book Now"
-            onPress={() => {
-              if (activeServices.length === 0) {
-                Alert.alert('No Services', 'This professional has no available services at the moment.');
-              } else if (activeServices.length === 1) {
-                // If only one service, book it directly
-                handleBookService(activeServices[0]);
-              } else {
-                // Switch to services tab and prompt user to select
-                setActiveTab('services');
-                Alert.alert('Select a Service', 'Please choose a service from the list to book.');
-              }
-            }}
-          />
-        </View>
-      </View>
     </View>
   );
 }
@@ -747,32 +702,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     paddingVertical: SPACING.xl,
-  },
-  bottomActions: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.lg,
-    paddingBottom: SPACING.xl,
-    backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    gap: SPACING.md,
-  },
-  messageButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bookNowButton: {
-    flex: 1,
   },
   header: {
     flexDirection: 'row',

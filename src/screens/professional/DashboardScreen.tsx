@@ -20,6 +20,8 @@ import {
   ChevronRight,
   User,
   Star,
+  Users,
+  Building2,
 } from 'lucide-react-native';
 import { ProfessionalTabScreenProps } from '../../navigation/types';
 import { Card, Loading } from '../../components';
@@ -121,7 +123,7 @@ export default function DashboardScreen({
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerLeft}>
             <Text style={styles.greeting}>
               Hello, {user?.name?.split(' ')[0] || 'there'}!
             </Text>
@@ -130,6 +132,15 @@ export default function DashboardScreen({
                 ? `You have ${todayBookings.length} booking${todayBookings.length > 1 ? 's' : ''} today`
                 : 'No bookings scheduled for today'}
             </Text>
+            {/* Account Type Badge */}
+            {professionalProfile?.business && (
+              <View style={styles.dashboardBadge}>
+                <Building2 size={12} color="#8B5CF6" />
+                <Text style={styles.dashboardBadgeText}>
+                  {professionalProfile.business.business_name}
+                </Text>
+              </View>
+            )}
           </View>
           <TouchableOpacity
             onPress={() => navigation.navigate('Profile' as never)}
@@ -272,6 +283,15 @@ export default function DashboardScreen({
                     </View>
                   </View>
 
+                  {booking.staff_member && (
+                    <View style={styles.staffAssignment}>
+                      <Users size={12} color={COLORS.textSecondary} />
+                      <Text style={styles.staffAssignmentText}>
+                        Assigned to {(booking.staff_member as any)?.name}
+                      </Text>
+                    </View>
+                  )}
+
                   <View style={styles.bookingDetails}>
                     <View style={styles.bookingDetail}>
                       <Calendar size={14} color={COLORS.textSecondary} />
@@ -374,6 +394,15 @@ export default function DashboardScreen({
                         </Text>
                       </View>
                     </View>
+
+                    {booking.staff_member && (
+                      <View style={styles.staffAssignment}>
+                        <Users size={12} color={COLORS.textSecondary} />
+                        <Text style={styles.staffAssignmentText}>
+                          Assigned to {(booking.staff_member as any)?.name}
+                        </Text>
+                      </View>
+                    )}
 
                     <View style={styles.bookingDetails}>
                       <View style={styles.bookingDetail}>
@@ -549,6 +578,9 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.md,
     paddingBottom: SPACING.lg,
   },
+  headerLeft: {
+    flex: 1,
+  },
   greeting: {
     fontSize: FONT_SIZES.xxl,
     fontWeight: '700',
@@ -558,6 +590,22 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
     marginTop: SPACING.xs,
+  },
+  dashboardBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginTop: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    backgroundColor: '#8B5CF620',
+    borderRadius: RADIUS.full,
+    gap: 4,
+  },
+  dashboardBadgeText: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+    color: '#8B5CF6',
   },
   avatar: {
     width: 50,
@@ -682,6 +730,22 @@ const styles = StyleSheet.create({
   serviceName: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
+  },
+  staffAssignment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.chipBackground,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.sm,
+    marginBottom: SPACING.sm,
+    alignSelf: 'flex-start',
+  },
+  staffAssignmentText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
   },
   statusBadge: {
     paddingHorizontal: SPACING.sm,

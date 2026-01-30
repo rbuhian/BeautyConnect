@@ -368,7 +368,8 @@ export async function getClientBookings(
         professional:professional_profiles(
           *,
           user:users!professional_profiles_user_id_fkey(id, name, avatar)
-        )
+        ),
+        staff_member:staff_members(id, name, avatar)
       `)
       .eq('client_id', clientId);
 
@@ -407,7 +408,8 @@ export async function getBookingById(
         professional:professional_profiles(
           *,
           user:users!professional_profiles_user_id_fkey(id, name, avatar, phone)
-        )
+        ),
+        staff_member:staff_members(id, name, avatar)
       `)
       .eq('id', bookingId)
       .single();
@@ -433,6 +435,7 @@ export async function createBooking(
     client_address?: string;
     deposit_amount: number;
     total_price: number;
+    staff_member_id?: string; // Optional - if null, auto-assigned for salons
   }
 ): Promise<ServiceResponse<Booking>> {
   try {
@@ -449,6 +452,7 @@ export async function createBooking(
       .from('bookings')
       .insert({
         ...booking,
+        staff_member_id: booking.staff_member_id || null, // DB trigger will auto-assign if null for salons
         status,
         deposit_paid: false, // Will be updated after payment
       })
@@ -458,7 +462,8 @@ export async function createBooking(
         professional:professional_profiles(
           *,
           user:users!professional_profiles_user_id_fkey(id, name, avatar)
-        )
+        ),
+        staff_member:staff_members(id, name, avatar)
       `)
       .single();
 

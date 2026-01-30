@@ -21,6 +21,11 @@ import AddServiceScreen from '../screens/professional/AddServiceScreen';
 import EditServiceScreen from '../screens/professional/EditServiceScreen';
 import AvailabilityScreen from '../screens/professional/AvailabilityScreen';
 import SettingsScreen from '../screens/shared/SettingsScreen';
+import StaffListScreen from '../screens/professional/StaffListScreen';
+import AddStaffScreen from '../screens/professional/AddStaffScreen';
+import EditStaffScreen from '../screens/professional/EditStaffScreen';
+import StaffAvailabilityScreen from '../screens/professional/StaffAvailabilityScreen';
+import StaffBookingsScreen from '../screens/professional/StaffBookingsScreen';
 
 const Tab = createBottomTabNavigator<ProfessionalTabParamList>();
 const Stack = createNativeStackNavigator<ProfessionalStackParamList>();
@@ -102,6 +107,11 @@ export default function ProfessionalNavigator() {
       <Stack.Screen name="EditService" component={EditServiceScreen} />
       <Stack.Screen name="Availability" component={AvailabilityScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="StaffList" component={StaffListScreen} />
+      <Stack.Screen name="AddStaff" component={AddStaffScreen} />
+      <Stack.Screen name="EditStaff" component={EditStaffScreen} />
+      <Stack.Screen name="StaffAvailability" component={StaffAvailabilityScreen} />
+      <Stack.Screen name="StaffBookings" component={StaffBookingsScreen} />
     </Stack.Navigator>
   );
 }

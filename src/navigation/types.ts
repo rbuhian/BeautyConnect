@@ -59,6 +59,13 @@ export type ProfessionalStackParamList = {
   EditService: { serviceId: string };
   Availability: undefined;
   Settings: undefined;
+  // Staff management (for salons/businesses)
+  StaffList: undefined;
+  AddStaff: undefined;
+  EditStaff: { staffId: string };
+  StaffAvailability: { staffId: string };
+  // Staff bookings (for staff members to view their assigned bookings)
+  StaffBookings: undefined;
 };
 
 // Root Stack

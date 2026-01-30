@@ -29,7 +29,7 @@ export async function getProfessionalProfile(
   try {
     const { data, error } = await supabase
       .from('professional_profiles')
-      .select('*, user:users(*)')
+      .select('*, user:users(*), business:businesses(*), staff_members:staff_members(*)')
       .eq('user_id', userId)
       .single();
 
@@ -52,7 +52,7 @@ export async function updateProfessionalProfile(
       .from('professional_profiles')
       .update(updates)
       .eq('id', profileId)
-      .select('*, user:users(*)')
+      .select('*, user:users(*), business:businesses(*), staff_members:staff_members(*)')
       .single();
 
     if (error) {
@@ -281,7 +281,7 @@ export async function getProfessionalBookings(
   try {
     let query = supabase
       .from('bookings')
-      .select('*, service:services(*), client:users!bookings_client_id_fkey(*)')
+      .select('*, service:services(*), client:users!bookings_client_id_fkey(*), staff_member:staff_members(id, name, avatar)')
       .eq('professional_id', professionalId)
       .order('date', { ascending: true })
       .order('time_slot', { ascending: true });
@@ -310,7 +310,7 @@ export async function getUpcomingBookings(
 
     const { data, error } = await supabase
       .from('bookings')
-      .select('*, service:services(*), client:users!bookings_client_id_fkey(*)')
+      .select('*, service:services(*), client:users!bookings_client_id_fkey(*), staff_member:staff_members(id, name, avatar)')
       .eq('professional_id', professionalId)
       .in('status', ['pending', 'confirmed'])
       .gte('date', today)
@@ -344,7 +344,7 @@ export async function updateBookingStatus(
       .from('bookings')
       .update(updates)
       .eq('id', bookingId)
-      .select('*, service:services(*), client:users!bookings_client_id_fkey(*)')
+      .select('*, service:services(*), client:users!bookings_client_id_fkey(*), staff_member:staff_members(id, name, avatar)')
       .single();
 
     if (error) {

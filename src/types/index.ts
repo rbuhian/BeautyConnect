@@ -31,12 +31,63 @@ export interface ProfessionalProfile {
   updated_at: string;
   // Joined from users table
   user?: User;
+  // Joined business data (if this is a salon/spa/studio)
+  business?: Business;
+  staff_members?: StaffMember[];
+}
+
+// Business types
+export type BusinessType = 'salon' | 'spa' | 'studio';
+
+export interface Business {
+  id: string;
+  professional_id: string;
+  business_name: string;
+  business_type: BusinessType;
+  logo: string | null;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Staff member types
+export interface StaffMember {
+  id: string;
+  business_id: string;
+  user_id: string | null; // NULL = staff without app account
+  name: string;
+  avatar: string | null;
+  specialties: Category[];
+  bio: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  user?: User;
+  availability?: StaffAvailability[];
+}
+
+export interface StaffAvailability {
+  id: string;
+  staff_member_id: string;
+  day_of_week: number; // 0-6 (Sunday-Saturday)
+  start_time: string; // HH:MM format
+  end_time: string;
+  is_available: boolean;
+}
+
+export interface StaffBlockedDate {
+  id: string;
+  staff_member_id: string;
+  date: string;
+  reason: string | null;
 }
 
 // Service types
 export interface Service {
   id: string;
   professional_id: string;
+  staff_member_id: string | null; // NULL = any staff can perform
   name: string;
   category: Category;
   duration_minutes: number;
@@ -45,6 +96,8 @@ export interface Service {
   booking_type: BookingType;
   is_active: boolean;
   created_at: string;
+  // Joined data
+  staff_member?: StaffMember;
 }
 
 // Availability types
@@ -65,6 +118,7 @@ export interface Booking {
   client_id: string;
   professional_id: string;
   service_id: string;
+  staff_member_id: string | null; // NULL for individual pros or "Any Available"
   date: string;
   time_slot: string;
   location_type: 'home' | 'salon';
@@ -80,6 +134,7 @@ export interface Booking {
   service?: Service;
   professional?: ProfessionalProfile;
   client?: User;
+  staff_member?: StaffMember;
 }
 
 // Review types

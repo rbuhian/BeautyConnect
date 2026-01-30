@@ -23,7 +23,8 @@ export type NotificationType =
   | 'booking_cancelled'
   | 'message'
   | 'reminder'
-  | 'review_request';
+  | 'review_request'
+  | 'staff_assigned';
 
 export interface NotificationData {
   type: NotificationType;
@@ -38,7 +39,8 @@ try {
   if (Notifications?.setNotificationHandler) {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
-        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
       }),
@@ -429,6 +431,12 @@ export const NotificationMessages = {
     title: 'How was your appointment?',
     body: `Rate your ${serviceName} experience with ${professionalName}`,
   }),
+
+  // Staff notifications
+  staffAssigned: (clientName: string, serviceName: string, date: string) => ({
+    title: 'New Booking Assigned',
+    body: `You've been assigned to ${clientName}'s ${serviceName} appointment on ${date}`,
+  }),
 };
 
 // ============================================
@@ -582,6 +590,25 @@ export async function sendReviewRequestNotification(
   await logNotification(clientUserId, title, body, 'review_request', bookingId);
   await scheduleLocalNotification(title, body, {
     type: 'review_request',
+    bookingId,
+  });
+}
+
+/**
+ * Send notification to staff member when assigned to a booking
+ */
+export async function sendStaffAssignedNotification(
+  staffUserId: string,
+  clientName: string,
+  serviceName: string,
+  date: string,
+  bookingId: string
+): Promise<void> {
+  const { title, body } = NotificationMessages.staffAssigned(clientName, serviceName, date);
+
+  await logNotification(staffUserId, title, body, 'staff_assigned', bookingId);
+  await scheduleLocalNotification(title, body, {
+    type: 'staff_assigned',
     bookingId,
   });
 }

@@ -19,12 +19,31 @@ export default function RootNavigator() {
     return <Loading fullScreen message="Loading..." />;
   }
 
+  // Determine initial route for incomplete onboarding
+  let initialRoute: 'Splash' | 'RoleSelection' | 'ClientOnboarding' | 'ProfessionalOnboarding' = 'Splash';
+  const needsOnboarding = user && !user.name;
+
+  if (needsOnboarding) {
+    // User has authenticated but hasn't completed onboarding
+    // If role is already set (from seed migration), skip to appropriate onboarding
+    if (user.role === 'professional') {
+      initialRoute = 'ProfessionalOnboarding';
+    } else if (user.role === 'client') {
+      initialRoute = 'ClientOnboarding';
+    } else {
+      // No role set yet, show role selection
+      initialRoute = 'RoleSelection';
+    }
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!user ? (
-          // Not authenticated - show auth flow
-          <Stack.Screen name="Auth" component={AuthNavigator} />
+        {!user || needsOnboarding ? (
+          // Not authenticated or needs onboarding - show auth flow
+          <Stack.Screen name="Auth">
+            {() => <AuthNavigator initialRoute={initialRoute} />}
+          </Stack.Screen>
         ) : user.role === 'professional' ? (
           // Authenticated as professional
           <Stack.Screen name="Professional" component={ProfessionalNavigator} />

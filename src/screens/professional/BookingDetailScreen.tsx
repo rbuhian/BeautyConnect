@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   Image,
   Alert,
   Linking,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
   ArrowLeft,
   Calendar,
@@ -22,10 +23,13 @@ import {
   Check,
   X,
   Navigation,
+  Users,
+  RefreshCw,
+  ChevronRight,
 } from 'lucide-react-native';
 import { GradientButton, Card, Button } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
-import { Booking } from '../../types';
+import { Booking, StaffMember } from '../../types';
 import { updateBookingStatus } from '../../services/professional';
 import { format, parseISO, differenceInHours } from 'date-fns';
 import { useAuth } from '../../hooks/useAuth';
@@ -35,13 +39,85 @@ import {
   sendBookingCancelledNotification,
   sendReviewRequestNotification,
   scheduleBookingReminder,
+  sendStaffAssignedNotification,
 } from '../../services/notifications';
+import {
+  getActiveStaffMembers,
+  reassignBookingStaff,
+} from '../../services/business';
 
 export default function BookingDetailScreen({ navigation, route }: any) {
   const { booking: initialBooking } = route.params as { booking: Booking };
-  const { user } = useAuth();
+  const { user, professionalProfile } = useAuth();
   const [booking, setBooking] = useState<Booking>(initialBooking);
   const [loading, setLoading] = useState(false);
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [reassigning, setReassigning] = useState(false);
+
+  const hasBusiness = !!professionalProfile?.business;
+
+  useEffect(() => {
+    if (hasBusiness && professionalProfile?.business?.id) {
+      loadStaffMembers();
+    }
+  }, [hasBusiness, professionalProfile?.business?.id]);
+
+  const loadStaffMembers = async () => {
+    if (!professionalProfile?.business?.id) return;
+    setLoadingStaff(true);
+    try {
+      const staff = await getActiveStaffMembers(professionalProfile.business.id);
+      setStaffMembers(staff);
+    } catch (err) {
+      console.error('Error loading staff:', err);
+    } finally {
+      setLoadingStaff(false);
+    }
+  };
+
+  const handleReassignStaff = async (staffMember: StaffMember | null) => {
+    setReassigning(true);
+    try {
+      await reassignBookingStaff(booking.id, staffMember?.id || null);
+
+      // Update local booking state with type assertion
+      const updatedBooking = {
+        ...booking,
+        staff_member_id: staffMember?.id || null,
+        staff_member: staffMember ? {
+          id: staffMember.id,
+          name: staffMember.name,
+          avatar: staffMember.avatar,
+        } : undefined,
+      } as Booking;
+      setBooking(updatedBooking);
+
+      // Send notification to staff member if they have a user account
+      if (staffMember?.user_id) {
+        await sendStaffAssignedNotification(
+          staffMember.user_id,
+          booking.client?.name || 'Client',
+          booking.service?.name || 'Service',
+          format(parseISO(booking.date), 'MMM d, yyyy'),
+          booking.id
+        );
+      }
+
+      setShowStaffModal(false);
+      Alert.alert(
+        'Success',
+        staffMember
+          ? `Booking reassigned to ${staffMember.name}`
+          : 'Staff assignment removed'
+      );
+    } catch (err) {
+      Alert.alert('Error', 'Failed to reassign staff member');
+    } finally {
+      setReassigning(false);
+    }
+  };
 
   const formatDate = (dateStr: string) => {
     return format(parseISO(dateStr), 'EEEE, MMMM d, yyyy');
@@ -334,6 +410,82 @@ export default function BookingDetailScreen({ navigation, route }: any) {
           </Card>
         </View>
 
+        {/* Assigned Staff Member / Staff Assignment */}
+        {hasBusiness && (booking.status === 'pending' || booking.status === 'confirmed') && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {booking.staff_member ? 'Assigned Staff' : 'Assign Staff'}
+            </Text>
+            <Card style={styles.staffCard}>
+              {booking.staff_member ? (
+                <View style={styles.staffRow}>
+                  <View style={styles.staffInfo}>
+                    {(booking.staff_member as any)?.avatar ? (
+                      <Image
+                        source={{ uri: (booking.staff_member as any).avatar }}
+                        style={styles.staffAvatar}
+                      />
+                    ) : (
+                      <View style={styles.staffAvatarPlaceholder}>
+                        <Users size={20} color={COLORS.textSecondary} />
+                      </View>
+                    )}
+                    <View style={styles.staffDetails}>
+                      <Text style={styles.staffName}>
+                        {(booking.staff_member as any)?.name || 'Staff Member'}
+                      </Text>
+                      <Text style={styles.staffSubtext}>Will handle this appointment</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.reassignButton}
+                    onPress={() => setShowStaffModal(true)}
+                  >
+                    <RefreshCw size={16} color={COLORS.primary} />
+                    <Text style={styles.reassignText}>Change</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.assignStaffButton}
+                  onPress={() => setShowStaffModal(true)}
+                >
+                  <Users size={20} color={COLORS.primary} />
+                  <Text style={styles.assignStaffText}>Assign a staff member</Text>
+                  <ChevronRight size={20} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </Card>
+          </View>
+        )}
+
+        {/* Show assigned staff for completed/cancelled bookings (read-only) */}
+        {booking.staff_member && (booking.status === 'completed' || booking.status === 'cancelled') && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Assigned Staff</Text>
+            <Card style={styles.staffCard}>
+              <View style={styles.staffInfo}>
+                {(booking.staff_member as any)?.avatar ? (
+                  <Image
+                    source={{ uri: (booking.staff_member as any).avatar }}
+                    style={styles.staffAvatar}
+                  />
+                ) : (
+                  <View style={styles.staffAvatarPlaceholder}>
+                    <Users size={20} color={COLORS.textSecondary} />
+                  </View>
+                )}
+                <View style={styles.staffDetails}>
+                  <Text style={styles.staffName}>
+                    {(booking.staff_member as any)?.name || 'Staff Member'}
+                  </Text>
+                  <Text style={styles.staffSubtext}>Handled this appointment</Text>
+                </View>
+              </View>
+            </Card>
+          </View>
+        )}
+
         {/* Service Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Service</Text>
@@ -475,6 +627,90 @@ export default function BookingDetailScreen({ navigation, route }: any) {
 
         <View style={{ height: 50 }} />
       </ScrollView>
+
+      {/* Staff Selection Modal */}
+      <Modal
+        visible={showStaffModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowStaffModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Staff Member</Text>
+              <TouchableOpacity onPress={() => setShowStaffModal(false)}>
+                <X size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingStaff ? (
+              <View style={styles.modalLoading}>
+                <Text style={styles.modalLoadingText}>Loading staff...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={staffMembers}
+                keyExtractor={(item) => item.id}
+                ListHeaderComponent={
+                  booking.staff_member ? (
+                    <TouchableOpacity
+                      style={styles.staffOptionItem}
+                      onPress={() => handleReassignStaff(null)}
+                      disabled={reassigning}
+                    >
+                      <View style={styles.staffOptionAvatarPlaceholder}>
+                        <X size={20} color={COLORS.textSecondary} />
+                      </View>
+                      <View style={styles.staffOptionDetails}>
+                        <Text style={styles.staffOptionName}>Unassign Staff</Text>
+                        <Text style={styles.staffOptionSubtext}>Remove staff assignment</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ) : null
+                }
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.staffOptionItem,
+                      (booking.staff_member as any)?.id === item.id && styles.staffOptionSelected,
+                    ]}
+                    onPress={() => handleReassignStaff(item)}
+                    disabled={reassigning}
+                  >
+                    {item.avatar ? (
+                      <Image source={{ uri: item.avatar }} style={styles.staffOptionAvatar} />
+                    ) : (
+                      <View style={styles.staffOptionAvatarPlaceholder}>
+                        <User size={20} color={COLORS.textSecondary} />
+                      </View>
+                    )}
+                    <View style={styles.staffOptionDetails}>
+                      <Text style={styles.staffOptionName}>{item.name}</Text>
+                      {item.specialties && item.specialties.length > 0 && (
+                        <Text style={styles.staffOptionSubtext}>
+                          {item.specialties.slice(0, 2).join(', ')}
+                        </Text>
+                      )}
+                    </View>
+                    {(booking.staff_member as any)?.id === item.id && (
+                      <Check size={20} color={COLORS.primary} />
+                    )}
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.modalEmpty}>
+                    <Text style={styles.modalEmptyText}>No staff members found</Text>
+                    <Text style={styles.modalEmptySubtext}>
+                      Add staff members in Team Management
+                    </Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -579,6 +815,71 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     fontWeight: '500',
     color: COLORS.primary,
+  },
+  staffCard: {
+    padding: SPACING.md,
+  },
+  staffRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  staffInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  staffAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
+  staffAvatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.chipBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  staffDetails: {
+    marginLeft: SPACING.md,
+  },
+  staffName: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  staffSubtext: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
+  },
+  reassignButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    backgroundColor: COLORS.chipBackground,
+    borderRadius: RADIUS.sm,
+  },
+  reassignText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+  assignStaffButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+  },
+  assignStaffText: {
+    flex: 1,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.primary,
+    fontWeight: '500',
   },
   serviceName: {
     fontSize: FONT_SIZES.lg,
@@ -728,5 +1029,91 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    maxHeight: '70%',
+    paddingBottom: SPACING.xl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  modalTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  modalLoading: {
+    padding: SPACING.xl,
+    alignItems: 'center',
+  },
+  modalLoadingText: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textSecondary,
+  },
+  modalEmpty: {
+    padding: SPACING.xl,
+    alignItems: 'center',
+  },
+  modalEmptyText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '500',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  modalEmptySubtext: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+  },
+  staffOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  staffOptionSelected: {
+    backgroundColor: COLORS.chipBackground,
+  },
+  staffOptionAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  staffOptionAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.inputBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  staffOptionDetails: {
+    flex: 1,
+    marginLeft: SPACING.md,
+  },
+  staffOptionName: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '500',
+    color: COLORS.textPrimary,
+  },
+  staffOptionSubtext: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
   },
 });

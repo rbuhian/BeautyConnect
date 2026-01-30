@@ -1,277 +1,206 @@
-# Supabase Database Setup
+# BeautyConnect Database Setup
 
-This directory contains all the SQL scripts needed to set up your BeautyConnect database.
+Complete database setup guide for BeautyConnect salon management system.
 
-## Quick Setup (For Testing)
-
-Run these scripts in order in your [Supabase SQL Editor](https://supabase.com/dashboard/project/_/sql):
-
-```sql
-1. schema.sql              -- Creates all tables, RLS policies, functions
-2. seed-demo-data.sql      -- Populates with demo professionals and clients
-```
-
-**If upgrading from an older version**, also run:
-```sql
-3. remove_old_trigger.sql  -- Removes old auth trigger (prevents duplicate users)
-```
-
-That's it! The app handles seed data migration automatically when you login.
-
-## Database Files
-
-### 1. schema.sql
-
-**Purpose**: Creates the complete database structure
-
-**What it does**:
-- Creates all tables (users, professional_profiles, services, bookings, reviews, messages, etc.)
-- Sets up Row Level Security (RLS) policies for data protection
-- Creates database functions and triggers
-- Defines custom types (category, booking_status, etc.)
-
-**When to run**: First time setting up the database, or when resetting everything
-
-### 2. seed-demo-data.sql
-
-**Purpose**: Populates database with realistic test data
-
-**What it creates**:
-- 3 Client accounts with booking history
-- 5 Professional accounts with complete profiles:
-  - Services (makeup, hair, nails, lash, brow)
-  - Availability schedules
-  - Portfolio photos
-  - Reviews and ratings
-- Sample bookings (completed, confirmed, pending)
-- Sample messages
-- Sample reviews
-- Favorites
-
-**Demo Accounts**:
-
-| Phone | Name | Role | Specialties |
-|-------|------|------|-------------|
-| +639201111111 | Bella Garcia | Professional | Makeup, Lash |
-| +639202222222 | Carmen Dela Cruz | Professional | Hair |
-| +639203333333 | Diana Mendoza | Professional | Nails |
-| +639204444444 | Elena Villanueva | Professional | Lash, Brow |
-| +639205555555 | Fatima Ramos | Professional | Makeup, Hair, Brow |
-| +639171234567 | Maria Santos | Client | - |
-| +639182345678 | Ana Reyes | Client | - |
-| +639193456789 | Sofia Cruz | Client | - |
-
-**When to run**: After schema.sql, before testing the app
-
-### 3. migrations/20260122_add_typing_indicators.sql
-
-**Purpose**: Adds typing indicators feature to chat
-
-**When to run**: After schema.sql if typing indicators table doesn't exist
-
----
-
-## How Seed Data Works with Phone Auth
-
-### The Problem
-
-When you login via phone OTP:
-1. Supabase creates a new auth user with a random UUID
-2. Your seed data has different UUIDs
-3. Without migration, the app can't find your professional profile
-
-### The Solution: App-Level Migration
-
-The app automatically migrates seed data when you login! Here's how:
+## File Structure
 
 ```
-User logs in with +639201111111
-   ↓
-Receives and enters OTP
-   ↓
-App detects this phone exists in seed data
-   ↓
-Automatically migrates all data:
-   - User profile (name, avatar, role)
-   - Professional profile (bio, services, portfolio)
-   - Services with updated references
-   - Bookings with updated professional_id and service_id
-   - Messages with updated booking_id
-   - Reviews with updated references
-   - Favorites with updated professional_id
-   ↓
-You're now logged in as "Bella Garcia" with all bookings and messages!
-```
-
-**Implementation**: The migration logic is in `src/services/auth.ts` in the `migrateSeedDataToNewUser()` function.
-
-**Advantages**:
-- No database triggers needed
-- Works in all Supabase environments
-- Easier to debug (console logs)
-- Handles all foreign key relationships correctly
-
----
-
-## Testing Workflow
-
-### Option A: With Seed Data (Recommended)
-
-```bash
-# 1. Run SQL scripts in Supabase
-schema.sql → seed-demo-data.sql
-
-# 2. Start your app
-npx expo start
-
-# 3. Login with any seed data phone number
-Phone: +639201111111
-OTP: (receive via SMS)
-
-# 4. You're automatically "Bella Garcia" with all services and bookings!
-```
-
-### Option B: Fresh Start (Manual Setup)
-
-```bash
-# 1. Run SQL script in Supabase
-schema.sql
-
-# 2. Start your app
-npx expo start
-
-# 3. Login with any phone number
-Phone: +639999999999
-OTP: (receive via SMS)
-
-# 4. Select role and complete onboarding
-Client or Professional → Complete profile
+supabase/
+├── README.md                                    # This file
+└── migrations/
+    ├── 20260125_salon_business_support.sql      # Schema + utility functions
+    └── 01_seed_data.sql                         # Seed data (business, staff, services, bookings)
 ```
 
 ---
 
-## Common Issues
+## Quick Setup
 
-### Issue: "Professional logging in as client" or "Duplicate user entries"
+### Prerequisites
+- Supabase project created
+- Access to Supabase SQL Editor
 
-**Cause**: Old database trigger is creating basic client profiles before app migration runs
+### Setup Steps
 
-**Fix**: Remove the old trigger and clear migrated data:
-```sql
--- Step 1: Remove old trigger (run once)
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-DROP FUNCTION IF EXISTS handle_new_user();
+1. **Open Supabase SQL Editor**
+   - Go to your Supabase project dashboard
+   - Click "SQL Editor" in the left sidebar
 
--- Step 2: Delete migrated auth user (keeps original seed data)
-DELETE FROM auth.users
-WHERE phone = '+639201111111'
-AND id != 'aaaa1111-aaaa-1111-aaaa-111111111111';
+2. **Run Schema Migration** (if not already done)
+   ```sql
+   -- Copy and paste contents of:
+   migrations/20260125_salon_business_support.sql
+   ```
+   Click "Run" and wait for completion.
 
--- Logout from app and login again
-```
+   This creates:
+   - Database tables (businesses, staff_members, staff_availability, staff_blocked_dates)
+   - RLS policies
+   - Helper functions
+   - Migration utility function
 
-Or simply run `remove_old_trigger.sql` for step 1.
-
-### Issue: "Need to clear migration and test again"
-
-**Fix**: Delete the migrated auth user and login again:
-```sql
--- Delete migrated auth user (keeps original seed data)
-DELETE FROM auth.users
-WHERE phone = '+639201111111'
-AND id != 'aaaa1111-aaaa-1111-aaaa-111111111111';
-
--- Logout from app and login again
-```
-
-### Issue: "UUID conflicts when running seed data"
-
-**Cause**: Seed data was already run
-
-**Fix**:
-```sql
--- The seed script uses ON CONFLICT DO UPDATE, so just re-run it
--- Or clear everything and start fresh:
-DELETE FROM reviews;
-DELETE FROM bookings;
-DELETE FROM messages;
-DELETE FROM favorites;
-DELETE FROM availability;
-DELETE FROM services;
-DELETE FROM professional_profiles;
-DELETE FROM users;
-DELETE FROM auth.users WHERE phone IN ('+639201111111', '+639202222222', ...);
-```
-
-### Issue: "Bookings or messages not showing for professionals"
-
-**Cause**: Old migration didn't copy bookings/messages correctly
-
-**Fix**: This has been fixed in the latest version. Delete migrated users and login again:
-```sql
--- Clear migrated data
-DELETE FROM auth.users
-WHERE phone = '+639201111111'
-AND id != 'aaaa1111-aaaa-1111-aaaa-111111111111';
-
--- Login again to trigger fresh migration
-```
-
-### Issue: "RLS policy errors"
-
-**Cause**: User doesn't have permission to access data
-
-**Fix**: Check that:
-1. User is authenticated (has a valid session)
-2. RLS policies are set up correctly (run schema.sql)
-3. User role matches the policy requirements
+3. **Run Seed Data**
+   ```sql
+   -- Copy and paste contents of:
+   migrations/01_seed_data.sql
+   ```
+   Click "Run". You should see:
+   ```
+   ✓ Seed data created successfully!
+   - Business: Glam Haven Salon & Spa
+   - 5 Staff Members with availability
+   - 11 Services across all categories
+   - 4 Sample bookings
+   ```
 
 ---
 
-## Database Diagram
+## What Gets Created
+
+### Business Owner Account
+- **Phone:** +639206666666
+- **Name:** Gloria Salon Owner
+- **Business:** Glam Haven Salon & Spa
+- **Type:** Salon
+- **Location:** 3rd Floor, SM Mall of Asia, Pasay City, Metro Manila
+
+Login with this account to manage the business, staff, and services.
+
+### Staff Members
+
+| Name | Phone | Specialties | Has Account | Schedule |
+|------|-------|-------------|-------------|----------|
+| Hannah Lee | +639207777777 | Makeup, Lash | ✓ | Mon-Sat, 10am-7pm |
+| Isabel Tan | +639208888888 | Hair | ✓ | Tue-Sun, 11am-8pm |
+| Jessica Wong | +639209999999 | Nails, Brow | ✓ | Mon-Sat, 9am-6pm |
+| Karen Flores | - | Makeup | ✗ | Wed-Sun, 12pm-9pm |
+| Lily Chen | - | Hair, Lash | ✗ | Mon-Fri, 10am-7pm |
+
+**Staff with accounts** can login using their phone numbers and manage their own schedules.
+
+**Staff without accounts** are managed entirely by the business owner.
+
+### Services
+- **Makeup:** Bridal Package, Party Glam, Natural Day Makeup
+- **Hair:** Korean Color & Style, Treatment & Blow Dry, Haircut & Style
+- **Lash:** Volume Extensions, Classic Extensions
+- **Nails:** Gel Manicure with Art, Premium Pedicure
+- **Brow:** Lamination & Tint
+
+### Sample Bookings
+- 4 test bookings with different statuses (pending, confirmed, completed)
+- Assigned to various staff members
+- Uses existing client users from previous migrations
+
+---
+
+## Database Schema
+
+### Tables Created (Schema Migration)
+
+- `businesses` - Salon/spa business information
+- `staff_members` - Staff members working at businesses
+- `staff_availability` - Weekly schedules for staff
+- `staff_blocked_dates` - Blocked dates (vacations, sick days)
+
+### Utility Functions
+
+- `migrate_business_professional_id()` - Migrates business ownership when seed users login
+- `is_staff_available()` - Checks if staff is available at a given time
+- `get_available_staff()` - Returns available staff for a service
+- `auto_assign_staff()` - Auto-assigns staff to bookings
+
+### Database Relationships
 
 ```
 auth.users (Supabase Auth)
     ↓
-users (App users table)
-    ├─→ professional_profiles (has ID different from user_id)
-    │      ├─→ services (references professional_profiles.id)
-    │      ├─→ availability (references professional_profiles.id)
-    │      ├─→ bookings (references professional_profiles.id)
-    │      └─→ favorites (references professional_profiles.id)
-    │
-    ├─→ bookings (as client_id)
-    │      ├─→ messages
-    │      └─→ reviews
-    │
-    └─→ reviews (as reviewer/reviewee)
+users (App users)
+    ↓
+professional_profiles
+    ↓
+businesses (professional_id references professional_profiles.id)
+    ↓
+staff_members (business_id references businesses.id)
+    ├─→ staff_availability (weekly schedules)
+    ├─→ staff_blocked_dates (time off)
+    ├─→ services (optional staff assignment)
+    └─→ bookings (optional staff assignment)
 ```
 
-**Important**: Note that `bookings.professional_id` references `professional_profiles.id` (NOT `users.id`). The migration handles this correctly by tracking ID mappings.
+---
+
+## How Migration Works
+
+When you login with a staff member's phone number:
+
+1. Supabase creates a new auth user with a random UUID
+2. App detects this phone exists in seed data
+3. Migration automatically runs (`src/services/auth.ts`)
+4. Business and staff data are linked to your new user ID using `migrate_business_professional_id()`
+
+**Benefits:**
+- No database triggers needed
+- Works in all Supabase environments
+- Easy to debug with console logs
+- Handles all foreign key relationships
 
 ---
 
-## Files in This Directory
+## Troubleshooting
 
-| File | Purpose |
-|------|---------|
-| `schema.sql` | Complete database structure |
-| `seed-demo-data.sql` | Demo data for testing (5 professionals, 3 clients, bookings, messages) |
-| `remove_old_trigger.sql` | Removes old auth trigger (run if upgrading) |
-| `migrations/` | Database migrations (e.g., typing indicators) |
-| `README.md` | This file |
+### Business owner shows as "Individual Professional"
+
+**Solution:**
+1. Make sure both migration files were run successfully
+2. The migration function should auto-link the business when you log in
+3. Check that the business `professional_id` matches your profile ID:
+   ```sql
+   SELECT id, professional_id, business_name
+   FROM businesses;
+   ```
+
+### No staff members showing
+
+**Solution:** Make sure you ran `01_seed_data.sql` which creates the business and all 5 staff members.
+
+### Error: "relation already exists"
+
+**Solution:** The table was already created. This is safe to ignore.
+
+### Error: "column does not exist"
+
+**Solution:** Make sure you ran `20260125_salon_business_support.sql` first.
+
+### Need to reset and test again
+
+**Solution:** Delete the migrated auth user and login again:
+```sql
+-- Delete migrated auth user (keeps original seed data)
+DELETE FROM auth.users
+WHERE phone = '+639206666666'
+AND id != '1b1a6bad-d484-4ca9-adc8-d9e8486670d4';
+
+-- Logout from app and login again
+```
+
+### RLS policy errors
+
+**Fix:** Check that:
+1. User is authenticated (has a valid session)
+2. RLS policies are set up correctly (run schema migration)
+3. User role matches the policy requirements
 
 ---
 
-## Tips
+## Notes
 
-- Always run `schema.sql` first
-- Seed data migration is automatic - just login with seed phone numbers
+- All seed data uses `ON CONFLICT` clauses, so it can be re-run safely
+- Staff availability is set with realistic schedules (different days/hours for each staff)
+- The migration utility function enables automatic business linking when seed users log in
 - Check console logs during login to see migration progress
-- To reset testing, delete migrated auth users and login again
-- Use seed data phone numbers to test without manual setup
 - Check Supabase logs if you see unexpected behavior
 
 ---
 
-*Last updated: 2026-01-24*
+*Last updated: 2026-01-30*

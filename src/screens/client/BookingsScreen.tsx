@@ -15,6 +15,7 @@ import {
   Clock,
   MapPin,
   ChevronRight,
+  User,
 } from 'lucide-react-native';
 import { Card, Loading, EmptyState, SkeletonList } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
@@ -98,6 +99,7 @@ export default function BookingsScreen({ navigation }: any) {
     const proName = (item.professional as any)?.user?.name || 'Beauty Professional';
     const proAvatar = (item.professional as any)?.user?.avatar;
     const serviceName = (item.service as any)?.name || 'Service';
+    const staffMember = item.staff_member as { id: string; name: string; avatar: string | null } | null;
 
     return (
       <TouchableOpacity
@@ -126,6 +128,14 @@ export default function BookingsScreen({ navigation }: any) {
                 <Text style={styles.serviceName} numberOfLines={1}>
                   {serviceName}
                 </Text>
+                {staffMember && (
+                  <View style={styles.staffRow}>
+                    <User size={12} color={COLORS.textSecondary} />
+                    <Text style={styles.staffName} numberOfLines={1}>
+                      with {staffMember.name}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
             <View
@@ -312,6 +322,17 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
     marginTop: SPACING.xs,
+  },
+  staffRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: SPACING.xs,
+  },
+  staffName: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
   },
   statusBadge: {
     paddingHorizontal: SPACING.sm,

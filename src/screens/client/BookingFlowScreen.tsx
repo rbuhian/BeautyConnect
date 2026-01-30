@@ -501,7 +501,7 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
   const isLastStep = step === totalSteps;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <ArrowLeft size={24} color={COLORS.textPrimary} />
@@ -546,7 +546,11 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
         ))}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+        style={styles.scrollView}
+      >
         {step === 1 && renderStep1()}
         {step === 2 && renderStep2()}
         {step === 3 && showLocationStep && renderStep3Location()}
@@ -819,13 +823,11 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     lineHeight: 20,
   },
+  scrollView: {
+    flex: 1,
+  },
   bottomAction: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     padding: SPACING.lg,
-    paddingBottom: SPACING.xl,
     backgroundColor: COLORS.white,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,

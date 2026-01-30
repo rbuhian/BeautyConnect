@@ -12,10 +12,14 @@ import ProfessionalOnboardingScreen from '../screens/auth/ProfessionalOnboarding
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
-export default function AuthNavigator() {
+interface AuthNavigatorProps {
+  initialRoute?: keyof AuthStackParamList;
+}
+
+export default function AuthNavigator({ initialRoute = 'Splash' }: AuthNavigatorProps) {
   return (
     <Stack.Navigator
-      initialRouteName="Splash"
+      initialRouteName={initialRoute}
       screenOptions={{
         headerShown: false,
         animation: 'slide_from_right',

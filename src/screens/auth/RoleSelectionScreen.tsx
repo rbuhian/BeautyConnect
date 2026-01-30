@@ -25,38 +25,8 @@ export default function RoleSelectionScreen({ navigation }: AuthScreenProps<'Rol
         navigation.navigate('ProfessionalOnboarding');
       }
     } else {
-      // For development/testing, allow bypass if Supabase isn't configured or database isn't set up
-      const errorLower = result.error?.toLowerCase() || '';
-      const isDevelopmentError =
-        errorLower.includes('invalid api key') ||
-        errorLower.includes('fetch') ||
-        errorLower.includes('not authenticated') ||
-        errorLower.includes('database') ||
-        errorLower.includes('relation') ||
-        errorLower.includes('does not exist') ||
-        errorLower.includes('saving') ||
-        errorLower.includes('user');
-
-      if (isDevelopmentError) {
-        Alert.alert(
-          'Development Mode',
-          `Database may not be set up. Proceeding to onboarding for testing.\n\nTo fix: Run supabase/schema.sql in your Supabase SQL Editor.\n\nError: ${result.error}`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                if (role === 'client') {
-                  navigation.navigate('ClientOnboarding');
-                } else {
-                  navigation.navigate('ProfessionalOnboarding');
-                }
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert('Error', result.error || 'Failed to set role. Please try again.');
-      }
+      console.error('setRole error:', result.error);
+      Alert.alert('Error', result.error || 'Failed to set role. Please try again.');
     }
   };
 

@@ -16,6 +16,7 @@ import {
   Edit,
   Briefcase,
   Calendar,
+  CalendarCheck,
   Settings,
   LogOut,
   Phone,
@@ -24,21 +25,66 @@ import {
   CheckCircle,
   Eye,
   EyeOff,
+  Users,
+  Building2,
+  Award,
 } from 'lucide-react-native';
 import { Card } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
 import { updateProfessionalProfile } from '../../services/professional';
+import { getStaffMemberByUserId } from '../../services/business';
+import { StaffMember } from '../../types';
 
 export default function ProfileScreen({ navigation }: any) {
-  const { user, professionalProfile, logout } = useAuth();
+  const { user, professionalProfile, refreshProfessionalProfile, logout } = useAuth();
   const [isLiveLocal, setIsLiveLocal] = useState(professionalProfile?.is_live || false);
   const [toggling, setToggling] = useState(false);
+  const [isStaffMember, setIsStaffMember] = useState(false);
+  const [staffMemberInfo, setStaffMemberInfo] = useState<StaffMember | null>(null);
+
+  // Refresh profile on mount to get latest data including business
+  useEffect(() => {
+    refreshProfessionalProfile();
+  }, []);
+
+  // Debug logging
+  useEffect(() => {
+    if (professionalProfile) {
+      console.log('=== Professional Profile Debug ===');
+      console.log('Profile ID:', professionalProfile.id);
+      console.log('User ID:', professionalProfile.user_id);
+      console.log('Has business?', !!professionalProfile.business);
+      if (professionalProfile.business) {
+        console.log('Business name:', professionalProfile.business.business_name);
+        console.log('Business type:', professionalProfile.business.business_type);
+      }
+      console.log('Staff members count:', professionalProfile.staff_members?.length || 0);
+      console.log('==================================');
+    }
+  }, [professionalProfile]);
 
   // Sync with professionalProfile changes
   useEffect(() => {
     setIsLiveLocal(professionalProfile?.is_live || false);
   }, [professionalProfile?.is_live]);
+
+  // Check if user is a staff member of any business
+  useEffect(() => {
+    const checkStaffStatus = async () => {
+      if (!user?.id) return;
+      try {
+        const staffMember = await getStaffMemberByUserId(user.id);
+        if (staffMember) {
+          setIsStaffMember(true);
+          setStaffMemberInfo(staffMember);
+        }
+      } catch (err) {
+        console.error('Error checking staff status:', err);
+      }
+    };
+    checkStaffStatus();
+  }, [user?.id]);
 
   const handleToggleLive = async (value: boolean) => {
     if (!professionalProfile?.id) return;
@@ -76,6 +122,8 @@ export default function ProfileScreen({ navigation }: any) {
     );
   };
 
+  const hasBusiness = !!professionalProfile?.business;
+
   const menuItems = [
     {
       icon: Edit,
@@ -92,6 +140,28 @@ export default function ProfileScreen({ navigation }: any) {
       label: 'Manage Availability',
       onPress: () => navigation.navigate('Availability'),
     },
+    // Show Team Management only for business owners
+    ...(hasBusiness
+      ? [
+          {
+            icon: Users,
+            label: 'Team Management',
+            subtitle: professionalProfile?.business?.business_name,
+            onPress: () => navigation.navigate('StaffList'),
+          },
+        ]
+      : []),
+    // Show My Assigned Bookings for staff members
+    ...(isStaffMember
+      ? [
+          {
+            icon: CalendarCheck,
+            label: 'My Assigned Bookings',
+            subtitle: (staffMemberInfo as any)?.business?.business_name || 'Staff',
+            onPress: () => navigation.navigate('StaffBookings'),
+          },
+        ]
+      : []),
     {
       icon: Settings,
       label: 'Settings',
@@ -146,6 +216,69 @@ export default function ProfileScreen({ navigation }: any) {
               <Text style={styles.phoneText}>{user?.phone || ''}</Text>
             </View>
 
+            {/* Account Type Badge */}
+            {hasBusiness ? (
+              <View style={styles.accountBadge}>
+                <LinearGradient
+                  colors={['#8B5CF6', '#6366F1']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.accountBadgeGradient}
+                >
+                  <Building2 size={14} color={COLORS.white} />
+                  <Text style={styles.accountBadgeText}>Business Owner</Text>
+                </LinearGradient>
+              </View>
+            ) : isStaffMember ? (
+              <View style={styles.accountBadge}>
+                <LinearGradient
+                  colors={['#10B981', '#059669']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.accountBadgeGradient}
+                >
+                  <Award size={14} color={COLORS.white} />
+                  <Text style={styles.accountBadgeText}>Staff Member</Text>
+                </LinearGradient>
+              </View>
+            ) : (
+              <View style={styles.accountBadge}>
+                <View style={styles.accountBadgeIndividual}>
+                  <User size={14} color={COLORS.primary} />
+                  <Text style={styles.accountBadgeTextIndividual}>Individual Professional</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Business/Staff Info */}
+            {hasBusiness && professionalProfile?.business && (
+              <View style={styles.businessInfo}>
+                {professionalProfile.business.logo ? (
+                  <Image
+                    source={{ uri: professionalProfile.business.logo }}
+                    style={styles.businessLogo}
+                  />
+                ) : (
+                  <View style={styles.businessLogoPlaceholder}>
+                    <Building2 size={16} color={COLORS.primary} />
+                  </View>
+                )}
+                <Text style={styles.businessName}>
+                  {professionalProfile.business.business_name}
+                </Text>
+              </View>
+            )}
+            {isStaffMember && staffMemberInfo && (
+              <View style={styles.businessInfo}>
+                <View style={styles.businessLogoPlaceholder}>
+                  <Building2 size={16} color={COLORS.success} />
+                </View>
+                <Text style={styles.businessName}>
+                  {(staffMemberInfo as any)?.business?.business_name || 'Staff Member'}
+                </Text>
+              </View>
+            )}
+
             {/* Live Status Toggle */}
             <View style={styles.liveToggleContainer}>
               <View style={styles.liveToggleInfo}>
@@ -199,7 +332,12 @@ export default function ProfileScreen({ navigation }: any) {
               <View style={styles.menuIconContainer}>
                 <item.icon size={20} color={COLORS.primary} />
               </View>
-              <Text style={styles.menuLabel}>{item.label}</Text>
+              <View style={styles.menuTextContainer}>
+                <Text style={styles.menuLabel}>{item.label}</Text>
+                {'subtitle' in item && item.subtitle && (
+                  <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                )}
+              </View>
               <ChevronRight size={20} color={COLORS.textSecondary} />
             </TouchableOpacity>
           ))}
@@ -277,6 +415,69 @@ const styles = StyleSheet.create({
   phoneText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
+  },
+  accountBadge: {
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  accountBadgeGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.round,
+    gap: SPACING.xs,
+  },
+  accountBadgeText: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  accountBadgeIndividual: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.chipBackground,
+    gap: SPACING.xs,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  accountBadgeTextIndividual: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  businessInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.chipBackground,
+    borderRadius: RADIUS.md,
+  },
+  businessLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.sm,
+  },
+  businessLogoPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  businessName: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
   },
   liveToggleContainer: {
     flexDirection: 'row',
@@ -356,11 +557,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: SPACING.md,
   },
-  menuLabel: {
+  menuTextContainer: {
     flex: 1,
+  },
+  menuLabel: {
     fontSize: FONT_SIZES.md,
     color: COLORS.textPrimary,
     fontWeight: '500',
+  },
+  menuSubtitle: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   logoutSection: {
     paddingHorizontal: SPACING.lg,

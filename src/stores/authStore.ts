@@ -153,8 +153,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     set({ user: updatedUser });
 
-    // If professional, create professional profile
+    // If professional, get or create professional profile
     if (role === 'professional') {
+      // First check if profile already exists
+      const { data: existingProfile } = await getProfessionalProfile(user.id);
+
+      if (existingProfile) {
+        // Use existing profile
+        set({ professionalProfile: existingProfile, loading: false });
+        return { success: true };
+      }
+
+      // Create new profile if none exists
       const { data: proProfile, error: proError } = await createProfessionalProfile(user.id);
 
       if (proError) {

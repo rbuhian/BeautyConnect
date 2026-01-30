@@ -297,6 +297,43 @@ async function migrateSeedDataToNewUser(newUserId: string, phone: string): Promi
           await supabase.from('favorites').insert(newFavorites);
           console.log('Copied', newFavorites.length, 'favorites');
         }
+
+        // Copy business and staff members (if this is a salon/spa/studio)
+        const { data: seedBusiness } = await supabase
+          .from('businesses')
+          .select('*')
+          .eq('professional_id', oldProfileId)
+          .single();
+
+        if (seedBusiness) {
+          // Update business to point to new professional profile using RPC to bypass RLS
+          const { data: migrationSuccess, error: businessUpdateError } = await supabase
+            .rpc('migrate_business_professional_id', {
+              p_business_id: seedBusiness.id,
+              p_old_professional_id: oldProfileId,
+              p_new_professional_id: newProfileId,
+            });
+
+          if (businessUpdateError) {
+            console.error('Error migrating business professional_id:', businessUpdateError);
+          } else if (migrationSuccess) {
+            console.log('Successfully migrated business to new professional profile');
+            console.log('Business:', seedBusiness.business_name, '-> Profile ID:', newProfileId);
+
+            // Staff members are already created in seed data and linked to business by business_id
+            // No need to migrate them - they will work automatically
+            const { data: seedStaff } = await supabase
+              .from('staff_members')
+              .select('id, name')
+              .eq('business_id', seedBusiness.id);
+
+            if (seedStaff && seedStaff.length > 0) {
+              console.log('Business has', seedStaff.length, 'staff members');
+            }
+          } else {
+            console.warn('Business migration returned false - business may have already been migrated');
+          }
+        }
       }
     }
 
@@ -569,12 +606,13 @@ export async function createProfessionalProfile(
   }
 }
 
-// Get professional profile
+// Get professional profile (with business and staff if exists)
 export async function getProfessionalProfile(
   userId: string
 ): Promise<AuthResponse<ProfessionalProfile>> {
   try {
-    const { data, error } = await supabase
+    // Fetch professional profile
+    const { data: profile, error } = await supabase
       .from('professional_profiles')
       .select('*')
       .eq('user_id', userId)
@@ -584,7 +622,37 @@ export async function getProfessionalProfile(
       return { data: null, error: { message: error.message } };
     }
 
-    return { data: data as ProfessionalProfile | null, error: null };
+    if (!profile) {
+      return { data: null, error: null };
+    }
+
+    // Fetch business if exists
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('*')
+      .eq('professional_id', profile.id)
+      .single();
+
+    // If business exists, fetch staff members
+    let staffMembers = null;
+    if (business) {
+      const { data: staff } = await supabase
+        .from('staff_members')
+        .select('*')
+        .eq('business_id', business.id)
+        .eq('is_active', true)
+        .order('name');
+      staffMembers = staff;
+    }
+
+    return {
+      data: {
+        ...profile,
+        business: business || undefined,
+        staff_members: staffMembers || undefined,
+      } as ProfessionalProfile,
+      error: null,
+    };
   } catch (err) {
     return { data: null, error: { message: 'Failed to fetch professional profile.' } };
   }

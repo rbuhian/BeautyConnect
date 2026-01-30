@@ -10,14 +10,22 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { Camera, User, Check } from 'lucide-react-native';
+import { Camera, User, Check, Building2, UserCircle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { AuthScreenProps } from '../../navigation/types';
 import { GradientButton, Input, Card } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, APP_NAME, CATEGORIES } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
-import { Category } from '../../types';
+import { Category, BusinessType } from '../../types';
+import { createBusiness } from '../../services/business';
+import { useAuthStore } from '../../stores/authStore';
+
+const BUSINESS_TYPES: { value: BusinessType; label: string; description: string }[] = [
+  { value: 'salon', label: 'Salon', description: 'Hair salon, nail salon, beauty parlor' },
+  { value: 'spa', label: 'Spa', description: 'Wellness spa, massage, facials' },
+  { value: 'studio', label: 'Studio', description: 'Makeup studio, photography studio' },
+];
 
 export default function ProfessionalOnboardingScreen({ navigation }: AuthScreenProps<'ProfessionalOnboarding'>) {
   const [step, setStep] = useState(1);
@@ -27,6 +35,12 @@ export default function ProfessionalOnboardingScreen({ navigation }: AuthScreenP
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { updateProfile } = useAuth();
+
+  // Business-specific state
+  const [isBusiness, setIsBusiness] = useState<boolean | null>(null);
+  const [businessName, setBusinessName] = useState('');
+  const [businessType, setBusinessType] = useState<BusinessType>('salon');
+  const professionalProfile = useAuthStore((state) => state.professionalProfile);
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -68,7 +82,18 @@ export default function ProfessionalOnboardingScreen({ navigation }: AuthScreenP
         return;
       }
       setError('');
-      setStep(2);
+      setStep(2); // Go to business type selection
+    } else if (step === 2) {
+      if (isBusiness === null) {
+        setError('Please select an option');
+        return;
+      }
+      if (isBusiness && !businessName.trim()) {
+        setError('Please enter your business name');
+        return;
+      }
+      setError('');
+      setStep(3); // Go to category selection
     }
   };
 
@@ -81,28 +106,41 @@ export default function ProfessionalOnboardingScreen({ navigation }: AuthScreenP
     setLoading(true);
     setError('');
 
-    // Update user profile with name
-    const result = await updateProfile({
-      name: name.trim(),
-      avatar: avatar || undefined,
-    });
+    try {
+      // Update user profile with name
+      const result = await updateProfile({
+        name: name.trim(),
+        avatar: avatar || undefined,
+      });
 
-    setLoading(false);
-
-    if (result.success) {
-      // TODO: Also update professional_profiles with categories
-      // Navigation will be handled by RootNavigator
-    } else {
-      // For development/testing
-      if (result.error?.includes('Invalid API key') || result.error?.includes('fetch') || result.error?.includes('Not authenticated')) {
-        Alert.alert(
-          'Development Mode',
-          'Supabase not configured. Profile would be saved in production.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        setError(result.error || 'Failed to save profile');
+      if (!result.success) {
+        // For development/testing
+        if (result.error?.includes('Invalid API key') || result.error?.includes('fetch') || result.error?.includes('Not authenticated')) {
+          Alert.alert(
+            'Development Mode',
+            'Supabase not configured. Profile would be saved in production.',
+            [{ text: 'OK' }]
+          );
+          setLoading(false);
+          return;
+        } else {
+          throw new Error(result.error || 'Failed to save profile');
+        }
       }
+
+      // Create business if user selected business option
+      if (isBusiness && professionalProfile?.id) {
+        await createBusiness(professionalProfile.id, {
+          business_name: businessName.trim(),
+          business_type: businessType,
+        });
+      }
+
+      // Navigation will be handled by RootNavigator
+    } catch (err: any) {
+      setError(err.message || 'Failed to complete setup');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -162,6 +200,161 @@ export default function ProfessionalOnboardingScreen({ navigation }: AuthScreenP
   const renderStep2 = () => (
     <>
       <View style={styles.header}>
+        <Text style={styles.title}>Are you a salon or business?</Text>
+        <Text style={styles.subtitle}>
+          If you run a salon, spa, or studio with multiple staff members, select "Yes" to set up your business profile.
+        </Text>
+      </View>
+
+      <View style={styles.businessOptions}>
+        {/* Individual Professional Option */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => {
+            setIsBusiness(false);
+            setError('');
+          }}
+        >
+          <Card
+            style={[
+              styles.businessOptionCard,
+              isBusiness === false && styles.businessOptionCardSelected,
+            ]}
+          >
+            <LinearGradient
+              colors={
+                isBusiness === false
+                  ? [COLORS.gradientStart, COLORS.gradientEnd]
+                  : [COLORS.inputBackground, COLORS.inputBackground]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.businessOptionIcon}
+            >
+              <UserCircle size={32} color={isBusiness === false ? COLORS.white : COLORS.textSecondary} />
+            </LinearGradient>
+            <View style={styles.businessOptionText}>
+              <Text style={[styles.businessOptionTitle, isBusiness === false && styles.businessOptionTitleSelected]}>
+                Individual Professional
+              </Text>
+              <Text style={styles.businessOptionDescription}>
+                I work independently as a freelancer
+              </Text>
+            </View>
+            {isBusiness === false && (
+              <View style={styles.checkCircle}>
+                <Check size={16} color={COLORS.white} />
+              </View>
+            )}
+          </Card>
+        </TouchableOpacity>
+
+        {/* Business Option */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => {
+            setIsBusiness(true);
+            setError('');
+          }}
+        >
+          <Card
+            style={[
+              styles.businessOptionCard,
+              isBusiness === true && styles.businessOptionCardSelected,
+            ]}
+          >
+            <LinearGradient
+              colors={
+                isBusiness === true
+                  ? [COLORS.gradientStart, COLORS.gradientEnd]
+                  : [COLORS.inputBackground, COLORS.inputBackground]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.businessOptionIcon}
+            >
+              <Building2 size={32} color={isBusiness === true ? COLORS.white : COLORS.textSecondary} />
+            </LinearGradient>
+            <View style={styles.businessOptionText}>
+              <Text style={[styles.businessOptionTitle, isBusiness === true && styles.businessOptionTitleSelected]}>
+                Salon / Business
+              </Text>
+              <Text style={styles.businessOptionDescription}>
+                I run a salon, spa, or studio with staff
+              </Text>
+            </View>
+            {isBusiness === true && (
+              <View style={styles.checkCircle}>
+                <Check size={16} color={COLORS.white} />
+              </View>
+            )}
+          </Card>
+        </TouchableOpacity>
+      </View>
+
+      {/* Business Details (shown when business is selected) */}
+      {isBusiness && (
+        <View style={styles.businessDetails}>
+          <Input
+            label="Business Name"
+            placeholder="Enter your business name"
+            value={businessName}
+            onChangeText={(text) => {
+              setBusinessName(text);
+              setError('');
+            }}
+            autoCapitalize="words"
+          />
+
+          <Text style={styles.businessTypeLabel}>Business Type</Text>
+          <View style={styles.businessTypeOptions}>
+            {BUSINESS_TYPES.map((type) => (
+              <TouchableOpacity
+                key={type.value}
+                activeOpacity={0.8}
+                onPress={() => setBusinessType(type.value)}
+                style={[
+                  styles.businessTypeOption,
+                  businessType === type.value && styles.businessTypeOptionSelected,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.businessTypeText,
+                    businessType === type.value && styles.businessTypeTextSelected,
+                  ]}
+                >
+                  {type.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      <View style={styles.stepActions}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => setStep(1)}
+        >
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+        <View style={styles.continueButton}>
+          <GradientButton
+            title="Continue"
+            onPress={handleNextStep}
+            disabled={isBusiness === null || (isBusiness && !businessName.trim())}
+          />
+        </View>
+      </View>
+    </>
+  );
+
+  const renderStep3 = () => (
+    <>
+      <View style={styles.header}>
         <Text style={styles.title}>What do you specialize in?</Text>
         <Text style={styles.subtitle}>
           Select all the services you offer. You can add more details later.
@@ -216,7 +409,7 @@ export default function ProfessionalOnboardingScreen({ navigation }: AuthScreenP
       <View style={styles.stepActions}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => setStep(1)}
+          onPress={() => setStep(2)}
         >
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
@@ -246,9 +439,13 @@ export default function ProfessionalOnboardingScreen({ navigation }: AuthScreenP
           <View style={[styles.progressDot, step >= 1 && styles.progressDotActive]} />
           <View style={styles.progressLine} />
           <View style={[styles.progressDot, step >= 2 && styles.progressDotActive]} />
+          <View style={styles.progressLine} />
+          <View style={[styles.progressDot, step >= 3 && styles.progressDotActive]} />
         </View>
 
-        {step === 1 ? renderStep1() : renderStep2()}
+        {step === 1 && renderStep1()}
+        {step === 2 && renderStep2()}
+        {step === 3 && renderStep3()}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -401,5 +598,84 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     flex: 2,
+  },
+  // Business option styles
+  businessOptions: {
+    gap: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  businessOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+  },
+  businessOptionCardSelected: {
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+  },
+  businessOptionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  businessOptionText: {
+    flex: 1,
+    marginLeft: SPACING.md,
+  },
+  businessOptionTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  businessOptionTitleSelected: {
+    color: COLORS.primary,
+  },
+  businessOptionDescription: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+  },
+  checkCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  businessDetails: {
+    marginBottom: SPACING.lg,
+  },
+  businessTypeLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  businessTypeOptions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  businessTypeOption: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.inputBackground,
+    alignItems: 'center',
+  },
+  businessTypeOptionSelected: {
+    backgroundColor: COLORS.primary,
+  },
+  businessTypeText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+  },
+  businessTypeTextSelected: {
+    color: COLORS.white,
   },
 });

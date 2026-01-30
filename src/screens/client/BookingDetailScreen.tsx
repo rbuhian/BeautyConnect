@@ -21,6 +21,7 @@ import {
   Star,
   X,
   Navigation,
+  User,
 } from 'lucide-react-native';
 import { Card, Loading, Button } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CANCELLATION_HOURS } from '../../constants';
@@ -206,6 +207,7 @@ export default function BookingDetailScreen({ navigation, route }: any) {
   const proAvatar = (booking.professional as any)?.user?.avatar;
   const serviceName = (booking.service as any)?.name || 'Service';
   const serviceDuration = (booking.service as any)?.duration_minutes || 60;
+  const staffMember = booking.staff_member as { id: string; name: string; avatar: string | null } | null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -265,6 +267,26 @@ export default function BookingDetailScreen({ navigation, route }: any) {
             </TouchableOpacity>
           </View>
         </Card>
+
+        {/* Assigned Staff Member */}
+        {staffMember && (
+          <Card style={styles.staffCard}>
+            <View style={styles.staffHeader}>
+              <User size={16} color={COLORS.primary} />
+              <Text style={styles.staffLabel}>Assigned Stylist</Text>
+            </View>
+            <View style={styles.staffInfo}>
+              {staffMember.avatar ? (
+                <Image source={{ uri: staffMember.avatar }} style={styles.staffAvatar} />
+              ) : (
+                <View style={styles.staffAvatarPlaceholder}>
+                  <User size={16} color={COLORS.textSecondary} />
+                </View>
+              )}
+              <Text style={styles.staffName}>{staffMember.name}</Text>
+            </View>
+          </Card>
+        )}
 
         {/* Booking Details */}
         <Card style={styles.detailsCard}>
@@ -491,6 +513,45 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  staffCard: {
+    flexDirection: 'column',
+    padding: SPACING.md,
+  },
+  staffHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  staffLabel: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  staffInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  staffAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  staffAvatarPlaceholder: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.chipBackground,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  staffName: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '500',
+    color: COLORS.textPrimary,
   },
   detailsCard: {
     padding: SPACING.lg,
