@@ -34,6 +34,7 @@ import Card from '../../components/Card';
 import Button from '../../components/Button';
 import EmptyState from '../../components/EmptyState';
 import Loading from '../../components/Loading';
+import WeekTimeline from '../../components/WeekTimeline';
 
 type ViewMode = 'month' | 'week';
 
@@ -334,14 +335,14 @@ export default function CalendarScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {viewMode === 'month' ? (
-          /* Month View */
+      {viewMode === 'month' ? (
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {/* Month View Content */}
           <View style={styles.content}>
             <Calendar
               current={selectedDate}
@@ -436,35 +437,45 @@ export default function CalendarScreen({ navigation }: any) {
               )}
             </View>
           </View>
-        ) : (
-          /* Week View - Placeholder for now */
-          <View style={styles.content}>
-            <Text style={styles.placeholderText}>
-              Week view coming in next phase
-            </Text>
-          </View>
-        )}
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <Button
-            title="Create Booking"
-            onPress={() => setShowCreateModal(true)}
-            icon={<Plus size={20} color={COLORS.white} />}
-            variant="primary"
-            style={styles.actionButton}
-          />
-          <Button
-            title="Block Time"
-            onPress={() => setShowBlockModal(true)}
-            icon={<Ban size={20} color={COLORS.primary} />}
-            variant="outline"
-            style={styles.actionButton}
+          {/* Action Buttons */}
+          <View style={styles.actionButtons}>
+            <Button
+              title="Create Booking"
+              onPress={() => setShowCreateModal(true)}
+              icon={<Plus size={20} color={COLORS.white} />}
+              variant="primary"
+              style={styles.actionButton}
+            />
+            <Button
+              title="Block Time"
+              onPress={() => setShowBlockModal(true)}
+              icon={<Ban size={20} color={COLORS.primary} />}
+              variant="outline"
+              style={styles.actionButton}
+            />
+          </View>
+
+          <View style={{ height: 50 }} />
+        </ScrollView>
+      ) : (
+        /* Week View */
+        <View style={styles.weekViewContainer}>
+          <WeekTimeline
+            selectedDate={selectedDate}
+            bookings={filteredBookings}
+            onDateSelect={setSelectedDate}
+            onBookingPress={handleBookingPress}
+            onEmptySlotPress={(date, time) => {
+              setSelectedDate(date);
+              setShowCreateModal(true);
+            }}
+            getStaffColor={getStaffColor}
+            getStatusColor={getStatusColor}
+            isSalon={isSalon}
           />
         </View>
-
-        <View style={{ height: 50 }} />
-      </ScrollView>
+      )}
 
       {/* Modals - Placeholders */}
       {/* TODO: Implement FilterModal, CreateBookingModal, BlockTimeModal */}
@@ -611,11 +622,8 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
   },
-  placeholderText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: SPACING.xl,
+  weekViewContainer: {
+    flex: 1,
   },
   actionButtons: {
     paddingHorizontal: SPACING.lg,
