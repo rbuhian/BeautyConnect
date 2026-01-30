@@ -121,7 +121,8 @@ export default function StaffListScreen({ navigation }: ProfessionalScreenProps<
             style={styles.scheduleButton}
             onPress={() => navigation.navigate('StaffAvailability', { staffId: item.id })}
           >
-            <Calendar size={18} color={COLORS.primary} />
+            <Calendar size={16} color={COLORS.white} />
+            <Text style={styles.scheduleButtonText}>Schedule</Text>
           </TouchableOpacity>
           <ChevronRight size={20} color={COLORS.textSecondary} />
         </View>
@@ -281,14 +282,20 @@ const styles = StyleSheet.create({
   staffActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: SPACING.md,
   },
   scheduleButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.primary + '15',
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
+  },
+  scheduleButtonText: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+    color: COLORS.white,
   },
 });
