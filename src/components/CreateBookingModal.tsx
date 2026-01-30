@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Calendar, Clock } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
-import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../constants';
+import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES } from '../constants';
 import { Service, StaffMember } from '../types';
 import Button from './Button';
 import Input from './Input';
@@ -98,6 +98,37 @@ const CreateBookingModal = React.memo(function CreateBookingModal({
   const selectedService = services.find(s => s.id === selectedServiceId);
   const selectedStaff = staffMembers.find(s => s.id === selectedStaffId);
 
+  // Filter staff members based on selected service
+  const availableStaff = useMemo(() => {
+    if (!selectedService || !isSalon) return staffMembers;
+
+    // If service is assigned to a specific staff member, only show that staff
+    if (selectedService.staff_member_id) {
+      return staffMembers.filter(s => s.id === selectedService.staff_member_id);
+    }
+
+    // Otherwise, filter by staff specialties matching service category
+    return staffMembers.filter(s =>
+      s.is_active && s.specialties.includes(selectedService.category)
+    );
+  }, [selectedService, staffMembers, isSalon]);
+
+  // Reset staff selection when service changes (available staff might change)
+  useEffect(() => {
+    if (selectedServiceId) {
+      // Check if currently selected staff is still available
+      const isStillAvailable = availableStaff.some(s => s.id === selectedStaffId);
+      if (!isStillAvailable) {
+        // Auto-select if only one staff available, otherwise clear selection
+        if (availableStaff.length === 1) {
+          setSelectedStaffId(availableStaff[0].id);
+        } else {
+          setSelectedStaffId('');
+        }
+      }
+    }
+  }, [selectedServiceId, availableStaff]);
+
   const handleSubmit = async () => {
     // Validation
     if (!clientName.trim()) {
@@ -112,8 +143,12 @@ const CreateBookingModal = React.memo(function CreateBookingModal({
       Alert.alert('Validation Error', 'Please select a service');
       return;
     }
-    if (isSalon && !selectedStaffId) {
+    if (isSalon && availableStaff.length > 0 && !selectedStaffId) {
       Alert.alert('Validation Error', 'Please select a staff member');
+      return;
+    }
+    if (isSalon && availableStaff.length === 0) {
+      Alert.alert('Validation Error', 'No staff available for this service. Please add staff with the required specialty.');
       return;
     }
     if (locationType === 'home' && !clientAddress.trim()) {
@@ -272,43 +307,51 @@ const CreateBookingModal = React.memo(function CreateBookingModal({
           </View>
 
           {/* Staff Selection (Salon only) */}
-          {isSalon && staffMembers.length > 0 && (
+          {isSalon && (
             <View style={[styles.section, { zIndex: 10 }]}>
               <Text style={styles.sectionTitle}>Staff Member</Text>
-              <View style={styles.pickerContainer}>
-                <TouchableOpacity
-                  style={styles.pickerButton}
-                  onPress={() => setShowStaffPicker(!showStaffPicker)}
-                >
-                  <Text
-                    style={[
-                      styles.pickerButtonText,
-                      !selectedStaffId && styles.placeholderText,
-                    ]}
+              {!selectedServiceId ? (
+                <Text style={styles.helperText}>Please select a service first</Text>
+              ) : availableStaff.length === 0 ? (
+                <Text style={styles.helperText}>
+                  No staff available for this service. Please add staff with "{CATEGORIES.find(c => c.value === selectedService?.category)?.label || selectedService?.category}" specialty.
+                </Text>
+              ) : (
+                <View style={styles.pickerContainer}>
+                  <TouchableOpacity
+                    style={styles.pickerButton}
+                    onPress={() => setShowStaffPicker(!showStaffPicker)}
                   >
-                    {selectedStaff ? selectedStaff.name : 'Select staff member'}
-                  </Text>
-                </TouchableOpacity>
-                {showStaffPicker && (
-                  <ScrollView style={styles.pickerDropdown} nestedScrollEnabled>
-                    {staffMembers.map(staff => (
-                      <TouchableOpacity
-                        key={staff.id}
-                        style={styles.pickerOption}
-                        onPress={() => {
-                          setSelectedStaffId(staff.id);
-                          setShowStaffPicker(false);
-                        }}
-                      >
-                        <Text style={styles.pickerOptionText}>{staff.name}</Text>
-                        <Text style={styles.pickerOptionSubtext}>
-                          {staff.specialties.join(', ')}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                )}
-              </View>
+                    <Text
+                      style={[
+                        styles.pickerButtonText,
+                        !selectedStaffId && styles.placeholderText,
+                      ]}
+                    >
+                      {selectedStaff ? selectedStaff.name : 'Select staff member'}
+                    </Text>
+                  </TouchableOpacity>
+                  {showStaffPicker && (
+                    <ScrollView style={styles.pickerDropdown} nestedScrollEnabled>
+                      {availableStaff.map(staff => (
+                        <TouchableOpacity
+                          key={staff.id}
+                          style={styles.pickerOption}
+                          onPress={() => {
+                            setSelectedStaffId(staff.id);
+                            setShowStaffPicker(false);
+                          }}
+                        >
+                          <Text style={styles.pickerOptionText}>{staff.name}</Text>
+                          <Text style={styles.pickerOptionSubtext}>
+                            {staff.specialties.map(s => CATEGORIES.find(c => c.value === s)?.label || s).join(', ')}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+              )}
             </View>
           )}
 
@@ -443,6 +486,11 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: COLORS.textLight,
+  },
+  helperText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
   },
   pickerDropdown: {
     marginTop: SPACING.sm,

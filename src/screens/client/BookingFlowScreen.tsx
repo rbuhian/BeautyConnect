@@ -445,15 +445,17 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
         </View>
 
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Date & Time</Text>
-          <View>
-            <Text style={styles.summaryValue}>
-              {selectedDate ? formatDisplayDate(selectedDate) : ''}
-            </Text>
-            <Text style={styles.summaryValue}>
-              {selectedTime ? formatTime(selectedTime) : ''}
-            </Text>
-          </View>
+          <Text style={styles.summaryLabel}>Date</Text>
+          <Text style={styles.summaryValue}>
+            {selectedDate ? formatDisplayDate(selectedDate) : ''}
+          </Text>
+        </View>
+
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Time</Text>
+          <Text style={styles.summaryValue}>
+            {selectedTime ? formatTime(selectedTime) : ''}
+          </Text>
         </View>
 
         <View style={styles.summaryRow}>
@@ -798,7 +800,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: COLORS.textPrimary,
     textAlign: 'right',
-    maxWidth: '60%',
+    flex: 1,
+    marginLeft: SPACING.md,
+  },
+  summaryDateTimeContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+    marginLeft: SPACING.md,
   },
   addressText: {
     fontSize: FONT_SIZES.xs,

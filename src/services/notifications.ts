@@ -188,15 +188,24 @@ export async function scheduleLocalNotification(
   }
 
   try {
-    const id = await Notifications.scheduleNotificationAsync({
+    // Build notification config
+    const notificationConfig: Parameters<typeof Notifications.scheduleNotificationAsync>[0] = {
       content: {
         title,
         body,
         data: data as any,
         sound: true,
       },
-      trigger: trigger || null, // null = immediate
-    });
+    };
+
+    // Only include trigger for scheduled notifications
+    // For immediate notifications, omit trigger entirely (newer SDK requirement)
+    if (trigger && typeof trigger === 'object' && trigger.type) {
+      notificationConfig.trigger = trigger;
+    }
+    // If no valid trigger, notification fires immediately (trigger property omitted)
+
+    const id = await Notifications.scheduleNotificationAsync(notificationConfig);
     return id;
   } catch (error) {
     console.error('Error scheduling notification:', error);
@@ -566,7 +575,7 @@ export async function scheduleBookingReminder(
     title,
     body,
     { type: 'reminder', bookingId },
-    { date: reminderDate }
+    { type: 'date', date: reminderDate }
   );
 
   if (notificationId) {

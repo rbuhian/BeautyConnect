@@ -120,14 +120,20 @@ export default function BookingDetailScreen({ navigation, route }: any) {
       setBooking(updatedBooking);
 
       // Send notification to staff member if they have a user account
+      // Wrapped in try-catch to not fail the main operation
       if (staffMember?.user_id) {
-        await sendStaffAssignedNotification(
-          staffMember.user_id,
-          booking.client?.name || 'Client',
-          booking.service?.name || 'Service',
-          format(parseISO(booking.date), 'MMM d, yyyy'),
-          booking.id
-        );
+        try {
+          await sendStaffAssignedNotification(
+            staffMember.user_id,
+            booking.client?.name || 'Client',
+            booking.service?.name || 'Service',
+            format(parseISO(booking.date), 'MMM d, yyyy'),
+            booking.id
+          );
+        } catch (notifError) {
+          // Notification failed but reassignment succeeded - just log it
+          console.warn('Failed to send staff notification:', notifError);
+        }
       }
 
       setShowStaffModal(false);

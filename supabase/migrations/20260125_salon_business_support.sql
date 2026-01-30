@@ -331,3 +331,13 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION migrate_business_professional_id TO authenticated;
+
+-- ============================================
+-- UPDATE NOTIFICATION_LOGS TYPE CONSTRAINT
+-- ============================================
+
+-- Add 'staff_assigned' to the notification type check constraint
+-- This allows notifications to be sent when staff is assigned to a booking
+ALTER TABLE notification_logs DROP CONSTRAINT IF EXISTS notification_logs_type_check;
+ALTER TABLE notification_logs ADD CONSTRAINT notification_logs_type_check
+  CHECK (type IN ('booking_new', 'booking_confirmed', 'booking_declined', 'booking_cancelled', 'message', 'reminder', 'review_request', 'staff_assigned'));
