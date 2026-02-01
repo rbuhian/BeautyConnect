@@ -184,11 +184,21 @@ export default function StaffAvailabilityScreen({
     return `${hour12}:00 ${ampm}`;
   };
 
+  // Normalize time to HH:00:00 format for comparison
+  const normalizeTime = (time: string) => {
+    if (!time) return '';
+    const parts = time.split(':');
+    const hour = parts[0].padStart(2, '0');
+    return `${hour}:00:00`;
+  };
+
   // Get current time value for highlighting in picker
   const getCurrentTimeValue = () => {
     if (editingDay === null) return '';
     const daySchedule = schedule.find(s => s.day_of_week === editingDay);
-    return daySchedule ? daySchedule[editingField] : '';
+    if (!daySchedule) return '';
+    const time = daySchedule[editingField];
+    return normalizeTime(time);
   };
 
   if (loading) {

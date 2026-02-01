@@ -85,7 +85,11 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
   };
 
   const formatDate = (date: Date) => {
-    return date.toISOString().split('T')[0];
+    // Use local date components to avoid timezone conversion issues
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const handleDateSelect = (day: number) => {
@@ -176,7 +180,10 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
       } else {
         // Send notification to professional about new booking
         if (professional.user_id) {
-          const formattedDate = new Date(selectedDate).toLocaleDateString('en-PH', {
+          // Parse date manually to avoid timezone issues
+          const [year, month, day] = selectedDate.split('-').map(Number);
+          const dateObj = new Date(year, month - 1, day);
+          const formattedDate = dateObj.toLocaleDateString('en-PH', {
             month: 'short',
             day: 'numeric',
           });
@@ -212,7 +219,10 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
   };
 
   const formatDisplayDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    // Parse the date string manually to avoid timezone issues
+    // "YYYY-MM-DD" -> create date in local timezone
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month is 0-indexed
     return date.toLocaleDateString('en-PH', {
       weekday: 'long',
       month: 'long',

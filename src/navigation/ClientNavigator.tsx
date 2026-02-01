@@ -1,10 +1,12 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, Calendar, MessageCircle, User } from 'lucide-react-native';
 import { ClientStackParamList, ClientTabParamList } from './types';
 import { COLORS } from '../constants';
+import { useUnreadMessages } from '../hooks/useUnreadMessages';
 
 // Tab Screens (will be created later)
 import DiscoverScreen from '../screens/client/DiscoverScreen';
@@ -28,6 +30,7 @@ const Stack = createNativeStackNavigator<ClientStackParamList>();
 
 function ClientTabs() {
   const insets = useSafeAreaInsets();
+  const { unreadCount } = useUnreadMessages();
 
   return (
     <Tab.Navigator
@@ -72,6 +75,8 @@ function ClientTabs() {
         name="Messages"
         component={MessagesScreen}
         options={{
+          tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
+          tabBarBadgeStyle: styles.badge,
           tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
         }}
       />
@@ -107,3 +112,13 @@ export default function ClientNavigator() {
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  badge: {
+    backgroundColor: COLORS.error,
+    fontSize: 10,
+    fontWeight: '700',
+    minWidth: 18,
+    height: 18,
+  },
+});

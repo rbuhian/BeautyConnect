@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Clock } from 'lucide-react-native';
+import { ArrowLeft, Clock, X, Check } from 'lucide-react-native';
 import { GradientButton, Card, Loading } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
@@ -26,11 +28,17 @@ const DAYS = [
   { value: 6, label: 'Saturday', short: 'Sat' },
 ];
 
-const TIME_SLOTS = [
-  '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
-  '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
-  '18:00', '19:00', '20:00', '21:00', '22:00',
-];
+// Generate time options from 6am to 10pm
+const TIME_OPTIONS = Array.from({ length: 17 }, (_, i) => {
+  const hour = i + 6; // Start from 6am
+  const hourStr = hour.toString().padStart(2, '0');
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+  return {
+    label: `${hour12}:00 ${ampm}`,
+    value: `${hourStr}:00`,
+  };
+});
 
 interface DaySchedule {
   is_available: boolean;
@@ -43,6 +51,11 @@ export default function AvailabilityScreen({ navigation }: any) {
   const [schedule, setSchedule] = useState<Record<number, DaySchedule>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Time picker modal state
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [editingDay, setEditingDay] = useState<number | null>(null);
+  const [editingField, setEditingField] = useState<'start_time' | 'end_time'>('start_time');
 
   // Initialize default schedule
   const getDefaultSchedule = (): Record<number, DaySchedule> => {
@@ -121,6 +134,45 @@ export default function AvailabilityScreen({ navigation }: any) {
     }));
   };
 
+  const openTimePicker = (dayValue: number, field: 'start_time' | 'end_time') => {
+    setEditingDay(dayValue);
+    setEditingField(field);
+    setShowTimePicker(true);
+  };
+
+  const selectTime = (value: string) => {
+    if (editingDay !== null) {
+      updateTime(editingDay, editingField, value);
+    }
+    setShowTimePicker(false);
+  };
+
+  // Format time for display (e.g., "09:00" -> "9:00 AM")
+  const formatTimeDisplay = (time: string) => {
+    if (!time) return '';
+    const hour = parseInt(time.split(':')[0]);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    return `${hour12}:00 ${ampm}`;
+  };
+
+  // Normalize time to HH:00 format for comparison
+  const normalizeTime = (time: string) => {
+    if (!time) return '';
+    const parts = time.split(':');
+    const hour = parts[0].padStart(2, '0');
+    return `${hour}:00`;
+  };
+
+  // Get current time value for highlighting in picker
+  const getCurrentTimeValue = () => {
+    if (editingDay === null) return '';
+    const daySchedule = schedule[editingDay];
+    if (!daySchedule) return '';
+    const time = daySchedule[editingField];
+    return normalizeTime(time);
+  };
+
   const handleSave = async () => {
     if (!professionalProfile?.id) {
       Alert.alert('Error', 'Professional profile not found.');
@@ -190,97 +242,10 @@ export default function AvailabilityScreen({ navigation }: any) {
           Set your weekly availability. Clients can only book during these hours.
         </Text>
 
-        {DAYS.map((day) => (
-          <Card key={day.value} style={styles.dayCard}>
-            <View style={styles.dayHeader}>
-              <View style={styles.dayInfo}>
-                <Text style={styles.dayName}>{day.label}</Text>
-                <Text style={styles.dayStatus}>
-                  {schedule[day.value]?.is_available
-                    ? `${schedule[day.value].start_time} - ${schedule[day.value].end_time}`
-                    : 'Unavailable'}
-                </Text>
-              </View>
-              <Switch
-                value={schedule[day.value]?.is_available || false}
-                onValueChange={() => toggleDay(day.value)}
-                trackColor={{ false: COLORS.border, true: COLORS.primary }}
-                thumbColor={COLORS.white}
-              />
-            </View>
-
-            {schedule[day.value]?.is_available && (
-              <View style={styles.timeSelectors}>
-                <View style={styles.timeSelector}>
-                  <Text style={styles.timeLabel}>Start</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.timeScroll}
-                  >
-                    {TIME_SLOTS.slice(0, -1).map((time) => (
-                      <TouchableOpacity
-                        key={`start-${time}`}
-                        style={[
-                          styles.timeChip,
-                          schedule[day.value].start_time === time &&
-                            styles.timeChipSelected,
-                        ]}
-                        onPress={() => updateTime(day.value, 'start_time', time)}
-                      >
-                        <Text
-                          style={[
-                            styles.timeChipText,
-                            schedule[day.value].start_time === time &&
-                              styles.timeChipTextSelected,
-                          ]}
-                        >
-                          {time}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-
-                <View style={styles.timeSelector}>
-                  <Text style={styles.timeLabel}>End</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.timeScroll}
-                  >
-                    {TIME_SLOTS.slice(1).map((time) => (
-                      <TouchableOpacity
-                        key={`end-${time}`}
-                        style={[
-                          styles.timeChip,
-                          schedule[day.value].end_time === time &&
-                            styles.timeChipSelected,
-                        ]}
-                        onPress={() => updateTime(day.value, 'end_time', time)}
-                      >
-                        <Text
-                          style={[
-                            styles.timeChipText,
-                            schedule[day.value].end_time === time &&
-                              styles.timeChipTextSelected,
-                          ]}
-                        >
-                          {time}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              </View>
-            )}
-          </Card>
-        ))}
-
         {/* Quick Actions */}
         <View style={styles.quickActions}>
           <TouchableOpacity
-            style={styles.quickAction}
+            style={styles.quickActionButton}
             onPress={() => {
               const newSchedule = { ...schedule };
               DAYS.forEach((day) => {
@@ -297,7 +262,7 @@ export default function AvailabilityScreen({ navigation }: any) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.quickAction}
+            style={styles.quickActionButton}
             onPress={() => {
               const newSchedule = { ...schedule };
               DAYS.forEach((day) => {
@@ -308,19 +273,125 @@ export default function AvailabilityScreen({ navigation }: any) {
           >
             <Text style={styles.quickActionText}>Every Day</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.quickActionButton, styles.quickActionClear]}
+            onPress={() => {
+              const newSchedule = { ...schedule };
+              DAYS.forEach((day) => {
+                newSchedule[day.value].is_available = false;
+              });
+              setSchedule(newSchedule);
+            }}
+          >
+            <Text style={[styles.quickActionText, styles.quickActionClearText]}>
+              Clear All
+            </Text>
+          </TouchableOpacity>
         </View>
 
+        {DAYS.map((day) => (
+          <Card key={day.value} style={styles.dayCard}>
+            <View style={styles.dayHeader}>
+              <Text style={styles.dayName}>{day.label}</Text>
+              <Switch
+                value={schedule[day.value]?.is_available || false}
+                onValueChange={() => toggleDay(day.value)}
+                trackColor={{ false: COLORS.border, true: COLORS.primary + '50' }}
+                thumbColor={schedule[day.value]?.is_available ? COLORS.primary : COLORS.textSecondary}
+              />
+            </View>
+
+            {schedule[day.value]?.is_available && (
+              <View style={styles.timeSection}>
+                <View style={styles.timeRow}>
+                  <Clock size={16} color={COLORS.textSecondary} />
+                  <View style={styles.timePickerContainer}>
+                    <TouchableOpacity
+                      style={styles.timePicker}
+                      onPress={() => openTimePicker(day.value, 'start_time')}
+                    >
+                      <Text style={styles.timeText}>
+                        {formatTimeDisplay(schedule[day.value].start_time)}
+                      </Text>
+                    </TouchableOpacity>
+                    <Text style={styles.timeSeparator}>to</Text>
+                    <TouchableOpacity
+                      style={styles.timePicker}
+                      onPress={() => openTimePicker(day.value, 'end_time')}
+                    >
+                      <Text style={styles.timeText}>
+                        {formatTimeDisplay(schedule[day.value].end_time)}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+          </Card>
+        ))}
+
         {/* Save Button */}
-        <View style={styles.saveSection}>
-          <GradientButton
-            title="Save Availability"
-            onPress={handleSave}
-            loading={saving}
-          />
-        </View>
+        <GradientButton
+          title="Save Availability"
+          onPress={handleSave}
+          loading={saving}
+          style={styles.saveButton}
+        />
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Time Picker Modal */}
+      <Modal
+        visible={showTimePicker}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowTimePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                Select {editingField === 'start_time' ? 'Start' : 'End'} Time
+              </Text>
+              <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                <X size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={TIME_OPTIONS}
+              keyExtractor={(item) => item.value}
+              renderItem={({ item }) => {
+                const isSelected = item.value === getCurrentTimeValue();
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.timeOption,
+                      isSelected && styles.timeOptionSelected,
+                    ]}
+                    onPress={() => selectTime(item.value)}
+                  >
+                    <Text
+                      style={[
+                        styles.timeOptionText,
+                        isSelected && styles.timeOptionTextSelected,
+                      ]}
+                    >
+                      {item.label}
+                    </Text>
+                    {isSelected && (
+                      <Check size={20} color={COLORS.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.timeList}
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -336,6 +407,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   backButton: {
     width: 40,
@@ -359,80 +433,130 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.lg,
     lineHeight: 20,
   },
-  dayCard: {
-    marginBottom: SPACING.md,
-  },
-  dayHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dayInfo: {
-    flex: 1,
-  },
-  dayName: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  dayStatus: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-  },
-  timeSelectors: {
-    marginTop: SPACING.md,
-    paddingTop: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    gap: SPACING.md,
-  },
-  timeSelector: {
-    gap: SPACING.sm,
-  },
-  timeLabel: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '500',
-    color: COLORS.textSecondary,
-  },
-  timeScroll: {
-    flexDirection: 'row',
-  },
-  timeChip: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.chipBackground,
-    marginRight: SPACING.sm,
-  },
-  timeChipSelected: {
-    backgroundColor: COLORS.primary,
-  },
-  timeChipText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textPrimary,
-  },
-  timeChipTextSelected: {
-    color: COLORS.white,
-  },
   quickActions: {
     flexDirection: 'row',
-    gap: SPACING.md,
-    marginTop: SPACING.lg,
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
   },
-  quickAction: {
+  quickActionButton: {
     flex: 1,
-    paddingVertical: SPACING.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.md,
-    backgroundColor: COLORS.chipBackground,
+    backgroundColor: COLORS.primary + '15',
     alignItems: 'center',
+  },
+  quickActionClear: {
+    backgroundColor: COLORS.error + '15',
   },
   quickActionText: {
     fontSize: FONT_SIZES.sm,
     fontWeight: '500',
     color: COLORS.primary,
   },
-  saveSection: {
-    marginTop: SPACING.xl,
+  quickActionClearText: {
+    color: COLORS.error,
+  },
+  dayCard: {
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  dayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dayName: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  timeSection: {
+    marginTop: SPACING.md,
+    paddingTop: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  timePickerContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  timePicker: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.inputBackground,
+    alignItems: 'center',
+  },
+  timeText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '500',
+    color: COLORS.textPrimary,
+  },
+  timeSeparator: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+  },
+  saveButton: {
+    marginTop: SPACING.md,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    maxHeight: '60%',
+    paddingBottom: SPACING.xxl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  modalTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  timeList: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+  },
+  timeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginVertical: SPACING.xs,
+  },
+  timeOptionSelected: {
+    backgroundColor: COLORS.chipBackground,
+  },
+  timeOptionText: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textPrimary,
+  },
+  timeOptionTextSelected: {
+    fontWeight: '600',
+    color: COLORS.primary,
   },
 });
