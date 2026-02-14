@@ -27,13 +27,15 @@ import { ProfessionalTabScreenProps } from '../../navigation/types';
 import { Card, Loading } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
-import { Booking, Review } from '../../types';
+import { Booking, Review, AdCreative } from '../../types';
 import {
   getUpcomingBookings,
   getProfessionalStats,
   getCompletedBookingsNeedingReview,
 } from '../../services/professional';
 import { getReviewsReceived, ReviewWithDetails } from '../../services/review';
+import { getActiveAds } from '../../services/ads';
+import { B2BBannerAd, BoostProfileCard } from '../../components/ads';
 import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 
 export default function DashboardScreen({
@@ -49,6 +51,7 @@ export default function DashboardScreen({
     pendingBookings: 0,
     totalEarnings: 0,
   });
+  const [dashboardAds, setDashboardAds] = useState<AdCreative[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -56,11 +59,12 @@ export default function DashboardScreen({
     if (!professionalProfile?.id || !user?.id) return;
 
     try {
-      const [bookingsRes, pendingReviewsRes, statsRes, reviewsRes] = await Promise.all([
+      const [bookingsRes, pendingReviewsRes, statsRes, reviewsRes, adsRes] = await Promise.all([
         getUpcomingBookings(professionalProfile.id),
         getCompletedBookingsNeedingReview(user.id),
         getProfessionalStats(professionalProfile.id),
         getReviewsReceived(user.id, 5), // Get last 5 reviews
+        getActiveAds('banner', 'professional'),
       ]);
 
       if (bookingsRes.data) {
@@ -74,6 +78,9 @@ export default function DashboardScreen({
       }
       if (reviewsRes.data) {
         setReviews(reviewsRes.data);
+      }
+      if (adsRes.data) {
+        setDashboardAds(adsRes.data);
       }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -201,6 +208,11 @@ export default function DashboardScreen({
           </LinearGradient>
         </TouchableOpacity>
 
+        {/* Boost Profile CTA */}
+        <BoostProfileCard
+          onPress={() => navigation.navigate('BoostProfile' as never)}
+        />
+
         {/* Quick Stats */}
         <View style={styles.statsRow}>
           <Card style={styles.statCard}>
@@ -229,6 +241,13 @@ export default function DashboardScreen({
             <Text style={styles.statLabel}>Earnings</Text>
           </Card>
         </View>
+
+        {/* B2B Banner Ad */}
+        {dashboardAds.length > 0 && (
+          <View style={{ paddingHorizontal: SPACING.lg, marginBottom: SPACING.lg }}>
+            <B2BBannerAd ad={dashboardAds[0]} />
+          </View>
+        )}
 
         {/* Pending Requests Section */}
         {pendingBookings.length > 0 && (
@@ -907,6 +926,7 @@ const styles = StyleSheet.create({
     color: '#F57C00',
   },
   reviewCard: {
+    padding: SPACING.md,
     marginBottom: SPACING.sm,
   },
   reviewHeader: {
@@ -973,10 +993,6 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.xs,
     fontWeight: '700',
     color: COLORS.white,
-  },
-  reviewCard: {
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
   },
   reviewCardHeader: {
     flexDirection: 'row',

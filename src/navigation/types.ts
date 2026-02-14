@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
-import { ProfessionalProfile, Booking } from '../types';
+import { ProfessionalProfile, Booking, AdCreative, AffiliateProduct } from '../types';
 
 // Auth Stack
 export type AuthStackParamList = {
@@ -75,6 +75,23 @@ export type ProfessionalStackParamList = {
   StaffAvailability: { staffId: string };
   // Staff bookings (for staff members to view their assigned bookings)
   StaffBookings: undefined;
+  // Advertising
+  BoostProfile: undefined;
+};
+
+// Admin Tab Navigator
+export type AdminTabParamList = {
+  Overview: undefined;
+  Ads: undefined;
+  Affiliates: undefined;
+  Featured: undefined;
+};
+
+// Admin Stack
+export type AdminStackParamList = {
+  AdminTabs: NavigatorScreenParams<AdminTabParamList>;
+  AdForm: { adId?: string; ad?: AdCreative } | undefined;
+  AffiliateForm: { productId?: string; product?: AffiliateProduct } | undefined;
 };
 
 // Root Stack
@@ -82,6 +99,7 @@ export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Client: NavigatorScreenParams<ClientStackParamList>;
   Professional: NavigatorScreenParams<ProfessionalStackParamList>;
+  Admin: NavigatorScreenParams<AdminStackParamList>;
 };
 
 // Screen props helpers
@@ -105,3 +123,12 @@ export type ProfessionalTabScreenProps<T extends keyof ProfessionalTabParamList>
 
 export type ProfessionalScreenProps<T extends keyof ProfessionalStackParamList> =
   NativeStackScreenProps<ProfessionalStackParamList, T>;
+
+export type AdminTabScreenProps<T extends keyof AdminTabParamList> =
+  CompositeScreenProps<
+    BottomTabScreenProps<AdminTabParamList, T>,
+    NativeStackScreenProps<AdminStackParamList>
+  >;
+
+export type AdminScreenProps<T extends keyof AdminStackParamList> =
+  NativeStackScreenProps<AdminStackParamList, T>;

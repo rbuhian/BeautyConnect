@@ -47,7 +47,7 @@ export function SkeletonLoader({
       style={[
         styles.skeleton,
         {
-          width,
+          width: width as any,
           height,
           borderRadius,
           opacity,

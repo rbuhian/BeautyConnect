@@ -8,6 +8,7 @@ import { Loading } from '../components';
 import AuthNavigator from './AuthNavigator';
 import ClientNavigator from './ClientNavigator';
 import ProfessionalNavigator from './ProfessionalNavigator';
+import AdminNavigator from './AdminNavigator';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -44,6 +45,9 @@ export default function RootNavigator() {
           <Stack.Screen name="Auth">
             {() => <AuthNavigator initialRoute={initialRoute} />}
           </Stack.Screen>
+        ) : user.role === 'admin' ? (
+          // Authenticated as admin
+          <Stack.Screen name="Admin" component={AdminNavigator} />
         ) : user.role === 'professional' ? (
           // Authenticated as professional
           <Stack.Screen name="Professional" component={ProfessionalNavigator} />

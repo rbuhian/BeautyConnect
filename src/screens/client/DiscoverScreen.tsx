@@ -31,6 +31,10 @@ import {
   getFavorites,
   toggleFavorite,
 } from '../../services/client';
+import { getFeaturedProfessionals, getActiveAds } from '../../services/ads';
+import { FeedAdCard, SponsoredContentCard } from '../../components/ads';
+import { AdCreative, DiscoverFeedItem } from '../../types';
+import { AD_CONFIG } from '../../constants';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - SPACING.lg * 2;
@@ -38,6 +42,7 @@ const CARD_WIDTH = width - SPACING.lg * 2;
 export default function DiscoverScreen({ navigation }: any) {
   const { user } = useAuth();
   const [professionals, setProfessionals] = useState<ProfessionalWithDetails[]>([]);
+  const [feedItems, setFeedItems] = useState<DiscoverFeedItem[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,6 +50,46 @@ export default function DiscoverScreen({ navigation }: any) {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<ProfessionalFilters>({});
   const [tempFilters, setTempFilters] = useState<ProfessionalFilters>({});
+
+  const buildFeed = useCallback(
+    (
+      pros: ProfessionalWithDetails[],
+      featured: ProfessionalWithDetails[],
+      ads: AdCreative[],
+      sponsoredContent: AdCreative[]
+    ): DiscoverFeedItem[] => {
+      const items: DiscoverFeedItem[] = [];
+      const featuredIds = new Set(featured.map((p) => p.id));
+
+      // 1. Featured professionals first (max 3)
+      featured.slice(0, AD_CONFIG.FEATURED_MAX_POSITIONS).forEach((p) => {
+        items.push({ item_type: 'professional', data: { ...p, is_featured: true } });
+      });
+
+      // 2. Regular professionals with ad injection
+      const regularPros = pros.filter((p) => !featuredIds.has(p.id));
+      let adIndex = 0;
+      let scIndex = 0;
+      regularPros.forEach((pro, i) => {
+        items.push({ item_type: 'professional', data: pro });
+
+        // Inject a feed ad every N cards
+        if ((i + 1) % AD_CONFIG.FEED_AD_FREQUENCY === 0 && adIndex < ads.length) {
+          items.push({ item_type: 'ad', data: ads[adIndex] });
+          adIndex++;
+        }
+
+        // Inject sponsored content at positions 12 and 24
+        if ((i + 1 === 12 || i + 1 === 24) && scIndex < sponsoredContent.length) {
+          items.push({ item_type: 'sponsored_content', data: sponsoredContent[scIndex] });
+          scIndex++;
+        }
+      });
+
+      return items;
+    },
+    []
+  );
 
   const fetchProfessionals = useCallback(async () => {
     try {
@@ -55,16 +100,30 @@ export default function DiscoverScreen({ navigation }: any) {
         result = await getDiscoverProfessionals(filters);
       }
 
-      if (result.data) {
-        setProfessionals(result.data);
-      }
+      // Fetch ads and featured listings in parallel
+      const [featuredResult, feedAdsResult, sponsoredResult] = await Promise.all([
+        getFeaturedProfessionals(),
+        getActiveAds('feed_card', 'client'),
+        getActiveAds('sponsored_content', 'client'),
+      ]);
+
+      const pros = result.data || [];
+      setProfessionals(pros);
+      setFeedItems(
+        buildFeed(
+          pros,
+          featuredResult.data || [],
+          feedAdsResult.data || [],
+          sponsoredResult.data || []
+        )
+      );
     } catch (err) {
       console.error('Error fetching professionals:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filters, searchText]);
+  }, [filters, searchText, buildFeed]);
 
   const fetchFavorites = useCallback(async () => {
     if (!user?.id) return;
@@ -114,15 +173,22 @@ export default function DiscoverScreen({ navigation }: any) {
 
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
-  const renderProfessionalCard = useCallback(({ item }: { item: ProfessionalWithDetails }) => {
-    const isFavorite = favorites.includes(item.id);
-
+  const renderFeedItem = useCallback(({ item, index }: { item: DiscoverFeedItem; index: number }) => {
+    if (item.item_type === 'ad') {
+      return <FeedAdCard ad={item.data} position={index} />;
+    }
+    if (item.item_type === 'sponsored_content') {
+      return <SponsoredContentCard ad={item.data} position={index} />;
+    }
+    const pro = item.data;
+    const isFavorite = favorites.includes(pro.id);
     return (
       <ProfessionalCard
-        professional={item}
+        professional={pro as ProfessionalWithDetails}
         isFavorite={isFavorite}
-        onPress={() => handlePressCard(item.id)}
-        onToggleFavorite={() => handleToggleFavorite(item.id)}
+        isFeatured={pro.is_featured}
+        onPress={() => handlePressCard(pro.id)}
+        onToggleFavorite={() => handleToggleFavorite(pro.id)}
       />
     );
   }, [favorites, handlePressCard, handleToggleFavorite]);
@@ -395,9 +461,13 @@ export default function DiscoverScreen({ navigation }: any) {
           />
         ) : (
         <FlatList
-          data={professionals}
-          renderItem={renderProfessionalCard}
-          keyExtractor={(item) => item.id}
+          data={feedItems}
+          renderItem={renderFeedItem}
+          keyExtractor={(item, index) =>
+            item.item_type === 'professional'
+              ? item.data.id
+              : `${item.item_type}-${item.data.id}-${index}`
+          }
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={

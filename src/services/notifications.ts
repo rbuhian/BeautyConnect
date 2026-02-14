@@ -103,7 +103,7 @@ export async function savePushToken(
 ): Promise<{ error: Error | null }> {
   try {
     const platform = Platform.OS as 'ios' | 'android' | 'web';
-    const deviceName = Device.deviceName || `${Device.brand} ${Device.modelName}`;
+    const deviceName = Device?.deviceName || `${Device?.brand ?? ''} ${Device?.modelName ?? ''}`;
 
     // Upsert the token (update if exists, insert if not)
     const { error } = await supabase
@@ -196,6 +196,7 @@ export async function scheduleLocalNotification(
         data: data as any,
         sound: true,
       },
+      trigger: null,
     };
 
     // Only include trigger for scheduled notifications

@@ -11,11 +11,13 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, Send } from 'lucide-react-native';
-import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
+import { COLORS, SPACING, FONT_SIZES, RADIUS, AD_CONFIG } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
+import { AffiliateProduct } from '../../types';
 import {
   getMessages,
   sendMessage,
@@ -27,6 +29,8 @@ import {
   subscribeToTypingIndicators,
   MessageWithSender,
 } from '../../services/chat';
+import { getAffiliateProducts } from '../../services/ads';
+import { AffiliateProductCard } from '../../components/ads';
 import { Loading } from '../../components';
 import { sendNewMessageNotification } from '../../services/notifications';
 
@@ -68,6 +72,8 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
       avatar: string | null;
     };
   } | null>(null);
+  const [affiliateProduct, setAffiliateProduct] = useState<AffiliateProduct | null>(null);
+  const [affiliateDismissed, setAffiliateDismissed] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -186,6 +192,36 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
        }
      };
    }, [bookingId, user?.id]);
+
+  // Fetch affiliate product for completed bookings
+  useEffect(() => {
+    const fetchAffiliate = async () => {
+      if (chatDetails?.booking_status !== 'completed') return;
+
+      const dismissKey = `affiliate-dismissed-${bookingId}`;
+      try {
+        const dismissed = await AsyncStorage.getItem(dismissKey);
+        if (dismissed) {
+          const dismissedAt = parseInt(dismissed, 10);
+          if (Date.now() - dismissedAt < AD_CONFIG.AFFILIATE_DISMISS_TTL_MS) {
+            setAffiliateDismissed(true);
+            return;
+          }
+        }
+
+        const { data } = await getAffiliateProducts();
+        if (data && data.length > 0) {
+          // Pick a random product
+          const randomIndex = Math.floor(Math.random() * data.length);
+          setAffiliateProduct(data[randomIndex]);
+        }
+      } catch (err) {
+        // Silently fail — affiliate card is non-critical
+      }
+    };
+
+    fetchAffiliate();
+  }, [chatDetails?.booking_status, bookingId]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -355,6 +391,24 @@ export default function ChatScreen({ route, navigation }: ChatScreenProps) {
             </View>
           }
         />
+
+         {/* Affiliate Product Card (post-completion only) */}
+         {chatDetails?.booking_status === 'completed' &&
+          affiliateProduct &&
+          !affiliateDismissed && (
+           <AffiliateProductCard
+             product={affiliateProduct}
+             onDismiss={async () => {
+               setAffiliateDismissed(true);
+               try {
+                 await AsyncStorage.setItem(
+                   `affiliate-dismissed-${bookingId}`,
+                   Date.now().toString()
+                 );
+               } catch {}
+             }}
+           />
+         )}
 
          {/* Input */}
          <View style={styles.inputContainer}>

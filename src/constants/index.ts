@@ -34,6 +34,7 @@ export const COLORS = {
   inputBackground: '#F5F5F5',
   chipBackground: '#F5F5F5',
   chipActive: '#C9A0DC',
+  primaryLight: '#F3E5F5',
 
   // Overlay
   overlay: 'rgba(0, 0, 0, 0.5)',
@@ -83,6 +84,7 @@ export const RADIUS = {
   xl: 20,
   xxl: 30,
   round: 50,
+  full: 50,
 } as const;
 
 // Categories
@@ -128,3 +130,19 @@ export const MAX_BIO_LENGTH = 500;
 // API
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+
+// Advertising
+export const AD_CONFIG = {
+  FEED_AD_FREQUENCY: 8,                // Insert 1 ad card every N professional cards
+  INTERSTITIAL_COOLDOWN_MS: 86400000,  // 24 hours between post-booking interstitials
+  FEATURED_MAX_POSITIONS: 3,           // Max featured pros shown at top of Discover
+  AFFILIATE_DISMISS_TTL_MS: 86400000,  // 24 hours before dismissed affiliate card can reappear
+  INTERSTITIAL_SKIP_DELAY_MS: 3000,    // 3 seconds before "Skip" button is enabled
+} as const;
+
+export const FEATURED_PACKAGES: import('../types').FeaturedPackage[] = [
+  { key: 'boost_1d', label: 'Boost (1 Day)', price: 99, duration_days: 1, description: 'Top placement for 24 hours' },
+  { key: 'weekly', label: 'Weekly Boost', price: 399, duration_days: 7, description: 'Stay visible for a full week' },
+  { key: 'monthly', label: 'Monthly Feature', price: 999, duration_days: 30, description: 'Best value — 30 days of top placement' },
+  { key: 'priority_category', label: 'Priority Category', price: 1499, duration_days: 30, description: 'Top of your category for 30 days' },
+];

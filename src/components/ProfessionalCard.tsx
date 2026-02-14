@@ -4,10 +4,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Heart, MapPin, Star } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES } from '../constants';
 import { ProfessionalWithDetails } from '../services/client';
+import FeaturedBadge from './ads/FeaturedBadge';
 
 interface ProfessionalCardProps {
   professional: ProfessionalWithDetails;
   isFavorite: boolean;
+  isFeatured?: boolean;
   onPress: () => void;
   onToggleFavorite: () => void;
 }
@@ -15,6 +17,7 @@ interface ProfessionalCardProps {
 const ProfessionalCard = React.memo<ProfessionalCardProps>(({
   professional,
   isFavorite,
+  isFeatured,
   onPress,
   onToggleFavorite,
 }) => {
@@ -26,11 +29,12 @@ const ProfessionalCard = React.memo<ProfessionalCardProps>(({
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, isFeatured && styles.featuredCard]}
       onPress={onPress}
       activeOpacity={0.9}
     >
       <View style={styles.cardImageContainer}>
+        {isFeatured && <FeaturedBadge />}
         {professional.portfolio_photos?.[0] ? (
           <Image
             source={{ uri: professional.portfolio_photos[0] }}
@@ -133,6 +137,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  featuredCard: {
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
   },
   cardImageContainer: {
     width: '100%',

@@ -23,7 +23,7 @@ export interface ServiceResponse<T = void> {
 // DISCOVER PROFESSIONALS
 // ============================================
 
-export interface ProfessionalWithDetails extends ProfessionalProfile {
+export interface ProfessionalWithDetails extends Omit<ProfessionalProfile, 'user'> {
   user: {
     id: string;
     name: string | null;

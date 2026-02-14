@@ -16,15 +16,18 @@ import {
   Home,
   Building2,
 } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GradientButton, Card, Loading, Input } from '../../components';
-import { COLORS, SPACING, FONT_SIZES, RADIUS, DEPOSIT_PERCENTAGE } from '../../constants';
+import { BookingInterstitialAd } from '../../components/ads';
+import { COLORS, SPACING, FONT_SIZES, RADIUS, DEPOSIT_PERCENTAGE, AD_CONFIG } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
-import { Service } from '../../types';
+import { Service, AdCreative } from '../../types';
 import {
   getAvailableTimeSlots,
   createBooking,
   ProfessionalWithDetails,
 } from '../../services/client';
+import { getActiveAds } from '../../services/ads';
 import { sendNewBookingNotification } from '../../services/notifications';
 
 interface BookingFlowProps {
@@ -51,6 +54,9 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showInterstitial, setShowInterstitial] = useState(false);
+  const [interstitialAd, setInterstitialAd] = useState<AdCreative | null>(null);
+  const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -196,6 +202,21 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
           );
         }
 
+        // Check if we should show an interstitial ad
+        const lastShown = await AsyncStorage.getItem('last_interstitial_ts');
+        const cooldownOk = !lastShown || Date.now() - parseInt(lastShown, 10) > AD_CONFIG.INTERSTITIAL_COOLDOWN_MS;
+
+        if (cooldownOk) {
+          const adResult = await getActiveAds('interstitial', 'client', [service.category]);
+          if (adResult.data && adResult.data.length > 0) {
+            setInterstitialAd(adResult.data[0]);
+            setConfirmedBookingId(result.data?.id || null);
+            setShowInterstitial(true);
+            return; // Navigation handled by interstitial onDismiss
+          }
+        }
+
+        // Fallback: no ad available, show standard alert
         Alert.alert(
           'Booking Confirmed!',
           service.booking_type === 'instant'
@@ -577,6 +598,18 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
           loading={submitting}
         />
       </View>
+
+      <BookingInterstitialAd
+        visible={showInterstitial}
+        ad={interstitialAd}
+        onDismiss={async () => {
+          setShowInterstitial(false);
+          await AsyncStorage.setItem('last_interstitial_ts', Date.now().toString());
+          if (confirmedBookingId) {
+            navigation.replace('BookingDetail', { bookingId: confirmedBookingId });
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }

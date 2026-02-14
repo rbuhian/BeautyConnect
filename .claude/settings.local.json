@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(eas:*)",
+      "Bash(npx expo-doctor)",
+      "Bash(cat:*)",
+      "Bash(EAS_SKIP_AUTO_FINGERPRINT=1 eas build:*)",
+      "Bash(tee:*)",
+      "Bash(echo:*)",
+      "Read(//tmp/**)",
+      "Bash(npm install)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

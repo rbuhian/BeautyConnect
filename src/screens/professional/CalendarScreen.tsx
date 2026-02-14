@@ -73,8 +73,8 @@ export default function CalendarScreen({ navigation }: any) {
       if (!isSalon || !businessId) return;
 
       const result = await getActiveStaffMembers(businessId);
-      if (result.data) {
-        setStaffMembers(result.data);
+      if (result) {
+        setStaffMembers(result);
       }
     };
 
@@ -149,7 +149,7 @@ export default function CalendarScreen({ navigation }: any) {
   }, [fetchBookings]);
 
   // Get status color
-  const getStatusColor = useCallback((status: BookingStatus): string => {
+  const getStatusColor = useCallback((status: string): string => {
     switch (status) {
       case 'pending':
         return COLORS.warning;

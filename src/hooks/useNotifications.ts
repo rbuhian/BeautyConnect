@@ -22,8 +22,8 @@ export function useNotifications() {
   const navigation = useNavigation<any>();
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const notificationListener = useRef<any>();
-  const responseListener = useRef<any>();
+  const notificationListener = useRef<any>(null);
+  const responseListener = useRef<any>(null);
 
   // Register for push notifications
   const registerPushNotifications = useCallback(async () => {
@@ -121,17 +121,15 @@ export function useNotifications() {
     }
 
     return () => {
-      if (Notifications) {
-        try {
-          if (notificationListener.current) {
-            Notifications.removeNotificationSubscription(notificationListener.current);
-          }
-          if (responseListener.current) {
-            Notifications.removeNotificationSubscription(responseListener.current);
-          }
-        } catch (error) {
-          console.warn('Failed to remove notification listeners:', error);
+      try {
+        if (notificationListener.current) {
+          notificationListener.current.remove();
         }
+        if (responseListener.current) {
+          responseListener.current.remove();
+        }
+      } catch (error) {
+        console.warn('Failed to remove notification listeners:', error);
       }
     };
   }, [user?.id, registerPushNotifications, refreshUnreadCount, handleNotificationResponse]);

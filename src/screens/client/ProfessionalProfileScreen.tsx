@@ -49,7 +49,7 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
       const [proResult, reviewsResult, favResult] = await Promise.all([
         getProfessionalById(professionalId),
         getProfessionalReviews(professionalId),
-        user?.id ? getFavorites(user.id) : Promise.resolve({ data: [] }),
+        user?.id ? getFavorites(user.id) : Promise.resolve({ data: [] as string[] }),
       ]);
 
       if (proResult.data) {

@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { Review } from '../types';
 
-export interface ReviewWithDetails extends Review {
+export interface ReviewWithDetails extends Omit<Review, 'reviewer'> {
   reviewer: {
     id: string;
     name: string;

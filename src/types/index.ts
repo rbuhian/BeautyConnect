@@ -1,5 +1,5 @@
 // User types
-export type UserRole = 'client' | 'professional';
+export type UserRole = 'client' | 'professional' | 'admin';
 
 export interface User {
   id: string;
@@ -171,11 +171,116 @@ export interface TypingIndicator {
 }
 
 // Filter types
-export type PriceRange = '$' | '$$' | '$$$';
+export type PriceRange = '₱' | '₱₱' | '₱₱₱';
 
 export interface ProfessionalFilters {
   category?: Category;
   location_type?: LocationType;
   price_range?: PriceRange;
   max_distance_km?: number;
+}
+
+// ============================================
+// ADVERTISING TYPES
+// ============================================
+
+export type AdType = 'feed_card' | 'interstitial' | 'banner' | 'affiliate_card' | 'sponsored_content';
+export type AdStatus = 'active' | 'paused' | 'expired';
+export type AdTargetRole = 'client' | 'professional' | 'both';
+export type FeaturedPackageKey = 'boost_1d' | 'weekly' | 'monthly' | 'priority_category';
+
+export interface AdCreative {
+  id: string;
+  type: AdType;
+  advertiser_name: string;
+  headline: string;
+  subtext: string;
+  image_url: string | null;
+  cta_label: string;
+  cta_url: string;
+  target_categories: Category[];
+  target_user_role: AdTargetRole;
+  status: AdStatus;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+}
+
+export interface FeaturedListing {
+  id: string;
+  professional_id: string;
+  package: FeaturedPackageKey;
+  price_paid: number;
+  is_active: boolean;
+  starts_at: string;
+  ends_at: string;
+  payment_ref: string | null;
+  created_at: string;
+}
+
+export interface FeaturedPackage {
+  key: FeaturedPackageKey;
+  label: string;
+  price: number;
+  duration_days: number;
+  description: string;
+}
+
+export interface AffiliateProduct {
+  id: string;
+  name: string;
+  brand: string;
+  image_url: string;
+  price: number;
+  affiliate_url: string;
+  target_categories: Category[];
+  commission_rate: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+// Union types for mixed-content feeds
+export type DiscoverFeedItem =
+  | { item_type: 'professional'; data: Omit<ProfessionalProfile, 'user'> & { user: { id: string; name: string | null; avatar: string | null }; services: Service[]; min_price?: number; max_price?: number; is_featured?: boolean } }
+  | { item_type: 'ad'; data: AdCreative }
+  | { item_type: 'sponsored_content'; data: AdCreative };
+
+export type ChatFeedItem =
+  | { item_type: 'message'; data: Message }
+  | { item_type: 'affiliate'; data: AffiliateProduct };
+
+// ============================================
+// ADMIN TYPES
+// ============================================
+
+export interface AdStats {
+  ad_id: string;
+  impressions: number;
+  clicks: number;
+  ctr: number; // click-through rate as percentage
+}
+
+export interface AdCreativeWithStats extends AdCreative {
+  impressions: number;
+  clicks: number;
+  ctr: number;
+}
+
+export interface FeaturedListingWithProfessional extends FeaturedListing {
+  professional_name: string | null;
+  professional_avatar: string | null;
+  professional_categories: Category[];
+}
+
+export interface AdminDashboardStats {
+  total_ads: number;
+  active_ads: number;
+  paused_ads: number;
+  total_impressions: number;
+  total_clicks: number;
+  overall_ctr: number;
+  total_featured_revenue: number;
+  active_featured_listings: number;
+  total_affiliate_products: number;
+  active_affiliate_products: number;
 }

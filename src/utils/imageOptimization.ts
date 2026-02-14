@@ -26,7 +26,7 @@ const DEFAULT_QUALITY = 0.8;
 const DEFAULT_FORMAT = 'jpeg';
 
 // Cache directory for optimized images
-const CACHE_DIR = `${FileSystem.cacheDirectory}images/`;
+const CACHE_DIR = `${(FileSystem as any).cacheDirectory || ''}images/`;
 
 /**
  * Ensures cache directory exists

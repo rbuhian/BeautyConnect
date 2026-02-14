@@ -25,10 +25,11 @@ type EmptyStateType =
   | 'professionals'
   | 'custom';
 
-interface EmptyStateProps {
+export interface EmptyStateProps {
   type?: EmptyStateType;
   title?: string;
   message?: string;
+  description?: string;
   icon?: LucideIcon;
   actionLabel?: string;
   onAction?: () => void;
@@ -85,6 +86,7 @@ export default function EmptyState({
   type = 'custom',
   title,
   message,
+  description,
   icon: CustomIcon,
   actionLabel,
   onAction,
@@ -93,7 +95,7 @@ export default function EmptyState({
   const config = type !== 'custom' ? EMPTY_STATE_CONFIG[type] : null;
   const Icon = CustomIcon || config?.icon || Search;
   const displayTitle = title || config?.title || 'Nothing Here';
-  const displayMessage = message || config?.message || 'No items to display.';
+  const displayMessage = message || description || config?.message || 'No items to display.';
 
   return (
     <View style={[styles.container, style]}>

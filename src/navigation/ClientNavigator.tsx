@@ -101,7 +101,7 @@ export default function ClientNavigator() {
     >
       <Stack.Screen name="ClientTabs" component={ClientTabs} />
       <Stack.Screen name="ProfessionalProfile" component={ProfessionalProfileScreen} />
-      <Stack.Screen name="BookingFlow" component={BookingFlowScreen} />
+      <Stack.Screen name="BookingFlow" component={BookingFlowScreen as any} />
       <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="WriteReview" component={WriteReviewScreen} />

@@ -187,7 +187,7 @@ describe('MessagesScreen Integration Tests', () => {
 
   describe('Empty State Handling', () => {
     it('should handle empty conversations list', () => {
-      const conversations = [];
+      const conversations: any[] = [];
 
       expect(conversations.length).toBe(0);
       expect(Array.isArray(conversations)).toBe(true);
@@ -222,7 +222,7 @@ describe('MessagesScreen Integration Tests', () => {
 
     it('should transition from loading to loaded', () => {
       let loading = true;
-      const conversations = [];
+      const conversations: any[] = [];
 
       // Simulate loading complete
       loading = false;

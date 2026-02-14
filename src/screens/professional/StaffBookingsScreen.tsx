@@ -188,7 +188,7 @@ export default function StaffBookingsScreen({ navigation }: any) {
           <View style={{ width: 40 }} />
         </View>
         <EmptyState
-          icon="user"
+          icon={User}
           title="Not a Staff Member"
           message="You are not linked to any business as a staff member."
         />
@@ -237,7 +237,7 @@ export default function StaffBookingsScreen({ navigation }: any) {
         }
         ListEmptyComponent={
           <EmptyState
-            icon="calendar"
+            icon={Calendar}
             title={activeTab === 'upcoming' ? 'No Upcoming Bookings' : 'No Past Bookings'}
             message={
               activeTab === 'upcoming'

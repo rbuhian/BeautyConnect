@@ -1,22 +1,24 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import {
   TouchableOpacity,
   Text,
   StyleSheet,
   ActivityIndicator,
+  View,
   ViewStyle,
   TextStyle,
 } from 'react-native';
 import { COLORS, RADIUS, SPACING, FONT_SIZES } from '../constants';
 
-interface ButtonProps {
+export interface ButtonProps {
   title: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary' | 'outline';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;
-  style?: ViewStyle;
+  icon?: ReactNode;
+  style?: ViewStyle | ViewStyle[];
   textStyle?: TextStyle;
 }
 
@@ -27,6 +29,7 @@ export default function Button({
   size = 'medium',
   disabled = false,
   loading = false,
+  icon,
   style,
   textStyle,
 }: ButtonProps) {
@@ -57,7 +60,10 @@ export default function Button({
           color={variant === 'outline' ? COLORS.primary : COLORS.white}
         />
       ) : (
-        <Text style={textStyles}>{title}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {icon}
+          <Text style={textStyles}>{title}</Text>
+        </View>
       )}
     </TouchableOpacity>
   );

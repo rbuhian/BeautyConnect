@@ -26,6 +26,7 @@ import {
   Users,
   RefreshCw,
   ChevronRight,
+  Star,
 } from 'lucide-react-native';
 import { GradientButton, Card, Button } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
