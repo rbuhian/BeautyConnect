@@ -83,6 +83,14 @@ export interface StaffBlockedDate {
   reason: string | null;
 }
 
+export interface ProfessionalBlockedDate {
+  id: string;
+  professional_id: string;
+  date: string;
+  reason: string | null;
+  created_at: string;
+}
+
 // Service types
 export interface Service {
   id: string;

@@ -27,7 +27,7 @@ import {
 
 import { useAuth } from '../../hooks/useAuth';
 import { Booking, BookingStatus, StaffMember, Service } from '../../types';
-import { getBookingsByDateRange, getBusinessBookingsByDateRange, createProfessionalBooking } from '../../services/calendar';
+import { getBookingsByDateRange, getBusinessBookingsByDateRange, createProfessionalBooking, blockProfessionalDate } from '../../services/calendar';
 import { getActiveStaffMembers, addStaffBlockedDate } from '../../services/business';
 import { getServices } from '../../services/professional';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
@@ -313,26 +313,34 @@ export default function CalendarScreen({ navigation }: any) {
     staffMemberIds: string[];
     reason?: string;
   }) => {
-    if (!isSalon || !staffMembers.length) {
-      // For solo professionals, would need separate implementation
-      console.warn('Block time not yet implemented for solo professionals');
-      return;
-    }
+    if (isSalon && staffMembers.length > 0) {
+      // Salon: block time for each selected staff member
+      const promises = blockData.staffMemberIds.map(staffId =>
+        addStaffBlockedDate(staffId, blockData.date, blockData.reason)
+      );
 
-    // Block time for each selected staff member
-    const promises = blockData.staffMemberIds.map(staffId =>
-      addStaffBlockedDate(staffId, blockData.date, blockData.reason)
-    );
+      try {
+        await Promise.all(promises);
+        await fetchBookings();
+      } catch (error) {
+        console.error('Error blocking staff time:', error);
+        throw error;
+      }
+    } else if (professionalProfile) {
+      // Solo professional: block the date directly
+      const result = await blockProfessionalDate(
+        professionalProfile.id,
+        blockData.date,
+        blockData.reason
+      );
 
-    try {
-      await Promise.all(promises);
-      // Refresh bookings to show blocked times
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+
       await fetchBookings();
-    } catch (error) {
-      console.error('Error blocking time:', error);
-      throw error;
     }
-  }, [isSalon, staffMembers, fetchBookings]);
+  }, [isSalon, staffMembers, professionalProfile, fetchBookings]);
 
   if (loading) {
     return <Loading />;

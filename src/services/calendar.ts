@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Booking, BookingStatus } from '../types';
+import { Booking, BookingStatus, ProfessionalBlockedDate } from '../types';
 
 export interface ServiceError {
   message: string;
@@ -170,29 +170,132 @@ export async function getBusinessBookingsByDateRange(
 }
 
 /**
- * Block a date for a professional
+ * Block a date for a solo professional
  * Note: For staff members, use addStaffBlockedDate from business.ts
  */
 export async function blockProfessionalDate(
   professionalId: string,
   date: string,
   reason?: string
-): Promise<ServiceResponse<void>> {
+): Promise<ServiceResponse<ProfessionalBlockedDate>> {
   try {
-    // For now, we'll use the staff_blocked_dates table
-    // In a production app, you might want a separate professional_blocked_dates table
+    const { data, error } = await supabase
+      .from('professional_blocked_dates')
+      .insert({
+        professional_id: professionalId,
+        date,
+        reason: reason || null,
+      })
+      .select()
+      .single();
 
-    // This is a placeholder - you would implement professional-level blocking
-    // based on your database schema
-    console.warn('blockProfessionalDate not fully implemented - use staff blocking for now');
+    if (error) {
+      // Handle duplicate date gracefully
+      if (error.code === '23505') {
+        return {
+          data: null,
+          error: { message: 'This date is already blocked', code: 'DUPLICATE' },
+        };
+      }
+      console.error('Error blocking professional date:', error);
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
 
-    return { data: undefined, error: null };
+    return { data, error: null };
   } catch (err) {
     console.error('Unexpected error in blockProfessionalDate:', err);
     return {
       data: null,
       error: { message: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' },
     };
+  }
+}
+
+/**
+ * Remove a blocked date for a solo professional
+ */
+export async function unblockProfessionalDate(
+  professionalId: string,
+  date: string
+): Promise<ServiceResponse<void>> {
+  try {
+    const { error } = await supabase
+      .from('professional_blocked_dates')
+      .delete()
+      .eq('professional_id', professionalId)
+      .eq('date', date);
+
+    if (error) {
+      console.error('Error unblocking professional date:', error);
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    return { data: undefined, error: null };
+  } catch (err) {
+    console.error('Unexpected error in unblockProfessionalDate:', err);
+    return {
+      data: null,
+      error: { message: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' },
+    };
+  }
+}
+
+/**
+ * Get blocked dates for a solo professional within a date range
+ */
+export async function getProfessionalBlockedDates(
+  professionalId: string,
+  startDate?: string,
+  endDate?: string
+): Promise<ServiceResponse<ProfessionalBlockedDate[]>> {
+  try {
+    let query = supabase
+      .from('professional_blocked_dates')
+      .select('*')
+      .eq('professional_id', professionalId);
+
+    if (startDate) {
+      query = query.gte('date', startDate);
+    }
+    if (endDate) {
+      query = query.lte('date', endDate);
+    }
+
+    const { data, error } = await query.order('date');
+
+    if (error) {
+      console.error('Error fetching professional blocked dates:', error);
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    return { data: data || [], error: null };
+  } catch (err) {
+    console.error('Unexpected error in getProfessionalBlockedDates:', err);
+    return {
+      data: null,
+      error: { message: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' },
+    };
+  }
+}
+
+/**
+ * Check if a specific date is blocked for a solo professional
+ */
+export async function isProfessionalDateBlocked(
+  professionalId: string,
+  date: string
+): Promise<boolean> {
+  try {
+    const { data } = await supabase
+      .from('professional_blocked_dates')
+      .select('id')
+      .eq('professional_id', professionalId)
+      .eq('date', date)
+      .single();
+
+    return !!data;
+  } catch {
+    return false;
   }
 }
 

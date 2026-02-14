@@ -566,6 +566,20 @@ export async function getAvailableTimeSlots(
       return { data: [], error: null };
     }
 
+    // For solo professionals, check if the date is blocked
+    if (!professional?.business_id) {
+      const { data: blockedDate } = await supabase
+        .from('professional_blocked_dates')
+        .select('id')
+        .eq('professional_id', professionalId)
+        .eq('date', date)
+        .single();
+
+      if (blockedDate) {
+        return { data: [], error: null };
+      }
+    }
+
     // Get existing bookings for that date
     const { data: existingBookings } = await supabase
       .from('bookings')
