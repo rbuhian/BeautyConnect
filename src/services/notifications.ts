@@ -450,6 +450,61 @@ export const NotificationMessages = {
 };
 
 // ============================================
+// Expo Push API — Send real push notifications
+// ============================================
+
+const EXPO_PUSH_API = 'https://exp.host/--/api/v2/push/send';
+
+/**
+ * Send a push notification to a user's devices via Expo Push API.
+ * Looks up their active push tokens from the database and delivers
+ * the notification even when the app is closed/backgrounded.
+ */
+async function sendPushToUser(
+  recipientUserId: string,
+  title: string,
+  body: string,
+  data?: NotificationData,
+  channelId: string = 'default'
+): Promise<void> {
+  try {
+    const { data: tokens } = await getUserPushTokens(recipientUserId);
+
+    if (!tokens || tokens.length === 0) {
+      // User has no registered devices — skip silently
+      return;
+    }
+
+    const messages = tokens.map((token) => ({
+      to: token,
+      title,
+      body,
+      data: data as any,
+      sound: 'default' as const,
+      channelId,
+      priority: 'high' as const,
+    }));
+
+    // Expo Push API accepts batches of up to 100 messages
+    const response = await fetch(EXPO_PUSH_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(messages),
+    });
+
+    if (!response.ok) {
+      console.warn('Expo Push API error:', response.status, await response.text());
+    }
+  } catch (error) {
+    // Fire-and-forget — don't let push failures break the app flow
+    console.warn('Failed to send push notification:', error);
+  }
+}
+
+// ============================================
 // Send Notification Helpers
 // ============================================
 
@@ -464,15 +519,14 @@ export async function sendNewBookingNotification(
   bookingId: string
 ): Promise<void> {
   const { title, body } = NotificationMessages.newBooking(clientName, serviceName, date);
+  const data: NotificationData = { type: 'booking_new', bookingId };
 
-  // Log the notification
-  await logNotification(professionalUserId, title, body, 'booking_new', bookingId);
-
-  // Schedule local notification (for when user is in app)
-  await scheduleLocalNotification(title, body, {
-    type: 'booking_new',
-    bookingId,
-  });
+  // Log to DB + send push to recipient's devices + local notification
+  await Promise.all([
+    logNotification(professionalUserId, title, body, 'booking_new', bookingId),
+    sendPushToUser(professionalUserId, title, body, data, 'bookings'),
+    scheduleLocalNotification(title, body, data),
+  ]);
 }
 
 /**
@@ -486,12 +540,13 @@ export async function sendBookingConfirmedNotification(
   bookingId: string
 ): Promise<void> {
   const { title, body } = NotificationMessages.bookingConfirmed(professionalName, serviceName, date);
+  const data: NotificationData = { type: 'booking_confirmed', bookingId };
 
-  await logNotification(clientUserId, title, body, 'booking_confirmed', bookingId);
-  await scheduleLocalNotification(title, body, {
-    type: 'booking_confirmed',
-    bookingId,
-  });
+  await Promise.all([
+    logNotification(clientUserId, title, body, 'booking_confirmed', bookingId),
+    sendPushToUser(clientUserId, title, body, data, 'bookings'),
+    scheduleLocalNotification(title, body, data),
+  ]);
 }
 
 /**
@@ -504,16 +559,17 @@ export async function sendBookingDeclinedNotification(
   bookingId: string
 ): Promise<void> {
   const { title, body } = NotificationMessages.bookingDeclined(professionalName, serviceName);
+  const data: NotificationData = { type: 'booking_declined', bookingId };
 
-  await logNotification(clientUserId, title, body, 'booking_declined', bookingId);
-  await scheduleLocalNotification(title, body, {
-    type: 'booking_declined',
-    bookingId,
-  });
+  await Promise.all([
+    logNotification(clientUserId, title, body, 'booking_declined', bookingId),
+    sendPushToUser(clientUserId, title, body, data, 'bookings'),
+    scheduleLocalNotification(title, body, data),
+  ]);
 }
 
 /**
- * Send notification for booking cancelled (to both parties)
+ * Send notification for booking cancelled (to other party)
  */
 export async function sendBookingCancelledNotification(
   recipientUserId: string,
@@ -523,12 +579,13 @@ export async function sendBookingCancelledNotification(
   bookingId: string
 ): Promise<void> {
   const { title, body } = NotificationMessages.bookingCancelled(cancelledByName, serviceName, date);
+  const data: NotificationData = { type: 'booking_cancelled', bookingId };
 
-  await logNotification(recipientUserId, title, body, 'booking_cancelled', bookingId);
-  await scheduleLocalNotification(title, body, {
-    type: 'booking_cancelled',
-    bookingId,
-  });
+  await Promise.all([
+    logNotification(recipientUserId, title, body, 'booking_cancelled', bookingId),
+    sendPushToUser(recipientUserId, title, body, data, 'bookings'),
+    scheduleLocalNotification(title, body, data),
+  ]);
 }
 
 /**
@@ -541,13 +598,13 @@ export async function sendNewMessageNotification(
   messageId?: string
 ): Promise<void> {
   const { title, body } = NotificationMessages.newMessage(senderName);
+  const data: NotificationData = { type: 'message', bookingId, messageId };
 
-  await logNotification(recipientUserId, title, body, 'message', bookingId);
-  await scheduleLocalNotification(title, body, {
-    type: 'message',
-    bookingId,
-    messageId,
-  });
+  await Promise.all([
+    logNotification(recipientUserId, title, body, 'message', bookingId),
+    sendPushToUser(recipientUserId, title, body, data, 'messages'),
+    scheduleLocalNotification(title, body, data),
+  ]);
 }
 
 /**
@@ -596,12 +653,13 @@ export async function sendReviewRequestNotification(
   bookingId: string
 ): Promise<void> {
   const { title, body } = NotificationMessages.reviewRequest(professionalName, serviceName);
+  const data: NotificationData = { type: 'review_request', bookingId };
 
-  await logNotification(clientUserId, title, body, 'review_request', bookingId);
-  await scheduleLocalNotification(title, body, {
-    type: 'review_request',
-    bookingId,
-  });
+  await Promise.all([
+    logNotification(clientUserId, title, body, 'review_request', bookingId),
+    sendPushToUser(clientUserId, title, body, data, 'bookings'),
+    scheduleLocalNotification(title, body, data),
+  ]);
 }
 
 /**
@@ -615,10 +673,11 @@ export async function sendStaffAssignedNotification(
   bookingId: string
 ): Promise<void> {
   const { title, body } = NotificationMessages.staffAssigned(clientName, serviceName, date);
+  const data: NotificationData = { type: 'staff_assigned', bookingId };
 
-  await logNotification(staffUserId, title, body, 'staff_assigned', bookingId);
-  await scheduleLocalNotification(title, body, {
-    type: 'staff_assigned',
-    bookingId,
-  });
+  await Promise.all([
+    logNotification(staffUserId, title, body, 'staff_assigned', bookingId),
+    sendPushToUser(staffUserId, title, body, data, 'bookings'),
+    scheduleLocalNotification(title, body, data),
+  ]);
 }
