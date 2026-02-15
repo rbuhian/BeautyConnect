@@ -20,6 +20,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Category, BusinessType } from '../../types';
 import { createBusiness } from '../../services/business';
 import { useAuthStore } from '../../stores/authStore';
+import { uploadImage } from '../../services/storage';
 
 const BUSINESS_TYPES: { value: BusinessType; label: string; description: string }[] = [
   { value: 'salon', label: 'Salon', description: 'Hair salon, nail salon, beauty parlor' },
@@ -107,10 +108,21 @@ export default function ProfessionalOnboardingScreen({ navigation }: AuthScreenP
     setError('');
 
     try {
-      // Update user profile with name
+      // Upload avatar to Supabase Storage if selected
+      let avatarUrl: string | undefined;
+      if (avatar) {
+        try {
+          avatarUrl = await uploadImage(avatar, 'avatars');
+        } catch (err) {
+          console.error('Avatar upload failed:', err);
+          // Continue without avatar — don't block onboarding
+        }
+      }
+
+      // Update user profile with name and uploaded avatar URL
       const result = await updateProfile({
         name: name.trim(),
-        avatar: avatar || undefined,
+        avatar: avatarUrl || undefined,
       });
 
       if (!result.success) {

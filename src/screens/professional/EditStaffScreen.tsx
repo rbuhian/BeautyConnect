@@ -24,7 +24,7 @@ import {
   updateStaffMember,
   deleteStaffMember,
 } from '../../services/business';
-import { uploadImage } from '../../services/storage';
+import { uploadImage, deleteImage } from '../../services/storage';
 
 export default function EditStaffScreen({
   navigation,
@@ -112,6 +112,10 @@ export default function EditStaffScreen({
       // Upload new avatar if changed
       let avatarUrl = avatar;
       if (newAvatarUri) {
+        // Delete old avatar from storage
+        if (avatar && avatar.includes('supabase')) {
+          await deleteImage(avatar, 'avatars').catch(() => {});
+        }
         avatarUrl = await uploadImage(newAvatarUri, 'avatars');
       }
 

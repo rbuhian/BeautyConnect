@@ -25,6 +25,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Category, LocationType } from '../../types';
 import { updateProfessionalProfile, getProfessionalProfile } from '../../services/professional';
 import { supabase } from '../../services/supabase';
+import { deleteImage } from '../../services/storage';
 import { useAuthStore } from '../../stores/authStore';
 // import { optimizeAvatar, optimizePortfolioImage, formatBytes } from '../../utils/imageOptimization';
 
@@ -88,9 +89,10 @@ export default function EditProfileScreen({ navigation }: any) {
   const uploadAvatar = async (uri: string) => {
     setUploadingAvatar(true);
     try {
-      // Optimize image before upload (TEMPORARILY DISABLED - requires native modules)
-      // const optimized = await optimizeAvatar(uri);
-      // console.log(`Avatar optimized: ${formatBytes(optimized.size)} (${optimized.width}x${optimized.height})`);
+      // Delete old avatar from storage if it exists
+      if (avatar && avatar.includes('supabase')) {
+        await deleteImage(avatar, 'avatars').catch(() => {});
+      }
 
       const fileName = `${user?.id}-${Date.now()}.jpg`;
 
@@ -160,7 +162,11 @@ export default function EditProfileScreen({ navigation }: any) {
     }
   };
 
-  const removePortfolioPhoto = (index: number) => {
+  const removePortfolioPhoto = async (index: number) => {
+    const photoUrl = portfolioPhotos[index];
+    if (photoUrl && photoUrl.includes('supabase')) {
+      await deleteImage(photoUrl, 'portfolios').catch(() => {});
+    }
     const newPhotos = [...portfolioPhotos];
     newPhotos.splice(index, 1);
     setPortfolioPhotos(newPhotos);
