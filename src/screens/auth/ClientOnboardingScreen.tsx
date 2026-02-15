@@ -17,6 +17,7 @@ import { AuthScreenProps } from '../../navigation/types';
 import { GradientButton, Input } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, APP_NAME } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
+import { uploadImage } from '../../services/storage';
 
 export default function ClientOnboardingScreen({ navigation }: AuthScreenProps<'ClientOnboarding'>) {
   const [name, setName] = useState('');
@@ -59,10 +60,21 @@ export default function ClientOnboardingScreen({ navigation }: AuthScreenProps<'
     setLoading(true);
     setError('');
 
-    // TODO: Upload avatar to Supabase storage if exists
+    let avatarUrl: string | undefined;
+
+    // Upload avatar to Supabase Storage if selected
+    if (avatar) {
+      try {
+        avatarUrl = await uploadImage(avatar, 'avatars');
+      } catch (err) {
+        console.error('Avatar upload failed:', err);
+        // Continue without avatar — don't block onboarding
+      }
+    }
+
     const result = await updateProfile({
       name: name.trim(),
-      avatar: avatar || undefined,
+      avatar: avatarUrl || undefined,
     });
 
     setLoading(false);
