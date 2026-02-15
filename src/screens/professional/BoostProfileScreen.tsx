@@ -13,9 +13,11 @@ import { ArrowLeft, Award, Check, Clock, Sparkles, Crown } from 'lucide-react-na
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CURRENCY, FEATURED_PACKAGES } from '../../constants';
 import { FeaturedPackage, FeaturedPackageKey } from '../../types';
-import { getFeaturedListingStatus, createFeaturedListing } from '../../services/ads';
+import { getFeaturedListingStatus } from '../../services/ads';
+import { createCheckoutSession, waitForPayment } from '../../services/payment';
 import { useAuth } from '../../hooks/useAuth';
 import { ProfessionalScreenProps } from '../../navigation/types';
+import PaymentWebView from '../../components/PaymentWebView';
 
 const PACKAGE_ICONS: Record<FeaturedPackageKey, React.ReactNode> = {
   boost_1d: <Sparkles size={24} color={COLORS.primary} />,
@@ -33,6 +35,10 @@ export default function BoostProfileScreen({
   const [isFeatured, setIsFeatured] = useState(false);
   const [currentEndsAt, setCurrentEndsAt] = useState<string | null>(null);
   const [currentPackage, setCurrentPackage] = useState<FeaturedPackageKey | null>(null);
+  const [showPayment, setShowPayment] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState('');
+  const [currentSessionId, setCurrentSessionId] = useState('');
+  const [selectedPkg, setSelectedPkg] = useState<FeaturedPackage | null>(null);
 
   useEffect(() => {
     loadStatus();
@@ -59,32 +65,64 @@ export default function BoostProfileScreen({
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Confirm',
+          text: 'Pay Now',
           onPress: async () => {
             setPurchasing(true);
-            const result = await createFeaturedListing(
-              professionalProfile.id,
+            setSelectedPkg(pkg);
+
+            const result = await createCheckoutSession(
               pkg.key,
+              professionalProfile.id,
               pkg.price,
-              pkg.duration_days
+              pkg.label
             );
+
             setPurchasing(false);
 
-            if (result.error) {
-              Alert.alert('Error', result.error.message);
+            if (result.error || !result.data) {
+              Alert.alert('Error', result.error?.message || 'Failed to start payment');
               return;
             }
 
-            Alert.alert(
-              'Boost Activated!',
-              `Your profile is now featured for ${pkg.duration_days} day${pkg.duration_days > 1 ? 's' : ''}.`,
-              [{ text: 'OK' }]
-            );
-            loadStatus();
+            setCheckoutUrl(result.data.checkoutUrl);
+            setCurrentSessionId(result.data.sessionId);
+            setShowPayment(true);
           },
         },
       ]
     );
+  };
+
+  const handlePaymentSuccess = async () => {
+    setShowPayment(false);
+    setPurchasing(true);
+
+    // Wait for webhook to process and create the featured listing
+    const status = await waitForPayment(currentSessionId);
+
+    setPurchasing(false);
+
+    if (status === 'paid') {
+      Alert.alert(
+        'Boost Activated!',
+        `Your profile is now featured for ${selectedPkg?.duration_days || 1} day${(selectedPkg?.duration_days || 1) > 1 ? 's' : ''}.`,
+        [{ text: 'OK' }]
+      );
+      loadStatus();
+    } else {
+      Alert.alert(
+        'Payment Processing',
+        'Your payment is being processed. Your boost will be activated shortly.',
+        [{ text: 'OK' }]
+      );
+      // Refresh after a delay in case webhook is slow
+      setTimeout(() => loadStatus(), 5000);
+    }
+  };
+
+  const handlePaymentCancel = () => {
+    setShowPayment(false);
+    Alert.alert('Payment Cancelled', 'No charges were made. You can try again anytime.');
   };
 
   const formatDate = (dateStr: string) => {
@@ -190,6 +228,13 @@ export default function BoostProfileScreen({
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       )}
+
+      <PaymentWebView
+        visible={showPayment}
+        checkoutUrl={checkoutUrl}
+        onSuccess={handlePaymentSuccess}
+        onCancel={handlePaymentCancel}
+      />
     </SafeAreaView>
   );
 }
