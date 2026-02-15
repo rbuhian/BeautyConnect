@@ -61,6 +61,7 @@
     "prettier": "^3.8.0",
     "react-native-calendars": "^1.1314.0",
     "react-test-renderer": "^19.1.0",
+    "supabase": "^2.76.8",
     "ts-jest": "^29.4.6",
     "typescript": "~5.9.2"
   },

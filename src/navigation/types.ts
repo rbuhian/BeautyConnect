@@ -39,6 +39,7 @@ export type ClientStackParamList = {
   Favorites: undefined;
   EditProfile: undefined;
   Settings: undefined;
+  Notifications: undefined;
 };
 
 // Professional Tab Navigator
@@ -77,6 +78,7 @@ export type ProfessionalStackParamList = {
   StaffBookings: undefined;
   // Advertising
   BoostProfile: undefined;
+  Notifications: undefined;
 };
 
 // Admin Tab Navigator

@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { RootStackParamList } from './types';
 import { useAuth } from '../hooks/useAuth';
 import { Loading } from '../components';
+import { NotificationProvider } from '../contexts/NotificationContext';
 
 import AuthNavigator from './AuthNavigator';
 import ClientNavigator from './ClientNavigator';
@@ -37,25 +38,31 @@ export default function RootNavigator() {
     }
   }
 
-  return (
-    <NavigationContainer>
+  const authenticatedContent = (
+    <NotificationProvider>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!user || needsOnboarding ? (
-          // Not authenticated or needs onboarding - show auth flow
-          <Stack.Screen name="Auth">
-            {() => <AuthNavigator initialRoute={initialRoute} />}
-          </Stack.Screen>
-        ) : user.role === 'admin' ? (
-          // Authenticated as admin
+        {user?.role === 'admin' ? (
           <Stack.Screen name="Admin" component={AdminNavigator} />
-        ) : user.role === 'professional' ? (
-          // Authenticated as professional
+        ) : user?.role === 'professional' ? (
           <Stack.Screen name="Professional" component={ProfessionalNavigator} />
         ) : (
-          // Authenticated as client (default)
           <Stack.Screen name="Client" component={ClientNavigator} />
         )}
       </Stack.Navigator>
+    </NotificationProvider>
+  );
+
+  return (
+    <NavigationContainer>
+      {!user || needsOnboarding ? (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Auth">
+            {() => <AuthNavigator initialRoute={initialRoute} />}
+          </Stack.Screen>
+        </Stack.Navigator>
+      ) : (
+        authenticatedContent
+      )}
     </NavigationContainer>
   );
 }

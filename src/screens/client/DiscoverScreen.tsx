@@ -19,6 +19,7 @@ import {
   Heart,
   X,
   Check,
+  Bell,
 } from 'lucide-react-native';
 import { Card, Loading, EmptyState, SkeletonList, ProfessionalCard } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES, LOCATION_TYPES, PRICE_RANGES } from '../../constants';
@@ -35,12 +36,14 @@ import { getFeaturedProfessionals, getActiveAds } from '../../services/ads';
 import { FeedAdCard, SponsoredContentCard } from '../../components/ads';
 import { AdCreative, DiscoverFeedItem } from '../../types';
 import { AD_CONFIG } from '../../constants';
+import { useNotificationContext } from '../../contexts/NotificationContext';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - SPACING.lg * 2;
 
 export default function DiscoverScreen({ navigation }: any) {
   const { user } = useAuth();
+  const { unreadCount } = useNotificationContext();
   const [professionals, setProfessionals] = useState<ProfessionalWithDetails[]>([]);
   const [feedItems, setFeedItems] = useState<DiscoverFeedItem[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -350,12 +353,27 @@ export default function DiscoverScreen({ navigation }: any) {
           </Text>
           <Text style={styles.subtitle}>Find your perfect beauty pro</Text>
         </View>
-        <TouchableOpacity
-          style={styles.favoritesButton}
-          onPress={() => navigation.navigate('Favorites')}
-        >
-          <Heart size={22} color={COLORS.primary} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => navigation.navigate('Notifications')}
+          >
+            <Bell size={22} color={COLORS.primary} />
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => navigation.navigate('Favorites')}
+          >
+            <Heart size={22} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Bar */}
@@ -504,7 +522,12 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 2,
   },
-  favoritesButton: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  headerIconButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -516,6 +539,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: COLORS.error,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: '700',
   },
   searchSection: {
     flexDirection: 'row',

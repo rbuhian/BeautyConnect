@@ -22,6 +22,7 @@ import {
   Star,
   Users,
   Building2,
+  Bell,
 } from 'lucide-react-native';
 import { ProfessionalTabScreenProps } from '../../navigation/types';
 import { Card, Loading } from '../../components';
@@ -36,12 +37,14 @@ import {
 import { getReviewsReceived, ReviewWithDetails } from '../../services/review';
 import { getActiveAds } from '../../services/ads';
 import { B2BBannerAd, BoostProfileCard } from '../../components/ads';
+import { useNotificationContext } from '../../contexts/NotificationContext';
 import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 
 export default function DashboardScreen({
   navigation,
 }: ProfessionalTabScreenProps<'Dashboard'>) {
   const { user, professionalProfile } = useAuth();
+  const { unreadCount } = useNotificationContext();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [pendingReviews, setPendingReviews] = useState<Booking[]>([]);
   const [reviews, setReviews] = useState<ReviewWithDetails[]>([]);
@@ -155,17 +158,32 @@ export default function DashboardScreen({
               </View>
             )}
           </View>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Profile' as never)}
-          >
-            {user?.avatar ? (
-              <Image source={{ uri: user.avatar }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <User size={24} color={COLORS.textSecondary} />
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.bellButton}
+              onPress={() => navigation.navigate('Notifications' as never)}
+            >
+              <Bell size={22} color={COLORS.textPrimary} />
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Profile' as never)}
+            >
+              {user?.avatar ? (
+                <Image source={{ uri: user.avatar }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <User size={24} color={COLORS.textSecondary} />
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Live Status Card */}
@@ -698,6 +716,35 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.xs,
     fontWeight: '600',
     color: '#8B5CF6',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  bellButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: COLORS.error,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: '700',
   },
   avatar: {
     width: 50,
