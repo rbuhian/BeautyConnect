@@ -26,7 +26,7 @@ export type ClientStackParamList = {
   ClientTabs: NavigatorScreenParams<ClientTabParamList>;
   ProfessionalProfile: { professional: ProfessionalProfile };
   BookingFlow: { professional: ProfessionalProfile };
-  BookingDetail: { booking: Booking };
+  BookingDetail: { booking?: Booking; bookingId?: string };
   Chat: { bookingId: string };
   WriteReview: {
     bookingId: string;
@@ -53,7 +53,7 @@ export type ProfessionalTabParamList = {
 // Professional Stack
 export type ProfessionalStackParamList = {
   ProfessionalTabs: NavigatorScreenParams<ProfessionalTabParamList>;
-  BookingDetail: { booking: Booking };
+  BookingDetail: { booking?: Booking; bookingId?: string };
   Chat: { bookingId: string };
   WriteReview: {
     bookingId: string;

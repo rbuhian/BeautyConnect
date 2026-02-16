@@ -417,6 +417,26 @@ export async function updateBookingStatus(
   }
 }
 
+export async function getBookingByIdForProfessional(
+  bookingId: string
+): Promise<ServiceResponse<Booking>> {
+  try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*, service:services(*), client:users!bookings_client_id_fkey(*), staff_member:staff_members(id, name, avatar)')
+      .eq('id', bookingId)
+      .single();
+
+    if (error) {
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    return { data: data as Booking, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch booking' } };
+  }
+}
+
 // ============================================
 // STATS
 // ============================================

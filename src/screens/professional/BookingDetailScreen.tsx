@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -28,10 +28,10 @@ import {
   ChevronRight,
   Star,
 } from 'lucide-react-native';
-import { GradientButton, Card, Button } from '../../components';
+import { GradientButton, Card, Button, Loading } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { Booking, StaffMember } from '../../types';
-import { updateBookingStatus } from '../../services/professional';
+import { updateBookingStatus, getBookingByIdForProfessional } from '../../services/professional';
 import { format, parseISO, differenceInHours } from 'date-fns';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -49,10 +49,12 @@ import {
 import { getBookingReview } from '../../services/review';
 
 export default function BookingDetailScreen({ navigation, route }: any) {
-  const { booking: initialBooking } = route.params as { booking: Booking };
+  const params = route.params || {};
+  const initialBooking = params.booking as Booking | undefined;
+  const bookingIdParam = params.bookingId as string | undefined;
   const { user, professionalProfile } = useAuth();
-  const [booking, setBooking] = useState<Booking>(initialBooking);
-  const [loading, setLoading] = useState(false);
+  const [booking, setBooking] = useState<Booking>(initialBooking || ({} as Booking));
+  const [loading, setLoading] = useState(!initialBooking);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(false);
@@ -61,6 +63,22 @@ export default function BookingDetailScreen({ navigation, route }: any) {
   const [myReview, setMyReview] = useState<any>(null);
 
   const hasBusiness = !!professionalProfile?.business;
+
+  // Fetch booking by ID if only bookingId was provided (e.g. from notifications)
+  useEffect(() => {
+    if (!initialBooking && bookingIdParam) {
+      (async () => {
+        const result = await getBookingByIdForProfessional(bookingIdParam);
+        if (result.data) {
+          setBooking(result.data);
+        } else {
+          Alert.alert('Error', 'Booking not found');
+          navigation.goBack();
+        }
+        setLoading(false);
+      })();
+    }
+  }, [bookingIdParam, initialBooking]);
 
   useEffect(() => {
     if (hasBusiness && professionalProfile?.business?.id) {
@@ -71,7 +89,7 @@ export default function BookingDetailScreen({ navigation, route }: any) {
   // Check if professional has reviewed the client
   useEffect(() => {
     const checkReview = async () => {
-      if (!user?.id || booking.status !== 'completed') return;
+      if (!user?.id || !booking || booking.status !== 'completed') return;
 
       try {
         const { data } = await getBookingReview(booking.id, user.id);
@@ -388,6 +406,10 @@ export default function BookingDetailScreen({ navigation, route }: any) {
       Linking.openURL(`https://maps.google.com/?q=${address}`);
     }
   };
+
+  if (loading) {
+    return <Loading fullScreen message="Loading booking..." />;
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
