@@ -41,10 +41,27 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { packageKey, professionalId, amount, description } = await req.json();
+    const body = await req.json();
+    const { amount, description } = body;
+    const type = body.type || 'featured_listing';
 
-    if (!packageKey || !professionalId || !amount || !description) {
-      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+    if (!amount || !description) {
+      return new Response(JSON.stringify({ error: 'Missing required fields: amount, description' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate type-specific fields
+    if (type === 'featured_listing' && (!body.packageKey || !body.professionalId)) {
+      return new Response(JSON.stringify({ error: 'Missing required fields: packageKey, professionalId' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (type === 'booking_deposit' && !body.bookingId) {
+      return new Response(JSON.stringify({ error: 'Missing required field: bookingId' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -58,6 +75,26 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Build metadata based on payment type
+    const metadata = type === 'booking_deposit'
+      ? {
+          type: 'booking_deposit',
+          booking_id: body.bookingId,
+          client_id: user.id,
+          amount_php: amount,
+        }
+      : {
+          type: 'featured_listing',
+          professional_id: body.professionalId,
+          package_key: body.packageKey,
+          user_id: user.id,
+          amount_php: amount,
+        };
+
+    const checkoutDescription = type === 'booking_deposit'
+      ? `BeautyConnect Booking Deposit - ${description}`
+      : `BeautyConnect Featured Listing - ${description}`;
 
     const checkoutPayload = {
       data: {
@@ -73,13 +110,8 @@ serve(async (req) => {
           payment_method_types: ['gcash', 'card', 'grab_pay', 'paymaya'],
           success_url: SUCCESS_URL,
           cancel_url: CANCEL_URL,
-          description: `BeautyConnect Featured Listing - ${description}`,
-          metadata: {
-            professional_id: professionalId,
-            package_key: packageKey,
-            user_id: user.id,
-            amount_php: amount,
-          },
+          description: checkoutDescription,
+          metadata,
         },
       },
     };

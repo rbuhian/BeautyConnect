@@ -45,7 +45,7 @@ export async function getProfessionalProfile(
 
 export async function updateProfessionalProfile(
   profileId: string,
-  updates: Partial<Pick<ProfessionalProfile, 'bio' | 'categories' | 'portfolio_photos' | 'service_area' | 'location_type' | 'salon_address' | 'is_live'>>
+  updates: Partial<Pick<ProfessionalProfile, 'bio' | 'categories' | 'portfolio_photos' | 'service_area' | 'location_type' | 'salon_address' | 'latitude' | 'longitude' | 'is_live'>>
 ): Promise<ServiceResponse<ProfessionalProfile>> {
   try {
     const { data, error } = await supabase

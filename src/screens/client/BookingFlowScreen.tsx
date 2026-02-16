@@ -29,6 +29,8 @@ import {
 } from '../../services/client';
 import { getActiveAds } from '../../services/ads';
 import { sendNewBookingNotification } from '../../services/notifications';
+import { createDepositCheckout, waitForDepositPayment } from '../../services/payment';
+import PaymentWebView from '../../components/PaymentWebView';
 
 interface BookingFlowProps {
   navigation: any;
@@ -57,6 +59,8 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
   const [showInterstitial, setShowInterstitial] = useState(false);
   const [interstitialAd, setInterstitialAd] = useState<AdCreative | null>(null);
   const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState('');
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -164,6 +168,24 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
     }
   };
 
+  const navigateToBookingDetail = async (bookingId: string) => {
+    // Check if we should show an interstitial ad
+    const lastShown = await AsyncStorage.getItem('last_interstitial_ts');
+    const cooldownOk = !lastShown || Date.now() - parseInt(lastShown, 10) > AD_CONFIG.INTERSTITIAL_COOLDOWN_MS;
+
+    if (cooldownOk) {
+      const adResult = await getActiveAds('interstitial', 'client', [service.category]);
+      if (adResult.data && adResult.data.length > 0) {
+        setInterstitialAd(adResult.data[0]);
+        setConfirmedBookingId(bookingId);
+        setShowInterstitial(true);
+        return;
+      }
+    }
+
+    navigation.replace('BookingDetail', { bookingId });
+  };
+
   const handleConfirmBooking = async () => {
     if (!user?.id || !selectedDate || !selectedTime) return;
 
@@ -183,52 +205,45 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
 
       if (result.error) {
         Alert.alert('Error', result.error.message);
+        return;
+      }
+
+      const bookingId = result.data?.id || '';
+
+      // Send notification to professional about new booking
+      if (professional.user_id) {
+        const [year, month, day] = selectedDate.split('-').map(Number);
+        const dateObj = new Date(year, month - 1, day);
+        const formattedDate = dateObj.toLocaleDateString('en-PH', {
+          month: 'short',
+          day: 'numeric',
+        });
+        await sendNewBookingNotification(
+          professional.user_id,
+          user.name || 'Client',
+          service.name,
+          formattedDate,
+          bookingId
+        );
+      }
+
+      // Initiate deposit payment
+      const checkoutResult = await createDepositCheckout(
+        bookingId,
+        depositAmount,
+        service.name
+      );
+
+      if (checkoutResult.data) {
+        setConfirmedBookingId(bookingId);
+        setPaymentUrl(checkoutResult.data.checkoutUrl);
+        setShowPayment(true);
       } else {
-        // Send notification to professional about new booking
-        if (professional.user_id) {
-          // Parse date manually to avoid timezone issues
-          const [year, month, day] = selectedDate.split('-').map(Number);
-          const dateObj = new Date(year, month - 1, day);
-          const formattedDate = dateObj.toLocaleDateString('en-PH', {
-            month: 'short',
-            day: 'numeric',
-          });
-          await sendNewBookingNotification(
-            professional.user_id,
-            user.name || 'Client',
-            service.name,
-            formattedDate,
-            result.data?.id || ''
-          );
-        }
-
-        // Check if we should show an interstitial ad
-        const lastShown = await AsyncStorage.getItem('last_interstitial_ts');
-        const cooldownOk = !lastShown || Date.now() - parseInt(lastShown, 10) > AD_CONFIG.INTERSTITIAL_COOLDOWN_MS;
-
-        if (cooldownOk) {
-          const adResult = await getActiveAds('interstitial', 'client', [service.category]);
-          if (adResult.data && adResult.data.length > 0) {
-            setInterstitialAd(adResult.data[0]);
-            setConfirmedBookingId(result.data?.id || null);
-            setShowInterstitial(true);
-            return; // Navigation handled by interstitial onDismiss
-          }
-        }
-
-        // Fallback: no ad available, show standard alert
+        // Payment creation failed — booking created but deposit unpaid
         Alert.alert(
-          'Booking Confirmed!',
-          service.booking_type === 'instant'
-            ? 'Your booking has been confirmed. Please proceed with the deposit payment.'
-            : 'Your booking request has been sent. The professional will confirm shortly.',
-          [
-            {
-              text: 'View Booking',
-              onPress: () =>
-                navigation.replace('BookingDetail', { bookingId: result.data?.id }),
-            },
-          ]
+          'Booking Created',
+          'Your booking was created but we couldn\'t start the payment. You can pay the deposit from the booking details.',
+          [{ text: 'View Booking', onPress: () => navigateToBookingDetail(bookingId) }]
         );
       }
     } catch (err) {
@@ -237,6 +252,39 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handlePaymentSuccess = async () => {
+    setShowPayment(false);
+    if (!confirmedBookingId) return;
+
+    // Poll for webhook to update deposit_paid
+    const status = await waitForDepositPayment(confirmedBookingId);
+
+    if (status === 'paid') {
+      Alert.alert(
+        'Deposit Paid!',
+        'Your deposit has been received. Your booking is confirmed.',
+        [{ text: 'View Booking', onPress: () => navigateToBookingDetail(confirmedBookingId) }]
+      );
+    } else {
+      Alert.alert(
+        'Payment Processing',
+        'Your payment is being processed. It may take a moment to reflect.',
+        [{ text: 'View Booking', onPress: () => navigateToBookingDetail(confirmedBookingId) }]
+      );
+    }
+  };
+
+  const handlePaymentCancel = () => {
+    setShowPayment(false);
+    if (!confirmedBookingId) return;
+
+    Alert.alert(
+      'Deposit Not Paid',
+      'Your booking was created but the deposit is still pending. You can pay later from the booking details.',
+      [{ text: 'View Booking', onPress: () => navigateToBookingDetail(confirmedBookingId) }]
+    );
   };
 
   const formatDisplayDate = (dateStr: string) => {
@@ -598,6 +646,13 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
           loading={submitting}
         />
       </View>
+
+      <PaymentWebView
+        visible={showPayment}
+        checkoutUrl={paymentUrl}
+        onSuccess={handlePaymentSuccess}
+        onCancel={handlePaymentCancel}
+      />
 
       <BookingInterstitialAd
         visible={showInterstitial}

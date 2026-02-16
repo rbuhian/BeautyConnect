@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import {
   Search,
   SlidersHorizontal,
@@ -22,7 +23,7 @@ import {
   Bell,
 } from 'lucide-react-native';
 import { Card, Loading, EmptyState, SkeletonList, ProfessionalCard } from '../../components';
-import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES, LOCATION_TYPES, PRICE_RANGES } from '../../constants';
+import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES, LOCATION_TYPES, PRICE_RANGES, DISTANCE_OPTIONS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
 import { ProfessionalFilters, Category, LocationType, PriceRange } from '../../types';
 import {
@@ -31,6 +32,7 @@ import {
   ProfessionalWithDetails,
   getFavorites,
   toggleFavorite,
+  UserLocation,
 } from '../../services/client';
 import { getFeaturedProfessionals, getActiveAds } from '../../services/ads';
 import { FeedAdCard, SponsoredContentCard } from '../../components/ads';
@@ -53,6 +55,30 @@ export default function DiscoverScreen({ navigation }: any) {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<ProfessionalFilters>({});
   const [tempFilters, setTempFilters] = useState<ProfessionalFilters>({});
+  const [userLocation, setUserLocation] = useState<UserLocation | undefined>();
+  const locationRequested = useRef(false);
+
+  // Request location on mount
+  useEffect(() => {
+    if (locationRequested.current) return;
+    locationRequested.current = true;
+
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        setUserLocation({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+      } catch {
+        // Location unavailable — fallback to rating sort
+      }
+    })();
+  }, []);
 
   const buildFeed = useCallback(
     (
@@ -100,7 +126,7 @@ export default function DiscoverScreen({ navigation }: any) {
       if (searchText.trim()) {
         result = await searchProfessionals(searchText.trim());
       } else {
-        result = await getDiscoverProfessionals(filters);
+        result = await getDiscoverProfessionals(filters, userLocation);
       }
 
       // Fetch ads and featured listings in parallel
@@ -126,7 +152,7 @@ export default function DiscoverScreen({ navigation }: any) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filters, searchText, buildFeed]);
+  }, [filters, searchText, userLocation, buildFeed]);
 
   const fetchFavorites = useCallback(async () => {
     if (!user?.id) return;
@@ -314,6 +340,39 @@ export default function DiscoverScreen({ navigation }: any) {
                 ))}
               </View>
             </View>
+
+            {/* Distance Filter */}
+            {userLocation && (
+              <View style={styles.filterSection}>
+                <Text style={styles.filterLabel}>Maximum Distance</Text>
+                <View style={styles.filterOptions}>
+                  {DISTANCE_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[
+                        styles.filterChip,
+                        tempFilters.max_distance_km === opt.value && styles.filterChipSelected,
+                      ]}
+                      onPress={() =>
+                        setTempFilters((prev) => ({
+                          ...prev,
+                          max_distance_km: prev.max_distance_km === opt.value ? undefined : opt.value,
+                        }))
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          tempFilters.max_distance_km === opt.value && styles.filterChipTextSelected,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
           </ScrollView>
 
           <View style={styles.modalFooter}>

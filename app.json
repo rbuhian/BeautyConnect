@@ -17,7 +17,8 @@
       "bundleIdentifier": "com.beautyconnect.app",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to take photos for your profile and portfolio.",
-        "NSPhotoLibraryUsageDescription": "This app accesses your photos to upload profile pictures and portfolio images."
+        "NSPhotoLibraryUsageDescription": "This app accesses your photos to upload profile pictures and portfolio images.",
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to find beauty professionals near you."
       }
     },
     "android": {
@@ -38,6 +39,12 @@
         "expo-notifications",
         {
           "color": "#C9A0DC"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "BeautyConnect uses your location to find professionals near you."
         }
       ]
     ],

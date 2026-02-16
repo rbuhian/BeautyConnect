@@ -8,6 +8,7 @@ import {
   ProfessionalFilters,
   Category,
 } from '../types';
+import { haversineDistance } from '../utils/distance';
 
 export interface ServiceError {
   message: string;
@@ -32,10 +33,17 @@ export interface ProfessionalWithDetails extends Omit<ProfessionalProfile, 'user
   services: Service[];
   min_price?: number;
   max_price?: number;
+  distance?: number; // km from user, calculated client-side
+}
+
+export interface UserLocation {
+  latitude: number;
+  longitude: number;
 }
 
 export async function getDiscoverProfessionals(
-  filters?: ProfessionalFilters
+  filters?: ProfessionalFilters,
+  userLocation?: UserLocation
 ): Promise<ServiceResponse<ProfessionalWithDetails[]>> {
   try {
     let query = supabase
@@ -63,14 +71,26 @@ export async function getDiscoverProfessionals(
       return { data: null, error: { message: error.message, code: error.code } };
     }
 
-    // Calculate min/max prices and filter by price range
+    // Calculate min/max prices and distance
     let professionals = (data || []).map((pro) => {
       const activeServices = (pro.services || []).filter((s: Service) => s.is_active);
       const prices = activeServices.map((s: Service) => s.price);
+
+      let distance: number | undefined;
+      if (userLocation && pro.latitude != null && pro.longitude != null) {
+        distance = haversineDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          pro.latitude,
+          pro.longitude
+        );
+      }
+
       return {
         ...pro,
         min_price: prices.length > 0 ? Math.min(...prices) : 0,
         max_price: prices.length > 0 ? Math.max(...prices) : 0,
+        distance,
       };
     }) as ProfessionalWithDetails[];
 
@@ -88,6 +108,24 @@ export async function getDiscoverProfessionals(
           default:
             return true;
         }
+      });
+    }
+
+    // Filter by max distance
+    if (filters?.max_distance_km && userLocation) {
+      professionals = professionals.filter(
+        (pro) => pro.distance != null && pro.distance <= filters.max_distance_km!
+      );
+    }
+
+    // Sort: if user location available, sort by distance (nearest first),
+    // with professionals without coordinates at the end
+    if (userLocation) {
+      professionals.sort((a, b) => {
+        if (a.distance != null && b.distance != null) return a.distance - b.distance;
+        if (a.distance != null) return -1;
+        if (b.distance != null) return 1;
+        return (b.avg_rating || 0) - (a.avg_rating || 0);
       });
     }
 

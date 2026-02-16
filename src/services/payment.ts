@@ -91,3 +91,85 @@ export async function waitForPayment(
   }
   return 'pending';
 }
+
+// ============================================
+// BOOKING DEPOSIT PAYMENTS
+// ============================================
+
+/**
+ * Create a PayMongo Checkout Session for a booking deposit
+ */
+export async function createDepositCheckout(
+  bookingId: string,
+  amount: number,
+  serviceName: string
+): Promise<ServiceResponse<{ checkoutUrl: string; sessionId: string }>> {
+  try {
+    const { data, error } = await supabase.functions.invoke('create-checkout', {
+      body: {
+        type: 'booking_deposit',
+        bookingId,
+        amount,
+        description: `Deposit for ${serviceName}`,
+      },
+    });
+
+    if (error) {
+      console.error('Error creating deposit checkout:', error);
+      return {
+        data: null,
+        error: { message: error.message || 'Failed to create deposit checkout', code: 'CHECKOUT_ERROR' },
+      };
+    }
+
+    if (!data?.checkoutUrl || !data?.sessionId) {
+      return {
+        data: null,
+        error: { message: 'Invalid checkout response', code: 'INVALID_RESPONSE' },
+      };
+    }
+
+    return { data: { checkoutUrl: data.checkoutUrl, sessionId: data.sessionId }, error: null };
+  } catch (err) {
+    console.error('Unexpected error in createDepositCheckout:', err);
+    return {
+      data: null,
+      error: { message: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' },
+    };
+  }
+}
+
+/**
+ * Check if a booking deposit has been paid
+ */
+export async function checkDepositStatus(
+  bookingId: string
+): Promise<'paid' | 'pending'> {
+  try {
+    const { data } = await supabase
+      .from('bookings')
+      .select('deposit_paid')
+      .eq('id', bookingId)
+      .single();
+
+    return data?.deposit_paid ? 'paid' : 'pending';
+  } catch {
+    return 'pending';
+  }
+}
+
+/**
+ * Poll for deposit payment completion
+ */
+export async function waitForDepositPayment(
+  bookingId: string,
+  maxAttempts: number = 10,
+  intervalMs: number = 2000
+): Promise<'paid' | 'pending'> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const status = await checkDepositStatus(bookingId);
+    if (status === 'paid') return 'paid';
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return 'pending';
+}

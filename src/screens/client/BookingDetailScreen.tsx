@@ -24,12 +24,14 @@ import {
   User,
 } from 'lucide-react-native';
 import { Card, Loading, Button } from '../../components';
+import PaymentWebView from '../../components/PaymentWebView';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CANCELLATION_HOURS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
 import { Booking } from '../../types';
 import { getBookingById, cancelBooking, hasReviewedBooking } from '../../services/client';
 import { getBookingReview } from '../../services/review';
 import { sendBookingCancelledNotification } from '../../services/notifications';
+import { createDepositCheckout, waitForDepositPayment } from '../../services/payment';
 import { Review } from '../../types';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -54,6 +56,9 @@ export default function BookingDetailScreen({ navigation, route }: any) {
   const [cancelling, setCancelling] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
   const [myReview, setMyReview] = useState<Review | null>(null);
+  const [showPayment, setShowPayment] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState('');
+  const [payingDeposit, setPayingDeposit] = useState(false);
 
   const fetchBooking = useCallback(async () => {
     if (!user?.id) return;
@@ -151,6 +156,47 @@ export default function BookingDetailScreen({ navigation, route }: any) {
         },
       ]
     );
+  };
+
+  const handlePayDeposit = async () => {
+    if (!booking) return;
+    setPayingDeposit(true);
+    try {
+      const serviceName = (booking.service as any)?.name || 'Service';
+      const result = await createDepositCheckout(
+        booking.id,
+        booking.deposit_amount,
+        serviceName
+      );
+
+      if (result.data) {
+        setPaymentUrl(result.data.checkoutUrl);
+        setShowPayment(true);
+      } else {
+        Alert.alert('Error', result.error?.message || 'Failed to start payment');
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to start payment. Please try again.');
+    } finally {
+      setPayingDeposit(false);
+    }
+  };
+
+  const handlePaymentSuccess = async () => {
+    setShowPayment(false);
+    if (!booking) return;
+
+    const status = await waitForDepositPayment(booking.id);
+    if (status === 'paid') {
+      Alert.alert('Deposit Paid!', 'Your deposit has been received.');
+    } else {
+      Alert.alert('Payment Processing', 'Your payment is being processed. It may take a moment to reflect.');
+    }
+    fetchBooking();
+  };
+
+  const handlePaymentCancel = () => {
+    setShowPayment(false);
   };
 
   const handleCall = () => {
@@ -397,6 +443,26 @@ export default function BookingDetailScreen({ navigation, route }: any) {
           </View>
         </Card>
 
+        {/* Pay Deposit Button */}
+        {!booking.deposit_paid && (booking.status === 'pending' || booking.status === 'confirmed') && (
+          <TouchableOpacity
+            style={styles.payDepositButton}
+            onPress={handlePayDeposit}
+            disabled={payingDeposit}
+          >
+            <LinearGradient
+              colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.payDepositGradient}
+            >
+              <Text style={styles.payDepositText}>
+                {payingDeposit ? 'Processing...' : `Pay Deposit — ₱${booking.deposit_amount?.toLocaleString()}`}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
         {/* Actions */}
         {booking.status === 'completed' && !hasReviewed && (
           <TouchableOpacity style={styles.reviewButton} onPress={handleReview}>
@@ -462,6 +528,13 @@ export default function BookingDetailScreen({ navigation, route }: any) {
           </Text>
         </View>
       </ScrollView>
+
+      <PaymentWebView
+        visible={showPayment}
+        checkoutUrl={paymentUrl}
+        onSuccess={handlePaymentSuccess}
+        onCancel={handlePaymentCancel}
+      />
     </SafeAreaView>
   );
 }
@@ -780,5 +853,21 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: FONT_SIZES.md,
     color: COLORS.textSecondary,
+  },
+  payDepositButton: {
+    marginBottom: SPACING.md,
+    borderRadius: RADIUS.md,
+    overflow: 'hidden',
+  },
+  payDepositGradient: {
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: RADIUS.md,
+  },
+  payDepositText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.white,
   },
 });

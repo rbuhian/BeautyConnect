@@ -89,6 +89,8 @@ const ProfessionalCard = React.memo<ProfessionalCardProps>(({
               <MapPin size={12} color={COLORS.textSecondary} />
               <Text style={styles.locationText} numberOfLines={1}>
                 {professional.service_area || 'Metro Manila'}
+                {professional.distance != null &&
+                  ` · ${professional.distance < 1 ? `${Math.round(professional.distance * 1000)}m` : `${professional.distance.toFixed(1)} km`}`}
               </Text>
             </View>
           </View>

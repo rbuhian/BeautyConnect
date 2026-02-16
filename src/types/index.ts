@@ -24,6 +24,8 @@ export interface ProfessionalProfile {
   service_area: string;
   location_type: LocationType;
   salon_address: string | null;
+  latitude: number | null;
+  longitude: number | null;
   is_live: boolean;
   avg_rating: number;
   total_reviews: number;

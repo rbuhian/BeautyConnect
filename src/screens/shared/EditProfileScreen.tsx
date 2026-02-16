@@ -8,9 +8,11 @@ import {
   Image,
   Alert,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import {
   ArrowLeft,
   Camera,
@@ -18,6 +20,7 @@ import {
   X,
   MapPin,
   Check,
+  Navigation,
 } from 'lucide-react-native';
 import { GradientButton, Input, Card } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES, LOCATION_TYPES } from '../../constants';
@@ -57,10 +60,17 @@ export default function EditProfileScreen({ navigation }: any) {
     professionalProfile?.salon_address || ''
   );
   const [isLive, setIsLive] = useState(professionalProfile?.is_live || false);
+  const [latitude, setLatitude] = useState<number | null>(
+    professionalProfile?.latitude ?? null
+  );
+  const [longitude, setLongitude] = useState<number | null>(
+    professionalProfile?.longitude ?? null
+  );
 
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingPortfolio, setUploadingPortfolio] = useState(false);
+  const [settingLocation, setSettingLocation] = useState(false);
 
   const pickImage = async (type: 'avatar' | 'portfolio') => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -172,6 +182,40 @@ export default function EditProfileScreen({ navigation }: any) {
     setPortfolioPhotos(newPhotos);
   };
 
+  const handleSetLocation = async () => {
+    setSettingLocation(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please allow location access to set your location.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      setLatitude(loc.coords.latitude);
+      setLongitude(loc.coords.longitude);
+
+      // Try reverse geocoding for confirmation
+      try {
+        const [address] = await Location.reverseGeocodeAsync({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        });
+        if (address) {
+          const parts = [address.street, address.city, address.region].filter(Boolean);
+          Alert.alert('Location Set', parts.join(', ') || 'Location saved successfully.');
+        }
+      } catch {
+        Alert.alert('Location Set', 'Your coordinates have been saved.');
+      }
+    } catch {
+      Alert.alert('Error', 'Failed to get your location. Please try again.');
+    } finally {
+      setSettingLocation(false);
+    }
+  };
+
   const toggleCategory = (category: Category) => {
     if (categories.includes(category)) {
       setCategories(categories.filter((c) => c !== category));
@@ -240,6 +284,8 @@ export default function EditProfileScreen({ navigation }: any) {
           service_area: serviceArea,
           location_type: locationType,
           salon_address: salonAddress,
+          latitude,
+          longitude,
           is_live: liveStatus,
         });
 
@@ -432,6 +478,33 @@ export default function EditProfileScreen({ navigation }: any) {
                   style={{ marginTop: SPACING.md }}
                 />
               )}
+
+              {/* GPS Location */}
+              <View style={styles.gpsSection}>
+                <Text style={styles.gpsLabel}>GPS Location</Text>
+                <Text style={styles.gpsHint}>
+                  Set your location so nearby clients can find you
+                </Text>
+                <TouchableOpacity
+                  style={styles.gpsButton}
+                  onPress={handleSetLocation}
+                  disabled={settingLocation}
+                >
+                  {settingLocation ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                  ) : (
+                    <Navigation size={18} color={COLORS.primary} />
+                  )}
+                  <Text style={styles.gpsButtonText}>
+                    {latitude != null ? 'Update My Location' : 'Set My Location'}
+                  </Text>
+                </TouchableOpacity>
+                {latitude != null && (
+                  <Text style={styles.gpsStatus}>
+                    Location set ({latitude.toFixed(4)}, {longitude?.toFixed(4)})
+                  </Text>
+                )}
+              </View>
             </View>
 
             {/* Go Live Toggle */}
@@ -661,6 +734,42 @@ const styles = StyleSheet.create({
   },
   locationTypeTextSelected: {
     color: COLORS.white,
+  },
+  gpsSection: {
+    marginTop: SPACING.lg,
+  },
+  gpsLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '500',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  gpsHint: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+  },
+  gpsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
+    alignSelf: 'flex-start',
+  },
+  gpsButtonText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  gpsStatus: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.success,
+    marginTop: SPACING.sm,
   },
   liveCard: {
     padding: SPACING.lg,

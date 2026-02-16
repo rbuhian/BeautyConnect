@@ -116,6 +116,14 @@ export const PRICE_RANGES = [
   { value: '₱₱₱', label: '₱₱₱', description: 'Premium', minPrice: 3000 },
 ] as const;
 
+// Distance options (in km)
+export const DISTANCE_OPTIONS = [
+  { value: 5, label: '5 km' },
+  { value: 10, label: '10 km' },
+  { value: 25, label: '25 km' },
+  { value: 50, label: '50 km' },
+] as const;
+
 // Booking
 export const DEPOSIT_PERCENTAGE = 0.30;
 export const CANCELLATION_HOURS = 24;
