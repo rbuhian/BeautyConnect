@@ -115,17 +115,20 @@ export async function createDepositCheckout(
     });
 
     if (error) {
-      console.error('Error creating deposit checkout:', error);
+      console.error('Error creating deposit checkout:', error, 'Response data:', data);
+      // When edge function returns non-2xx, actual error details may be in data
+      const errorDetail = data?.error || error.message || 'Failed to create deposit checkout';
       return {
         data: null,
-        error: { message: error.message || 'Failed to create deposit checkout', code: 'CHECKOUT_ERROR' },
+        error: { message: errorDetail, code: 'CHECKOUT_ERROR' },
       };
     }
 
     if (!data?.checkoutUrl || !data?.sessionId) {
+      console.error('Invalid deposit checkout response:', JSON.stringify(data));
       return {
         data: null,
-        error: { message: 'Invalid checkout response', code: 'INVALID_RESPONSE' },
+        error: { message: data?.error || 'Invalid checkout response', code: 'INVALID_RESPONSE' },
       };
     }
 

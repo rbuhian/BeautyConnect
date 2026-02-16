@@ -10,6 +10,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper: return 200 with error field so the client app can read the actual message
+// (Supabase JS client replaces non-2xx bodies with a generic error)
+function errorResponse(message: string, debug?: Record<string, unknown>) {
+  return new Response(JSON.stringify({ error: message, ...(debug ? { debug } : {}) }), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -20,10 +29,7 @@ serve(async (req) => {
     // Verify authenticated user
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Missing authorization');
     }
 
     const supabase = createClient(
@@ -34,10 +40,7 @@ serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Unauthorized', { authError: authError?.message });
     }
 
     // Parse request body
@@ -46,34 +49,22 @@ serve(async (req) => {
     const type = body.type || 'featured_listing';
 
     if (!amount || !description) {
-      return new Response(JSON.stringify({ error: 'Missing required fields: amount, description' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Missing required fields: amount, description', { amount, description, type });
     }
 
     // Validate type-specific fields
     if (type === 'featured_listing' && (!body.packageKey || !body.professionalId)) {
-      return new Response(JSON.stringify({ error: 'Missing required fields: packageKey, professionalId' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Missing required fields: packageKey, professionalId');
     }
 
     if (type === 'booking_deposit' && !body.bookingId) {
-      return new Response(JSON.stringify({ error: 'Missing required field: bookingId' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Missing required field: bookingId');
     }
 
     // Create PayMongo Checkout Session
     const paymongoSecretKey = Deno.env.get('PAYMONGO_SECRET_KEY');
     if (!paymongoSecretKey) {
-      return new Response(JSON.stringify({ error: 'Payment not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return errorResponse('Payment not configured (missing PAYMONGO_SECRET_KEY)');
     }
 
     // Build metadata based on payment type
@@ -107,7 +98,7 @@ serve(async (req) => {
               quantity: 1,
             },
           ],
-          payment_method_types: ['gcash', 'card', 'grab_pay', 'paymaya'],
+          payment_method_types: ['card', 'gcash', 'grab_pay'],
           success_url: SUCCESS_URL,
           cancel_url: CANCEL_URL,
           description: checkoutDescription,
@@ -128,10 +119,13 @@ serve(async (req) => {
 
     if (!paymongoResponse.ok) {
       const errorData = await paymongoResponse.json();
-      console.error('PayMongo error:', errorData);
-      return new Response(JSON.stringify({ error: 'Failed to create checkout session' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      console.error('PayMongo error:', JSON.stringify(errorData));
+      const paymongoError = errorData?.errors?.[0]?.detail || 'PayMongo rejected the request';
+      return errorResponse(paymongoError, {
+        paymongo_status: paymongoResponse.status,
+        paymongo_errors: errorData?.errors,
+        type,
+        amount,
       });
     }
 
@@ -148,9 +142,6 @@ serve(async (req) => {
     );
   } catch (err) {
     console.error('Error in create-checkout:', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return errorResponse(`Internal server error: ${err.message || err}`);
   }
 });

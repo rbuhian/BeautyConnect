@@ -16,15 +16,26 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
+    console.log('Webhook received. Top-level keys:', Object.keys(body));
+    console.log('body.data.type:', body?.data?.type);
+    console.log('body.data.attributes.type:', body?.data?.attributes?.type);
+
     const event = body?.data?.attributes;
 
     if (!event) {
+      console.error('No event in payload. body.data:', JSON.stringify(body?.data)?.substring(0, 500));
       return new Response('Invalid payload', { status: 400 });
     }
 
     // We handle checkout_session events
     const eventType = event.type;
+    console.log('Event type:', eventType);
     const checkoutData = event.data?.attributes;
+    console.log('Has checkoutData:', !!checkoutData);
+    console.log('checkoutData keys:', checkoutData ? Object.keys(checkoutData) : 'N/A');
+    console.log('Metadata:', JSON.stringify(checkoutData?.metadata));
+    // Dump full checkout data (truncated) to see where metadata lives
+    console.log('checkoutData (truncated):', JSON.stringify(checkoutData)?.substring(0, 1000));
 
     // Only process successful payments
     // PayMongo sends the checkout_session object with payment_intent status
@@ -44,7 +55,30 @@ serve(async (req) => {
     }
 
     // Extract metadata from checkout session
-    const metadata = checkoutData?.metadata;
+    let metadata = checkoutData?.metadata;
+
+    // PayMongo webhook may not include metadata — fetch from API if missing
+    if (!metadata) {
+      const paymongoKey = Deno.env.get('PAYMONGO_SECRET_KEY');
+      const sessionId = event.data?.id;
+      if (paymongoKey && sessionId) {
+        console.log('Metadata missing in webhook, fetching from PayMongo API for session:', sessionId);
+        const resp = await fetch(`https://api.paymongo.com/v1/checkout_sessions/${sessionId}`, {
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Basic ${btoa(paymongoKey + ':')}`,
+          },
+        });
+        if (resp.ok) {
+          const sessionData = await resp.json();
+          metadata = sessionData.data?.attributes?.metadata;
+          console.log('Fetched metadata from API:', JSON.stringify(metadata));
+        } else {
+          console.error('Failed to fetch checkout session from PayMongo:', resp.status);
+        }
+      }
+    }
+
     const paymentType = metadata?.type || 'featured_listing';
 
     // Use service role to bypass RLS for server-side operations
