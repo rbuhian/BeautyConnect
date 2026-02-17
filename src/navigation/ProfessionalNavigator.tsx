@@ -32,6 +32,7 @@ import StaffAvailabilityScreen from '../screens/professional/StaffAvailabilitySc
 import StaffBookingsScreen from '../screens/professional/StaffBookingsScreen';
 import BoostProfileScreen from '../screens/professional/BoostProfileScreen';
 import NotificationsScreen from '../screens/shared/NotificationsScreen';
+import PaymentsScreen from '../screens/professional/PaymentsScreen';
 
 const Tab = createBottomTabNavigator<ProfessionalTabParamList>();
 const Stack = createNativeStackNavigator<ProfessionalStackParamList>();
@@ -125,6 +126,7 @@ export default function ProfessionalNavigator() {
       <Stack.Screen name="StaffBookings" component={StaffBookingsScreen} />
       <Stack.Screen name="BoostProfile" component={BoostProfileScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="Payments" component={PaymentsScreen} />
     </Stack.Navigator>
   );
 }

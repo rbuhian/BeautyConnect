@@ -19,6 +19,7 @@ import {
   LogOut,
   Phone,
   ChevronRight,
+  Wallet,
 } from 'lucide-react-native';
 import { Card } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
@@ -59,6 +60,11 @@ export default function ProfileScreen({ navigation }: any) {
       icon: Heart,
       label: 'My Favorites',
       onPress: () => navigation.navigate('Favorites'),
+    },
+    {
+      icon: Wallet,
+      label: 'My Payments',
+      onPress: () => navigation.navigate('Payments'),
     },
     {
       icon: Settings,

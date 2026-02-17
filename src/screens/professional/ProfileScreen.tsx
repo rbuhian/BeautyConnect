@@ -28,6 +28,7 @@ import {
   Users,
   Building2,
   Award,
+  Wallet,
 } from 'lucide-react-native';
 import { Card } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
@@ -162,6 +163,11 @@ export default function ProfileScreen({ navigation }: any) {
           },
         ]
       : []),
+    {
+      icon: Wallet,
+      label: 'Payments & Earnings',
+      onPress: () => navigation.navigate('Payments'),
+    },
     {
       icon: Settings,
       label: 'Settings',

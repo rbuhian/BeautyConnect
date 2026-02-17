@@ -40,6 +40,7 @@ export type ClientStackParamList = {
   EditProfile: undefined;
   Settings: undefined;
   Notifications: undefined;
+  Payments: undefined;
 };
 
 // Professional Tab Navigator
@@ -79,6 +80,7 @@ export type ProfessionalStackParamList = {
   // Advertising
   BoostProfile: undefined;
   Notifications: undefined;
+  Payments: undefined;
 };
 
 // Admin Tab Navigator
@@ -87,6 +89,7 @@ export type AdminTabParamList = {
   Ads: undefined;
   Affiliates: undefined;
   Featured: undefined;
+  Payments: undefined;
 };
 
 // Admin Stack

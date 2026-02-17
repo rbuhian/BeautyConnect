@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BarChart3, Megaphone, Package, Star } from 'lucide-react-native';
+import { BarChart3, Megaphone, Package, Star, Wallet } from 'lucide-react-native';
 import { AdminStackParamList, AdminTabParamList } from './types';
 import { COLORS } from '../constants';
 
@@ -12,6 +12,7 @@ import AdsDashboardScreen from '../screens/admin/AdsDashboardScreen';
 import ManageAdsScreen from '../screens/admin/ManageAdsScreen';
 import ManageAffiliatesScreen from '../screens/admin/ManageAffiliatesScreen';
 import FeaturedListingsScreen from '../screens/admin/FeaturedListingsScreen';
+import AdminPaymentsScreen from '../screens/admin/AdminPaymentsScreen';
 
 // Stack Screens
 import AdFormScreen from '../screens/admin/AdFormScreen';
@@ -74,6 +75,13 @@ function AdminTabs() {
         component={FeaturedListingsScreen}
         options={{
           tabBarIcon: ({ color, size }) => <Star size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Payments"
+        component={AdminPaymentsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Wallet size={size} color={color} />,
         }}
       />
     </Tab.Navigator>

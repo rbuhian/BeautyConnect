@@ -327,6 +327,190 @@ export async function toggleFeaturedListing(
 }
 
 // ============================================
+// ADMIN PAYMENTS
+// ============================================
+
+export interface AdminPaymentStats {
+  totalDepositsCollected: number;
+  totalBookingValue: number;
+  featuredRevenue: number;
+  totalPayable: number;
+}
+
+export interface ProfessionalPayable {
+  professionalId: string;
+  name: string;
+  avatar: string | null;
+  completedCount: number;
+  totalEarned: number;
+  depositsCollected: number;
+}
+
+export interface DepositTransaction {
+  id: string;
+  clientName: string;
+  professionalName: string;
+  serviceName: string;
+  depositAmount: number;
+  totalPrice: number;
+  date: string;
+  status: string;
+}
+
+export async function getAdminPaymentStats(
+  period?: 'this_month' | 'last_month'
+): Promise<ServiceResponse<AdminPaymentStats>> {
+  try {
+    let dateFilter: { gte?: string; lt?: string } | null = null;
+    if (period) {
+      const now = new Date();
+      if (period === 'this_month') {
+        dateFilter = {
+          gte: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
+        };
+      } else if (period === 'last_month') {
+        dateFilter = {
+          gte: new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0],
+          lt: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0],
+        };
+      }
+    }
+
+    let bookingsQuery = supabase
+      .from('bookings')
+      .select('total_price, deposit_paid, deposit_amount, status');
+
+    if (dateFilter?.gte) bookingsQuery = bookingsQuery.gte('date', dateFilter.gte);
+    if (dateFilter?.lt) bookingsQuery = bookingsQuery.lt('date', dateFilter.lt);
+
+    const [bookingsRes, featuredRes] = await Promise.all([
+      bookingsQuery,
+      supabase.from('featured_listings').select('price_paid'),
+    ]);
+
+    const bookings = bookingsRes.data || [];
+    const featured = featuredRes.data || [];
+
+    const paidDeposits = bookings.filter((b: any) => b.deposit_paid);
+    const totalDepositsCollected = paidDeposits.reduce(
+      (sum: number, b: any) => sum + (b.deposit_amount || 0),
+      0
+    );
+
+    const completed = bookings.filter((b: any) => b.status === 'completed');
+    const totalBookingValue = completed.reduce(
+      (sum: number, b: any) => sum + (b.total_price || 0),
+      0
+    );
+
+    const featuredRevenue = featured.reduce(
+      (sum: number, f: any) => sum + (f.price_paid || 0),
+      0
+    );
+
+    return {
+      data: {
+        totalDepositsCollected,
+        totalBookingValue,
+        featuredRevenue,
+        totalPayable: totalBookingValue,
+      },
+      error: null,
+    };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch payment stats' } };
+  }
+}
+
+export async function getProfessionalPayables(): Promise<ServiceResponse<ProfessionalPayable[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select(
+        'professional_id, total_price, deposit_paid, deposit_amount, status, professional:professional_profiles!bookings_professional_id_fkey(user:users!professional_profiles_user_id_fkey(name, avatar))'
+      );
+
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+
+    // Group by professional
+    const map = new Map<
+      string,
+      { name: string; avatar: string | null; completedCount: number; totalEarned: number; depositsCollected: number }
+    >();
+
+    (data || []).forEach((b: any) => {
+      const pid = b.professional_id;
+      if (!map.has(pid)) {
+        map.set(pid, {
+          name: b.professional?.user?.name || 'Professional',
+          avatar: b.professional?.user?.avatar || null,
+          completedCount: 0,
+          totalEarned: 0,
+          depositsCollected: 0,
+        });
+      }
+      const entry = map.get(pid)!;
+      if (b.status === 'completed') {
+        entry.completedCount++;
+        entry.totalEarned += b.total_price || 0;
+      }
+      if (b.deposit_paid) {
+        entry.depositsCollected += b.deposit_amount || 0;
+      }
+    });
+
+    const payables: ProfessionalPayable[] = [];
+    map.forEach((val, key) => {
+      if (val.completedCount > 0 || val.depositsCollected > 0) {
+        payables.push({ professionalId: key, ...val });
+      }
+    });
+
+    payables.sort((a, b) => b.totalEarned - a.totalEarned);
+
+    return { data: payables, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch professional payables' } };
+  }
+}
+
+export async function getRecentDepositTransactions(
+  limit = 20
+): Promise<ServiceResponse<DepositTransaction[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select(
+        'id, date, total_price, deposit_amount, deposit_paid, status, service:services(name), client:users!bookings_client_id_fkey(name), professional:professional_profiles!bookings_professional_id_fkey(user:users!professional_profiles_user_id_fkey(name))'
+      )
+      .eq('deposit_paid', true)
+      .order('date', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+
+    const transactions: DepositTransaction[] = (data || []).map((b: any) => ({
+      id: b.id,
+      clientName: b.client?.name || 'Client',
+      professionalName: b.professional?.user?.name || 'Professional',
+      serviceName: b.service?.name || 'Service',
+      depositAmount: b.deposit_amount || 0,
+      totalPrice: b.total_price || 0,
+      date: b.date,
+      status: b.status,
+    }));
+
+    return { data: transactions, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch deposit transactions' } };
+  }
+}
+
+// ============================================
 // ADMIN DASHBOARD STATS
 // ============================================
 

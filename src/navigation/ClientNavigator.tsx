@@ -25,6 +25,7 @@ import FavoritesScreen from '../screens/client/FavoritesScreen';
 import EditProfileScreen from '../screens/shared/EditProfileScreen';
 import SettingsScreen from '../screens/shared/SettingsScreen';
 import NotificationsScreen from '../screens/shared/NotificationsScreen';
+import PaymentsScreen from '../screens/client/PaymentsScreen';
 
 const Tab = createBottomTabNavigator<ClientTabParamList>();
 const Stack = createNativeStackNavigator<ClientStackParamList>();
@@ -111,6 +112,7 @@ export default function ClientNavigator() {
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="Payments" component={PaymentsScreen} />
     </Stack.Navigator>
   );
 }
