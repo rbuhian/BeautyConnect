@@ -29,6 +29,8 @@ import {
   Building2,
   Award,
   Wallet,
+  TrendingUp,
+  Clock,
 } from 'lucide-react-native';
 import { Card } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
@@ -167,6 +169,21 @@ export default function ProfileScreen({ navigation }: any) {
       icon: Wallet,
       label: 'Payments & Earnings',
       onPress: () => navigation.navigate('Payments'),
+    },
+    {
+      icon: Users,
+      label: 'My Clients',
+      onPress: () => navigation.navigate('ClientManagement'),
+    },
+    {
+      icon: TrendingUp,
+      label: 'Revenue Analytics',
+      onPress: () => navigation.navigate('RevenueAnalytics'),
+    },
+    {
+      icon: Clock,
+      label: 'Scheduling Rules',
+      onPress: () => navigation.navigate('SchedulingRules'),
     },
     {
       icon: Settings,

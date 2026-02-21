@@ -180,6 +180,21 @@ export interface TypingIndicator {
   expires_at: string;
 }
 
+// Scheduling Rules types
+export interface SchedulingRules {
+  id: string;
+  professional_id: string;
+  buffer_minutes: number;
+  max_daily_bookings: number | null;
+  lunch_break_enabled: boolean;
+  lunch_start_time: string;
+  lunch_end_time: string;
+  travel_buffer_minutes: number;
+  min_advance_booking_hours: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // Filter types
 export type PriceRange = '₱' | '₱₱' | '₱₱₱';
 

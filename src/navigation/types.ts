@@ -81,6 +81,10 @@ export type ProfessionalStackParamList = {
   BoostProfile: undefined;
   Notifications: undefined;
   Payments: undefined;
+  // Sprint 3: Professional Tools
+  ClientManagement: undefined;
+  RevenueAnalytics: undefined;
+  SchedulingRules: undefined;
 };
 
 // Admin Tab Navigator

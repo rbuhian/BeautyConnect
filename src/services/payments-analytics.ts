@@ -230,6 +230,230 @@ export async function getPendingDeposits(
 }
 
 // ============================================
+// REVENUE ANALYTICS TYPES
+// ============================================
+
+export interface CategoryRevenue {
+  category: string;
+  totalRevenue: number;
+  bookingCount: number;
+}
+
+export interface ServiceRevenue {
+  serviceName: string;
+  totalRevenue: number;
+  bookingCount: number;
+  avgPrice: number;
+}
+
+export interface HourlyData {
+  hour: number;
+  bookingCount: number;
+  revenue: number;
+}
+
+export interface RetentionData {
+  totalClients: number;
+  repeatClients: number;
+  retentionRate: number;
+  avgBookingsPerClient: number;
+}
+
+// ============================================
+// REVENUE ANALYTICS FUNCTIONS
+// ============================================
+
+export async function getRevenueByCategory(
+  professionalId: string,
+  sinceDate?: string
+): Promise<ServiceResponse<CategoryRevenue[]>> {
+  try {
+    let query = supabase
+      .from('bookings')
+      .select('total_price, service:services(category)')
+      .eq('professional_id', professionalId)
+      .eq('status', 'completed');
+
+    if (sinceDate) {
+      query = query.gte('date', sinceDate);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+
+    const categoryMap = new Map<string, { revenue: number; count: number }>();
+    (data || []).forEach((b: any) => {
+      const cat = b.service?.category || 'other';
+      const entry = categoryMap.get(cat) || { revenue: 0, count: 0 };
+      entry.revenue += b.total_price || 0;
+      entry.count += 1;
+      categoryMap.set(cat, entry);
+    });
+
+    const result: CategoryRevenue[] = [];
+    categoryMap.forEach((val, category) => {
+      result.push({ category, totalRevenue: val.revenue, bookingCount: val.count });
+    });
+
+    result.sort((a, b) => b.totalRevenue - a.totalRevenue);
+    return { data: result, error: null };
+  } catch (err) {
+    console.error('Error fetching revenue by category:', err);
+    return { data: null, error: { message: 'Failed to fetch category revenue' } };
+  }
+}
+
+export async function getRevenueByService(
+  professionalId: string,
+  sinceDate?: string
+): Promise<ServiceResponse<ServiceRevenue[]>> {
+  try {
+    let query = supabase
+      .from('bookings')
+      .select('total_price, service:services(name)')
+      .eq('professional_id', professionalId)
+      .eq('status', 'completed');
+
+    if (sinceDate) {
+      query = query.gte('date', sinceDate);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+
+    const serviceMap = new Map<string, { revenue: number; count: number }>();
+    (data || []).forEach((b: any) => {
+      const name = b.service?.name || 'Unknown';
+      const entry = serviceMap.get(name) || { revenue: 0, count: 0 };
+      entry.revenue += b.total_price || 0;
+      entry.count += 1;
+      serviceMap.set(name, entry);
+    });
+
+    const result: ServiceRevenue[] = [];
+    serviceMap.forEach((val, serviceName) => {
+      result.push({
+        serviceName,
+        totalRevenue: val.revenue,
+        bookingCount: val.count,
+        avgPrice: val.count > 0 ? Math.round(val.revenue / val.count) : 0,
+      });
+    });
+
+    result.sort((a, b) => b.totalRevenue - a.totalRevenue);
+    return { data: result, error: null };
+  } catch (err) {
+    console.error('Error fetching revenue by service:', err);
+    return { data: null, error: { message: 'Failed to fetch service revenue' } };
+  }
+}
+
+export async function getPeakHoursAnalysis(
+  professionalId: string,
+  sinceDate?: string
+): Promise<ServiceResponse<HourlyData[]>> {
+  try {
+    let query = supabase
+      .from('bookings')
+      .select('time_slot, total_price')
+      .eq('professional_id', professionalId)
+      .eq('status', 'completed');
+
+    if (sinceDate) {
+      query = query.gte('date', sinceDate);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+
+    const hourMap = new Map<number, { count: number; revenue: number }>();
+    for (let h = 6; h <= 22; h++) {
+      hourMap.set(h, { count: 0, revenue: 0 });
+    }
+
+    (data || []).forEach((b: any) => {
+      if (!b.time_slot) return;
+      const hour = parseInt(b.time_slot.split(':')[0], 10);
+      if (isNaN(hour)) return;
+      const entry = hourMap.get(hour) || { count: 0, revenue: 0 };
+      entry.count += 1;
+      entry.revenue += b.total_price || 0;
+      hourMap.set(hour, entry);
+    });
+
+    const result: HourlyData[] = [];
+    hourMap.forEach((val, hour) => {
+      result.push({ hour, bookingCount: val.count, revenue: val.revenue });
+    });
+
+    result.sort((a, b) => a.hour - b.hour);
+    return { data: result, error: null };
+  } catch (err) {
+    console.error('Error fetching peak hours:', err);
+    return { data: null, error: { message: 'Failed to fetch peak hours analysis' } };
+  }
+}
+
+export async function getRetentionMetrics(
+  professionalId: string,
+  sinceDate?: string
+): Promise<ServiceResponse<RetentionData>> {
+  try {
+    let query = supabase
+      .from('bookings')
+      .select('client_id')
+      .eq('professional_id', professionalId)
+      .eq('status', 'completed');
+
+    if (sinceDate) {
+      query = query.gte('date', sinceDate);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { data: null, error: { message: error.message } };
+    }
+
+    const clientCounts = new Map<string, number>();
+    (data || []).forEach((b: any) => {
+      if (!b.client_id) return;
+      clientCounts.set(b.client_id, (clientCounts.get(b.client_id) || 0) + 1);
+    });
+
+    const totalClients = clientCounts.size;
+    let repeatClients = 0;
+    let totalBookings = 0;
+    clientCounts.forEach((count) => {
+      totalBookings += count;
+      if (count > 1) repeatClients++;
+    });
+
+    return {
+      data: {
+        totalClients,
+        repeatClients,
+        retentionRate: totalClients > 0 ? Math.round((repeatClients / totalClients) * 100) : 0,
+        avgBookingsPerClient: totalClients > 0 ? Math.round((totalBookings / totalClients) * 10) / 10 : 0,
+      },
+      error: null,
+    };
+  } catch (err) {
+    console.error('Error fetching retention metrics:', err);
+    return { data: null, error: { message: 'Failed to fetch retention metrics' } };
+  }
+}
+
+// ============================================
 // CLIENT FUNCTIONS
 // ============================================
 
