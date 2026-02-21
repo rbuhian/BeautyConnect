@@ -23,7 +23,7 @@ import {
 import { GradientButton, Card, Loading } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES, DEPOSIT_PERCENTAGE } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
-import { Service, Review } from '../../types';
+import { Service, Review, ServicePackage } from '../../types';
 import {
   getProfessionalById,
   getProfessionalReviews,
@@ -31,6 +31,7 @@ import {
   getFavorites,
   toggleFavorite,
 } from '../../services/client';
+import { getActivePackages } from '../../services/packages';
 
 const { width } = Dimensions.get('window');
 const PORTFOLIO_IMAGE_SIZE = (width - SPACING.lg * 2 - SPACING.sm * 2) / 3;
@@ -40,16 +41,18 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
   const { user } = useAuth();
   const [professional, setProfessional] = useState<ProfessionalWithDetails | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [packages, setPackages] = useState<ServicePackage[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'services' | 'portfolio' | 'reviews'>('services');
+  const [activeTab, setActiveTab] = useState<'services' | 'packages' | 'portfolio' | 'reviews'>('services');
 
   const fetchData = useCallback(async () => {
     try {
-      const [proResult, reviewsResult, favResult] = await Promise.all([
+      const [proResult, reviewsResult, favResult, pkgResult] = await Promise.all([
         getProfessionalById(professionalId),
         getProfessionalReviews(professionalId),
         user?.id ? getFavorites(user.id) : Promise.resolve({ data: [] as string[] }),
+        getActivePackages(professionalId),
       ]);
 
       if (proResult.data) {
@@ -60,6 +63,9 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
       }
       if (favResult.data) {
         setIsFavorite(favResult.data.includes(professionalId));
+      }
+      if (pkgResult.data) {
+        setPackages(pkgResult.data);
       }
     } catch (err) {
       console.error('Error fetching professional:', err);
@@ -84,6 +90,33 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
       serviceId: service.id,
       professional,
       service,
+    });
+  };
+
+  const handleBookPackage = (pkg: ServicePackage) => {
+    // MVP: Book with the first service for time slot calculation,
+    // but use the package price
+    const firstService = pkg.package_services?.[0]?.service;
+    if (!firstService) {
+      return;
+    }
+    // Create a modified service with the package price for BookingFlow
+    const packageService: Service = {
+      ...firstService,
+      name: pkg.name,
+      price: pkg.total_price,
+      deposit_amount: pkg.total_price * DEPOSIT_PERCENTAGE,
+      // Use the longest service duration for time slot calculation
+      duration_minutes: (pkg.package_services || []).reduce(
+        (sum, ps) => sum + (ps.service?.duration_minutes || 0),
+        0
+      ),
+    };
+    navigation.navigate('BookingFlow', {
+      professionalId,
+      serviceId: firstService.id,
+      professional,
+      service: packageService,
     });
   };
 
@@ -345,23 +378,43 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
           )}
 
           {/* Tabs */}
-          <View style={styles.tabs}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.tabsScroll}
+            contentContainerStyle={styles.tabs}
+          >
             <TouchableOpacity
               style={[styles.tab, activeTab === 'services' && styles.tabActive]}
               onPress={() => setActiveTab('services')}
             >
               <Text
                 style={[styles.tabText, activeTab === 'services' && styles.tabTextActive]}
+                numberOfLines={1}
               >
                 Services ({activeServices.length})
               </Text>
             </TouchableOpacity>
+            {packages.length > 0 && (
+              <TouchableOpacity
+                style={[styles.tab, activeTab === 'packages' && styles.tabActive]}
+                onPress={() => setActiveTab('packages')}
+              >
+                <Text
+                  style={[styles.tabText, activeTab === 'packages' && styles.tabTextActive]}
+                  numberOfLines={1}
+                >
+                  Packages ({packages.length})
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[styles.tab, activeTab === 'portfolio' && styles.tabActive]}
               onPress={() => setActiveTab('portfolio')}
             >
               <Text
                 style={[styles.tabText, activeTab === 'portfolio' && styles.tabTextActive]}
+                numberOfLines={1}
               >
                 Portfolio
               </Text>
@@ -372,11 +425,12 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
             >
               <Text
                 style={[styles.tabText, activeTab === 'reviews' && styles.tabTextActive]}
+                numberOfLines={1}
               >
                 Reviews ({reviews.length})
               </Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
 
           {/* Tab Content */}
           <View style={styles.tabContent}>
@@ -387,6 +441,94 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
                 ) : (
                   activeServices.map(renderServiceCard)
                 )}
+              </>
+            )}
+            {activeTab === 'packages' && (
+              <>
+                {packages.map((pkg) => {
+                  const originalPrice = (pkg.package_services || []).reduce(
+                    (sum, ps) => sum + (ps.service?.price || 0),
+                    0
+                  );
+                  const totalDuration = (pkg.package_services || []).reduce(
+                    (sum, ps) => sum + (ps.service?.duration_minutes || 0),
+                    0
+                  );
+
+                  return (
+                    <Card key={pkg.id} style={styles.serviceCard}>
+                      <View style={styles.serviceHeader}>
+                        <View style={styles.serviceInfo}>
+                          <Text style={styles.serviceName}>{pkg.name}</Text>
+                          {pkg.discount_pct > 0 && (
+                            <View style={styles.packageDiscountBadge}>
+                              <Text style={styles.packageDiscountText}>
+                                {pkg.discount_pct}% OFF
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.servicePricing}>
+                          {originalPrice > pkg.total_price && (
+                            <Text style={styles.packageOriginalPrice}>
+                              ₱{originalPrice.toLocaleString()}
+                            </Text>
+                          )}
+                          <Text style={styles.servicePrice}>
+                            ₱{pkg.total_price.toLocaleString()}
+                          </Text>
+                          <Text style={styles.depositText}>
+                            ₱{(pkg.total_price * DEPOSIT_PERCENTAGE).toLocaleString()} deposit
+                          </Text>
+                        </View>
+                      </View>
+
+                      {pkg.description && (
+                        <Text style={styles.packageDescriptionText}>
+                          {pkg.description}
+                        </Text>
+                      )}
+
+                      <View style={styles.packageServicesList}>
+                        {(pkg.package_services || []).map((ps) => (
+                          <View key={ps.id} style={styles.packageServiceItem}>
+                            <View style={styles.packageServiceDot} />
+                            <Text style={styles.packageServiceName}>
+                              {ps.service?.name || 'Service'}
+                            </Text>
+                            <Text style={styles.packageServiceDuration}>
+                              {ps.service?.duration_minutes || 0} mins
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+
+                      <View style={styles.serviceMeta}>
+                        <View style={styles.serviceMetaItem}>
+                          <Clock size={14} color={COLORS.textSecondary} />
+                          <Text style={styles.serviceMetaText}>
+                            {totalDuration} mins total
+                          </Text>
+                        </View>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.bookButton}
+                        onPress={() => handleBookPackage(pkg)}
+                      >
+                        <LinearGradient
+                          colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.bookButtonGradient}
+                        >
+                          <Calendar size={16} color={COLORS.white} />
+                          <Text style={styles.bookButtonText}>Book Package</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </Card>
+                  );
+                })}
               </>
             )}
             {activeTab === 'portfolio' && renderPortfolio()}
@@ -537,15 +679,17 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     lineHeight: 22,
   },
-  tabs: {
-    flexDirection: 'row',
+  tabsScroll: {
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     marginBottom: SPACING.md,
   },
+  tabs: {
+    flexDirection: 'row',
+  },
   tab: {
-    flex: 1,
     paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
     alignItems: 'center',
   },
   tabActive: {
@@ -696,6 +840,58 @@ const styles = StyleSheet.create({
   reviewDate: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textLight,
+  },
+  packageDiscountBadge: {
+    backgroundColor: COLORS.success,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.sm,
+    marginTop: SPACING.xs,
+    alignSelf: 'flex-start',
+  },
+  packageDiscountText: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  packageOriginalPrice: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textLight,
+    textDecorationLine: 'line-through',
+  },
+  packageDescriptionText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.sm,
+    lineHeight: 20,
+  },
+  packageServicesList: {
+    marginBottom: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: COLORS.border,
+  },
+  packageServiceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: 3,
+  },
+  packageServiceDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.primary,
+  },
+  packageServiceName: {
+    flex: 1,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textPrimary,
+  },
+  packageServiceDuration: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
   },
   emptyText: {
     fontSize: FONT_SIZES.sm,

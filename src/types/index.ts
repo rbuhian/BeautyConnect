@@ -110,6 +110,29 @@ export interface Service {
   staff_member?: StaffMember;
 }
 
+// Service Package types
+export interface PackageService {
+  id: string;
+  package_id: string;
+  service_id: string;
+  sort_order: number;
+  service?: Service; // joined
+}
+
+export interface ServicePackage {
+  id: string;
+  professional_id: string;
+  name: string;
+  description: string | null;
+  total_price: number;
+  discount_pct: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  package_services?: PackageService[];
+}
+
 // Availability types
 export interface Availability {
   id: string;

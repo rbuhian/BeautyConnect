@@ -31,6 +31,7 @@ import {
   Wallet,
   TrendingUp,
   Clock,
+  Package,
 } from 'lucide-react-native';
 import { Card } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
@@ -137,6 +138,11 @@ export default function ProfileScreen({ navigation }: any) {
       icon: Briefcase,
       label: 'Manage Services',
       onPress: () => navigation.navigate('ManageServices'),
+    },
+    {
+      icon: Package,
+      label: 'Service Packages',
+      onPress: () => navigation.navigate('ManagePackages'),
     },
     {
       icon: Calendar,

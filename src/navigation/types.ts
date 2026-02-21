@@ -81,6 +81,9 @@ export type ProfessionalStackParamList = {
   BoostProfile: undefined;
   Notifications: undefined;
   Payments: undefined;
+  // Service Packages
+  ManagePackages: undefined;
+  CreatePackage: { packageId?: string } | undefined;
   // Sprint 3: Professional Tools
   ClientManagement: undefined;
   RevenueAnalytics: undefined;

@@ -33,6 +33,8 @@ import StaffBookingsScreen from '../screens/professional/StaffBookingsScreen';
 import BoostProfileScreen from '../screens/professional/BoostProfileScreen';
 import NotificationsScreen from '../screens/shared/NotificationsScreen';
 import PaymentsScreen from '../screens/professional/PaymentsScreen';
+import ManagePackagesScreen from '../screens/professional/ManagePackagesScreen';
+import CreatePackageScreen from '../screens/professional/CreatePackageScreen';
 import ClientManagementScreen from '../screens/professional/ClientManagementScreen';
 import RevenueAnalyticsScreen from '../screens/professional/RevenueAnalyticsScreen';
 import SchedulingRulesScreen from '../screens/professional/SchedulingRulesScreen';
@@ -130,6 +132,8 @@ export default function ProfessionalNavigator() {
       <Stack.Screen name="BoostProfile" component={BoostProfileScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="Payments" component={PaymentsScreen} />
+      <Stack.Screen name="ManagePackages" component={ManagePackagesScreen} />
+      <Stack.Screen name="CreatePackage" component={CreatePackageScreen} />
       <Stack.Screen name="ClientManagement" component={ClientManagementScreen} />
       <Stack.Screen name="RevenueAnalytics" component={RevenueAnalyticsScreen} />
       <Stack.Screen name="SchedulingRules" component={SchedulingRulesScreen} />
