@@ -10,6 +10,16 @@ jest.mock('./src/services/supabase', () => ({
     from: jest.fn(),
     channel: jest.fn(),
     removeChannel: jest.fn(),
+    functions: {
+      invoke: jest.fn(),
+    },
+    auth: {
+      signInWithOtp: jest.fn(),
+      verifyOtp: jest.fn(),
+      getUser: jest.fn(),
+      signOut: jest.fn(),
+    },
+    rpc: jest.fn(),
   },
 }));
 
