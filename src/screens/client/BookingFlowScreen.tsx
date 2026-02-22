@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -15,19 +16,22 @@ import {
   Check,
   Home,
   Building2,
+  Tag,
+  X,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GradientButton, Card, Loading, Input } from '../../components';
 import { BookingInterstitialAd } from '../../components/ads';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, DEPOSIT_PERCENTAGE, AD_CONFIG } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
-import { Service, AdCreative } from '../../types';
+import { Service, AdCreative, Promotion } from '../../types';
 import {
   getAvailableTimeSlots,
   createBooking,
   ProfessionalWithDetails,
 } from '../../services/client';
 import { getActiveAds } from '../../services/ads';
+import { validatePromoCode, recordPromotionUse } from '../../services/promotions';
 import { sendNewBookingNotification } from '../../services/notifications';
 import { createDepositCheckout, waitForDepositPayment } from '../../services/payment';
 import PaymentWebView from '../../components/PaymentWebView';
@@ -64,7 +68,15 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  const depositAmount = service.price * DEPOSIT_PERCENTAGE;
+  // Promo code
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<Promotion | null>(null);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [promoValidating, setPromoValidating] = useState(false);
+  const [promoError, setPromoError] = useState('');
+
+  const finalPrice = service.price - promoDiscount;
+  const depositAmount = finalPrice * DEPOSIT_PERCENTAGE;
 
   const generateCalendarDays = () => {
     const year = currentMonth.getFullYear();
@@ -186,6 +198,35 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
     navigation.replace('BookingDetail', { bookingId });
   };
 
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return;
+    setPromoValidating(true);
+    setPromoError('');
+
+    const result = await validatePromoCode(
+      promoCode.trim(),
+      professionalId,
+      service.price
+    );
+
+    setPromoValidating(false);
+
+    if (result.error) {
+      setPromoError(result.error.message);
+    } else if (result.data) {
+      setAppliedPromo(result.data.promotion);
+      setPromoDiscount(result.data.discountAmount);
+      setPromoError('');
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoDiscount(0);
+    setPromoCode('');
+    setPromoError('');
+  };
+
   const handleConfirmBooking = async () => {
     if (!user?.id || !selectedDate || !selectedTime) return;
 
@@ -200,7 +241,7 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
         location_type: locationType,
         client_address: locationType === 'home' ? clientAddress : undefined,
         deposit_amount: depositAmount,
-        total_price: service.price,
+        total_price: finalPrice,
       });
 
       if (result.error) {
@@ -209,6 +250,11 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
       }
 
       const bookingId = result.data?.id || '';
+
+      // Record promo use if a promo was applied
+      if (appliedPromo && user.id && promoDiscount > 0) {
+        await recordPromotionUse(appliedPromo.id, bookingId, user.id, promoDiscount);
+      }
 
       // Send notification to professional about new booking
       if (professional.user_id) {
@@ -557,10 +603,73 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
 
         <View style={styles.divider} />
 
+        {/* Promo Code Section */}
+        {!appliedPromo ? (
+          <View style={styles.promoSection}>
+            <Text style={styles.summaryLabel}>Promo Code</Text>
+            <View style={styles.promoInputRow}>
+              <TextInput
+                style={styles.promoInput}
+                value={promoCode}
+                onChangeText={t => {
+                  setPromoCode(t.toUpperCase());
+                  setPromoError('');
+                }}
+                placeholder="Enter code"
+                placeholderTextColor={COLORS.textLight}
+                autoCapitalize="characters"
+                editable={!promoValidating}
+              />
+              <TouchableOpacity
+                style={[styles.promoApplyButton, promoValidating && { opacity: 0.6 }]}
+                onPress={handleApplyPromo}
+                disabled={promoValidating || !promoCode.trim()}
+              >
+                <Tag size={16} color={COLORS.white} />
+                <Text style={styles.promoApplyText}>{promoValidating ? '…' : 'Apply'}</Text>
+              </TouchableOpacity>
+            </View>
+            {promoError ? (
+              <Text style={styles.promoError}>{promoError}</Text>
+            ) : null}
+          </View>
+        ) : (
+          <View style={styles.promoAppliedBanner}>
+            <Tag size={16} color={COLORS.success} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.promoAppliedCode}>{appliedPromo.code}</Text>
+              <Text style={styles.promoAppliedDiscount}>
+                −₱{promoDiscount.toLocaleString()} saved!
+              </Text>
+            </View>
+            <TouchableOpacity onPress={handleRemovePromo}>
+              <X size={18} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={styles.divider} />
+
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Service Price</Text>
           <Text style={styles.summaryValue}>₱{service.price.toLocaleString()}</Text>
         </View>
+        {promoDiscount > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: COLORS.success }]}>Discount</Text>
+            <Text style={[styles.summaryValue, { color: COLORS.success }]}>
+              −₱{promoDiscount.toLocaleString()}
+            </Text>
+          </View>
+        )}
+        {promoDiscount > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Final Price</Text>
+            <Text style={[styles.summaryValue, { fontWeight: '700' }]}>
+              ₱{finalPrice.toLocaleString()}
+            </Text>
+          </View>
+        )}
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Deposit (30%)</Text>
           <Text style={[styles.summaryValue, styles.depositValue]}>
@@ -937,5 +1046,65 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
+  },
+  promoSection: {
+    marginBottom: SPACING.sm,
+  },
+  promoInputRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  promoInput: {
+    flex: 1,
+    backgroundColor: COLORS.inputBackground,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textPrimary,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    letterSpacing: 1,
+    fontWeight: '600',
+  },
+  promoApplyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  promoApplyText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  promoError: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.error,
+    marginTop: SPACING.xs,
+  },
+  promoAppliedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: `${COLORS.success}15`,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.success,
+  },
+  promoAppliedCode: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '700',
+    color: COLORS.success,
+    letterSpacing: 1,
+  },
+  promoAppliedDiscount: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.success,
   },
 });

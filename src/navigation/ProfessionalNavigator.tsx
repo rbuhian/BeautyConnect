@@ -35,6 +35,8 @@ import NotificationsScreen from '../screens/shared/NotificationsScreen';
 import PaymentsScreen from '../screens/professional/PaymentsScreen';
 import ManagePackagesScreen from '../screens/professional/ManagePackagesScreen';
 import CreatePackageScreen from '../screens/professional/CreatePackageScreen';
+import ManagePromotionsScreen from '../screens/professional/ManagePromotionsScreen';
+import CreatePromotionScreen from '../screens/professional/CreatePromotionScreen';
 import ClientManagementScreen from '../screens/professional/ClientManagementScreen';
 import RevenueAnalyticsScreen from '../screens/professional/RevenueAnalyticsScreen';
 import SchedulingRulesScreen from '../screens/professional/SchedulingRulesScreen';
@@ -134,6 +136,8 @@ export default function ProfessionalNavigator() {
       <Stack.Screen name="Payments" component={PaymentsScreen} />
       <Stack.Screen name="ManagePackages" component={ManagePackagesScreen} />
       <Stack.Screen name="CreatePackage" component={CreatePackageScreen} />
+      <Stack.Screen name="ManagePromotions" component={ManagePromotionsScreen} />
+      <Stack.Screen name="CreatePromotion" component={CreatePromotionScreen} />
       <Stack.Screen name="ClientManagement" component={ClientManagementScreen} />
       <Stack.Screen name="RevenueAnalytics" component={RevenueAnalyticsScreen} />
       <Stack.Screen name="SchedulingRules" component={SchedulingRulesScreen} />

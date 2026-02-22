@@ -133,6 +133,36 @@ export interface ServicePackage {
   package_services?: PackageService[];
 }
 
+// Promotion types
+export type DiscountType = 'percentage' | 'fixed';
+
+export interface Promotion {
+  id: string;
+  professional_id: string | null; // NULL = platform-wide
+  code: string;
+  title: string;
+  description: string | null;
+  discount_type: DiscountType;
+  discount_value: number;
+  min_order_value: number;
+  max_uses: number | null;
+  uses_count: number;
+  is_active: boolean;
+  starts_at: string;
+  ends_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PromotionUse {
+  id: string;
+  promotion_id: string;
+  booking_id: string;
+  client_id: string;
+  discount_applied: number;
+  created_at: string;
+}
+
 // Availability types
 export interface Availability {
   id: string;

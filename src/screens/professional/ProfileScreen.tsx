@@ -32,6 +32,7 @@ import {
   TrendingUp,
   Clock,
   Package,
+  Tag,
 } from 'lucide-react-native';
 import { Card } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
@@ -143,6 +144,11 @@ export default function ProfileScreen({ navigation }: any) {
       icon: Package,
       label: 'Service Packages',
       onPress: () => navigation.navigate('ManagePackages'),
+    },
+    {
+      icon: Tag,
+      label: 'Promotions & Discounts',
+      onPress: () => navigation.navigate('ManagePromotions'),
     },
     {
       icon: Calendar,

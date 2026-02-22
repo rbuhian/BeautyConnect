@@ -17,6 +17,8 @@ import AdminPaymentsScreen from '../screens/admin/AdminPaymentsScreen';
 // Stack Screens
 import AdFormScreen from '../screens/admin/AdFormScreen';
 import AffiliateFormScreen from '../screens/admin/AffiliateFormScreen';
+import AdminManagePromotionsScreen from '../screens/admin/AdminManagePromotionsScreen';
+import AdminCreatePromotionScreen from '../screens/admin/AdminCreatePromotionScreen';
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
 const Stack = createNativeStackNavigator<AdminStackParamList>();
@@ -99,6 +101,8 @@ export default function AdminNavigator() {
       <Stack.Screen name="AdminTabs" component={AdminTabs} />
       <Stack.Screen name="AdForm" component={AdFormScreen} />
       <Stack.Screen name="AffiliateForm" component={AffiliateFormScreen} />
+      <Stack.Screen name="AdminManagePromotions" component={AdminManagePromotionsScreen} />
+      <Stack.Screen name="AdminCreatePromotion" component={AdminCreatePromotionScreen} />
     </Stack.Navigator>
   );
 }

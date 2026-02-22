@@ -19,6 +19,7 @@ import {
   Package,
   DollarSign,
   Megaphone,
+  Tag,
 } from 'lucide-react-native';
 import { COLORS, FONT_SIZES, SPACING, RADIUS, CURRENCY } from '../../constants';
 import { AdminDashboardStats } from '../../types';
@@ -172,6 +173,16 @@ export default function AdsDashboardScreen({ navigation }: Props) {
             <View style={styles.actionOutline}>
               <Package size={24} color={COLORS.primary} />
               <Text style={styles.actionOutlineText}>Add Affiliate Product</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => (navigation as any).navigate('AdminManagePromotions')}
+          >
+            <View style={styles.actionOutline}>
+              <Tag size={24} color={COLORS.primary} />
+              <Text style={styles.actionOutlineText}>Manage Platform Promotions</Text>
             </View>
           </TouchableOpacity>
         </View>

@@ -19,11 +19,13 @@ import {
   Calendar,
   Home,
   Building2,
+  Tag,
 } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import { GradientButton, Card, Loading } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES, DEPOSIT_PERCENTAGE } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
-import { Service, Review, ServicePackage } from '../../types';
+import { Service, Review, ServicePackage, Promotion } from '../../types';
 import {
   getProfessionalById,
   getProfessionalReviews,
@@ -32,6 +34,7 @@ import {
   toggleFavorite,
 } from '../../services/client';
 import { getActivePackages } from '../../services/packages';
+import { getActivePromotions } from '../../services/promotions';
 
 const { width } = Dimensions.get('window');
 const PORTFOLIO_IMAGE_SIZE = (width - SPACING.lg * 2 - SPACING.sm * 2) / 3;
@@ -42,17 +45,20 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
   const [professional, setProfessional] = useState<ProfessionalWithDetails | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [packages, setPackages] = useState<ServicePackage[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'services' | 'packages' | 'portfolio' | 'reviews'>('services');
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const [proResult, reviewsResult, favResult, pkgResult] = await Promise.all([
+      const [proResult, reviewsResult, favResult, pkgResult, promoResult] = await Promise.all([
         getProfessionalById(professionalId),
         getProfessionalReviews(professionalId),
         user?.id ? getFavorites(user.id) : Promise.resolve({ data: [] as string[] }),
         getActivePackages(professionalId),
+        getActivePromotions(professionalId),
       ]);
 
       if (proResult.data) {
@@ -67,6 +73,9 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
       if (pkgResult.data) {
         setPackages(pkgResult.data);
       }
+      if (promoResult.data) {
+        setPromotions(promoResult.data);
+      }
     } catch (err) {
       console.error('Error fetching professional:', err);
     } finally {
@@ -77,6 +86,12 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handleCopyCode = async (code: string) => {
+    await Clipboard.setStringAsync(code);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
 
   const handleToggleFavorite = async () => {
     if (!user?.id) return;
@@ -374,6 +389,54 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
             <View style={styles.bioSection}>
               <Text style={styles.sectionTitle}>About</Text>
               <Text style={styles.bioText}>{professional.bio}</Text>
+            </View>
+          )}
+
+          {/* Promotions Banner */}
+          {promotions.length > 0 && (
+            <View style={styles.promotionsBanner}>
+              {promotions.map((promo) => {
+                const isCopied = copiedCode === promo.code;
+                return (
+                  <TouchableOpacity
+                    key={promo.id}
+                    style={styles.promotionBannerCard}
+                    onPress={() => handleCopyCode(promo.code)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.promotionBannerLeft}>
+                      <Tag size={16} color={COLORS.primary} />
+                      <View style={styles.promotionBannerInfo}>
+                        <Text style={styles.promotionBannerTitle}>{promo.title}</Text>
+                        <Text style={styles.promotionBannerDiscount}>
+                          {promo.discount_type === 'percentage'
+                            ? `${promo.discount_value}% off`
+                            : `₱${promo.discount_value} off`}
+                          {promo.min_order_value > 0
+                            ? ` on orders ₱${promo.min_order_value}+`
+                            : ''}
+                        </Text>
+                      </View>
+                    </View>
+                    <View
+                      style={[
+                        styles.promotionCodeBadge,
+                        isCopied && styles.promotionCodeBadgeCopied,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.promotionCode,
+                          isCopied && styles.promotionCodeCopied,
+                        ]}
+                      >
+                        {isCopied ? 'Copied!' : promo.code}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+              <Text style={styles.promotionHint}>Tap a code to copy it</Text>
             </View>
           )}
 
@@ -892,6 +955,70 @@ const styles = StyleSheet.create({
   packageServiceDuration: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textSecondary,
+  },
+  promotionsBanner: {
+    marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  promotionBannerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    borderStyle: 'dashed',
+  },
+  promotionBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    flex: 1,
+  },
+  promotionBannerInfo: {
+    flex: 1,
+  },
+  promotionBannerTitle: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  promotionBannerDiscount: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+  promotionCodeBadge: {
+    backgroundColor: COLORS.white,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  promotionCodeBadgeCopied: {
+    backgroundColor: COLORS.success,
+    borderColor: COLORS.success,
+  },
+  promotionCode: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '800',
+    color: COLORS.primary,
+    letterSpacing: 1,
+  },
+  promotionCodeCopied: {
+    color: COLORS.white,
+    letterSpacing: 0,
+  },
+  promotionHint: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
   },
   emptyText: {
     fontSize: FONT_SIZES.sm,

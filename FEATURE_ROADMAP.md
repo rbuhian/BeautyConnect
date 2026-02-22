@@ -9,7 +9,7 @@ A comprehensive plan for additional features to enhance the BeautyConnect platfo
 BeautyConnect is a React Native (Expo SDK 54) marketplace connecting beauty professionals with clients in the Philippines. The app currently supports:
 
 - **3 user roles:** Client, Professional, Admin
-- **38 completed features** including: phone OTP auth, booking flow, real-time chat, reviews, push notifications, payment processing (PayMongo), featured listings, ad system, staff management, geolocation sorting, payment dashboards, client CRM, revenue analytics, and scheduling rules
+- **40 completed features** including: phone OTP auth, booking flow, real-time chat, reviews, push notifications, payment processing (PayMongo), featured listings, ad system, staff management, geolocation sorting, payment dashboards, client CRM, revenue analytics, scheduling rules, service packages, and promotions & discounts
 - **189 automated tests** across 8 test suites
 - **20+ database tables** with Row-Level Security
 
@@ -56,24 +56,37 @@ Make repeat bookings effortless.
 
 ---
 
-### 1.3 Service Packages & Bundles
-**Priority:** Medium | **Category:** Backend + UI | **Estimated:** 12 hrs
+### 1.3 Service Packages & Bundles ✅ IMPLEMENTED
+**Priority:** Medium | **Category:** Backend + UI | **Estimated:** 12 hrs | **Status:** Done
 
 Allow professionals to offer bundled services at discounted prices.
 
-**Features:**
-- Professionals create packages (e.g., "Bridal Package: Hair + Makeup + Nails")
-- Package pricing with discount percentage shown
-- Clients can book entire package in one flow
-- Package bookings create multiple time slots
+**Implemented:**
+- Professionals create packages from existing services (e.g., "Bridal Package: Hair + Makeup + Nails")
+- Package pricing with auto-calculated discount percentage
+- ManagePackagesScreen with list, edit, delete, active/inactive toggle
+- CreatePackageScreen with multi-select services, live preview, auto discount calculation
+- Packages tab on client ProfessionalProfileScreen showing package cards with discount badges
+- Book Package button (MVP: books at package price using total duration for time slot)
+- Horizontal scrollable tabs to prevent layout distortion with 4+ tabs
+
+**Files:**
+- `supabase/migrations/20260221_service_packages.sql` - DB migration with RLS policies
+- `src/services/packages.ts` - `getPackages`, `createPackage`, `updatePackage`, `deletePackage`, `getActivePackages`
+- `src/screens/professional/ManagePackagesScreen.tsx` - Package list management
+- `src/screens/professional/CreatePackageScreen.tsx` - Create/edit package form
+- `src/screens/client/ProfessionalProfileScreen.tsx` - Added Packages tab
+- `src/types/index.ts` - `ServicePackage`, `PackageService` interfaces
+- Accessible via: Professional Profile → Service Packages; Client → Professional Profile → Packages tab
 
 **Database:**
 - `service_packages` - id, professional_id, name, description, total_price, discount_pct, is_active
-- `package_services` - package_id, service_id, order
+- `package_services` - package_id, service_id, sort_order (with unique constraint)
 
-**Screens:**
-- `CreatePackageScreen` (Professional) - Build package from existing services
-- Package cards on professional profile view
+**Future enhancements (not yet implemented):**
+- Full multi-slot package booking (separate time slot per service)
+- Package booking creates linked bookings for each included service
+- Package analytics in Revenue Analytics screen
 
 ---
 
@@ -139,22 +152,42 @@ Help professionals track and manage their client relationships.
 
 ---
 
-### 2.2 Promotions & Discounts
-**Priority:** High | **Category:** Backend + UI | **Estimated:** 12 hrs
+### 2.2 Promotions & Discounts ✅ IMPLEMENTED
+**Priority:** High | **Category:** Backend + UI | **Estimated:** 12 hrs | **Status:** Done
 
 Enable professionals to run time-limited promotions.
 
-**Features:**
-- Create discount codes (percentage or fixed amount)
-- Time-limited flash sales ("20% off this weekend")
-- First-time client discounts
-- Referral discounts (existing client refers new client)
-- Promotion banner on professional profile
-- Admin can create platform-wide promotions
+**Implemented:**
+- Professionals create discount codes (percentage or fixed amount) with custom title, description, dates, max uses, min order value
+- Auto-uppercase code generator with copy-to-clipboard on client profile
+- ManagePromotionsScreen with status badges (Active / Scheduled / Expired / Inactive), usage count, toggle active switch
+- CreatePromotionScreen with live preview card, date range, percentage/fixed type selector
+- Promotion banners on client ProfessionalProfileScreen (dashed card with discount + code + "Valid until"); tap code to copy (2-second "Copied!" flash)
+- Promo code input on BookingFlowScreen summary step — validates code, shows discount, updates final price and deposit amount
+- `recordPromotionUse` called after booking created; atomically increments `uses_count` via RPC
+- Admin can create and manage platform-wide promotions (professional_id IS NULL) — entry via Ads Dashboard → Manage Platform Promotions
+
+**Files:**
+- `supabase/migrations/20260221_promotions.sql` - DB migration with RLS policies
+- `src/services/promotions.ts` - Full CRUD + `validatePromoCode`, `recordPromotionUse`, `getActivePromotions`, `getPlatformPromotions`, `createPlatformPromotion`
+- `src/screens/professional/ManagePromotionsScreen.tsx` - List with status, toggle, edit, delete
+- `src/screens/professional/CreatePromotionScreen.tsx` - Create/edit form with live preview
+- `src/screens/admin/AdminManagePromotionsScreen.tsx` - Platform-wide promotion list
+- `src/screens/admin/AdminCreatePromotionScreen.tsx` - Platform-wide promotion form
+- `src/screens/client/ProfessionalProfileScreen.tsx` - Promotion banners with tap-to-copy
+- `src/screens/client/BookingFlowScreen.tsx` - Promo code input on summary step
+- `src/screens/admin/AdsDashboardScreen.tsx` - "Manage Platform Promotions" quick action
+- `src/types/index.ts` - `Promotion`, `PromotionUse`, `DiscountType` types
+- Accessible via: Professional Profile → Promotions & Discounts; Client → Professional Profile banners + Booking Checkout; Admin → Ads Dashboard → Manage Platform Promotions
 
 **Database:**
-- `promotions` - id, professional_id, type (percentage/fixed/first_time/referral), value, code, max_uses, uses_count, starts_at, ends_at, is_active
-- `promotion_uses` - promotion_id, booking_id, client_id, discount_applied
+- `promotions` - id, professional_id (NULL = platform-wide), code, title, description, discount_type ('percentage'|'fixed'), discount_value, min_order_value, max_uses, uses_count, is_active, starts_at, ends_at
+- `promotion_uses` - promotion_id, booking_id, client_id, discount_applied, UNIQUE(promotion_id, booking_id)
+
+**Future enhancements (not yet implemented):**
+- First-time client discounts (requires tracking first-booking per professional)
+- Referral discounts (see 3.2 Referral Program)
+- Promotion analytics (usage over time, revenue impact)
 
 ---
 
@@ -542,13 +575,13 @@ Expand to iOS market.
 | High | Loyalty & Rewards Program | 1 | 16 |
 | ~~High~~ | ~~Client Management (CRM)~~ ✅ | 2 | 16 |
 | High | Rebooking & Templates | 1 | 8 |
-| High | Promotions & Discounts | 2 | 12 |
+| ~~High~~ | ~~Promotions & Discounts~~ ✅ | 2 | 12 |
 | High | Identity Verification | 4 | 12 |
 | High | Subscription Plans | 5 | 14 |
 | High | Commission System | 5 | 10 |
 | High | Referral Program | 3 | 10 |
 | High | Multi-Platform (iOS) | 6 | 8 |
-| Medium | Service Packages | 1 | 12 |
+| ~~Medium~~ | ~~Service Packages~~ ✅ | 1 | 12 |
 | Medium | Before & After Gallery | 1 | 10 |
 | Medium | Waitlist / Cancellation Alerts | 1 | 8 |
 | ~~Medium~~ | ~~Revenue Analytics~~ ✅ | 2 | 10 |
@@ -565,7 +598,7 @@ Expand to iOS market.
 | Low | Group Bookings | 3 | 14 |
 | Low | Offline Mode | 6 | 14 |
 
-**Total estimated: ~308 hours across 26 features (3 completed = ~36 hrs done, ~272 hrs remaining)**
+**Total estimated: ~308 hours across 26 features (5 completed = ~60 hrs done, ~248 hrs remaining)**
 
 ---
 
@@ -579,7 +612,7 @@ Expand to iOS market.
 ### Sprint 2 (Growth & Retention)
 4. Loyalty & Rewards Program
 5. Referral Program
-6. Promotions & Discounts
+6. ~~Promotions & Discounts~~ ✅
 
 ### Sprint 3 (Professional Tools) ✅ COMPLETE
 7. ~~Client Management (CRM)~~ ✅
@@ -594,7 +627,7 @@ Expand to iOS market.
 ### Sprint 5 (Platform Expansion)
 13. Multi-Platform (iOS)
 14. Subscription Plans
-15. Service Packages & Bundles
+15. ~~Service Packages & Bundles~~ ✅ (completed early)
 
 ### Sprint 6 (Engagement & Discovery)
 16. Before & After Gallery

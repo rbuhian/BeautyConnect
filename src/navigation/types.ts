@@ -84,6 +84,9 @@ export type ProfessionalStackParamList = {
   // Service Packages
   ManagePackages: undefined;
   CreatePackage: { packageId?: string } | undefined;
+  // Promotions & Discounts
+  ManagePromotions: undefined;
+  CreatePromotion: { promotionId?: string } | undefined;
   // Sprint 3: Professional Tools
   ClientManagement: undefined;
   RevenueAnalytics: undefined;
@@ -104,6 +107,8 @@ export type AdminStackParamList = {
   AdminTabs: NavigatorScreenParams<AdminTabParamList>;
   AdForm: { adId?: string; ad?: AdCreative } | undefined;
   AffiliateForm: { productId?: string; product?: AffiliateProduct } | undefined;
+  AdminManagePromotions: undefined;
+  AdminCreatePromotion: { promotionId?: string } | undefined;
 };
 
 // Root Stack
