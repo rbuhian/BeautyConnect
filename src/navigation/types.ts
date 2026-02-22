@@ -100,6 +100,7 @@ export type AdminTabParamList = {
   Affiliates: undefined;
   Featured: undefined;
   Payments: undefined;
+  Users: undefined;
 };
 
 // Admin Stack
@@ -109,6 +110,8 @@ export type AdminStackParamList = {
   AffiliateForm: { productId?: string; product?: AffiliateProduct } | undefined;
   AdminManagePromotions: undefined;
   AdminCreatePromotion: { promotionId?: string } | undefined;
+  AdminProfessionalDetail: { professionalId: string };
+  AdminClientDetail: { clientId: string };
 };
 
 // Root Stack

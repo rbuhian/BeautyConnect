@@ -20,6 +20,8 @@ import {
   DollarSign,
   Megaphone,
   Tag,
+  Users,
+  UserCheck,
 } from 'lucide-react-native';
 import { COLORS, FONT_SIZES, SPACING, RADIUS, CURRENCY } from '../../constants';
 import { AdminDashboardStats } from '../../types';
@@ -145,6 +147,22 @@ export default function AdsDashboardScreen({ navigation }: Props) {
             value={String(stats?.total_affiliate_products || 0)}
             subValue={`${stats?.active_affiliate_products || 0} active`}
             wide
+          />
+        </View>
+
+        {/* Users Stats */}
+        <Text style={styles.sectionTitle}>Users</Text>
+        <View style={styles.statsGrid}>
+          <StatCard
+            icon={<Users size={20} color={COLORS.primary} />}
+            label="Professionals"
+            value={String(stats?.total_professionals || 0)}
+            subValue={`${stats?.active_professionals || 0} live`}
+          />
+          <StatCard
+            icon={<UserCheck size={20} color="#4CAF50" />}
+            label="Clients"
+            value={String(stats?.total_clients || 0)}
           />
         </View>
 

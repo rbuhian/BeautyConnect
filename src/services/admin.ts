@@ -9,6 +9,13 @@ import {
   AdminDashboardStats,
   Category,
   FeaturedListingWithProfessional,
+  LocationType,
+  ProfessionalListItem,
+  ClientListItem,
+  AdminProfessionalDetail,
+  AdminClientDetail,
+  Service,
+  Booking,
 } from '../types';
 
 // ============================================
@@ -524,12 +531,16 @@ export async function getAdminDashboardStats(): Promise<ServiceResponse<AdminDas
       clicksResult,
       featuredResult,
       affiliateResult,
+      professionalsResult,
+      clientsResult,
     ] = await Promise.all([
       supabase.from('ad_creatives').select('status', { count: 'exact' }),
       supabase.from('ad_impressions').select('*', { count: 'exact', head: true }),
       supabase.from('ad_clicks').select('*', { count: 'exact', head: true }),
       supabase.from('featured_listings').select('price_paid, is_active, ends_at'),
       supabase.from('affiliate_products').select('is_active', { count: 'exact' }),
+      supabase.from('professional_profiles').select('is_live'),
+      supabase.from('users').select('role', { count: 'exact' }).eq('role', 'client'),
     ]);
 
     const ads = adsResult.data || [];
@@ -551,6 +562,11 @@ export async function getAdminDashboardStats(): Promise<ServiceResponse<AdminDas
     const totalAffiliateProducts = affiliates.length;
     const activeAffiliateProducts = affiliates.filter((a: any) => a.is_active).length;
 
+    const professionals = professionalsResult.data || [];
+    const totalProfessionals = professionals.length;
+    const activeProfessionals = professionals.filter((p: any) => p.is_live).length;
+    const totalClients = clientsResult.count || 0;
+
     return {
       data: {
         total_ads: totalAds,
@@ -563,10 +579,318 @@ export async function getAdminDashboardStats(): Promise<ServiceResponse<AdminDas
         active_featured_listings: activeFeaturedListings,
         total_affiliate_products: totalAffiliateProducts,
         active_affiliate_products: activeAffiliateProducts,
+        total_professionals: totalProfessionals,
+        active_professionals: activeProfessionals,
+        total_clients: totalClients,
       },
       error: null,
     };
   } catch (err) {
     return { data: null, error: { message: 'Failed to fetch dashboard stats' } };
+  }
+}
+
+// ============================================
+// ADMIN USER MANAGEMENT — PROFESSIONALS
+// ============================================
+
+export interface AdminProfessionalFilters {
+  location_type?: LocationType | 'all';
+  is_live?: boolean;
+  search?: string;
+}
+
+export async function getAllProfessionals(
+  filters?: AdminProfessionalFilters
+): Promise<ServiceResponse<ProfessionalListItem[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('professional_profiles')
+      .select(`
+        id,
+        user_id,
+        categories,
+        location_type,
+        is_live,
+        avg_rating,
+        total_reviews,
+        created_at,
+        user:users!professional_profiles_user_id_fkey(
+          id, name, avatar, phone, is_suspended
+        ),
+        business:businesses(
+          id, business_name, business_type
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    let items: ProfessionalListItem[] = (data || []).map((row: any) => ({
+      id: row.id,
+      user_id: row.user_id,
+      name: row.user?.name || null,
+      avatar: row.user?.avatar || null,
+      phone: row.user?.phone || '',
+      categories: row.categories || [],
+      location_type: row.location_type,
+      is_live: row.is_live,
+      avg_rating: row.avg_rating || 0,
+      total_reviews: row.total_reviews || 0,
+      created_at: row.created_at,
+      business_name: row.business?.business_name || null,
+      business_type: row.business?.business_type || null,
+    }));
+
+    if (filters?.location_type && filters.location_type !== 'all') {
+      items = items.filter((p) => p.location_type === filters!.location_type);
+    }
+    if (filters?.is_live !== undefined) {
+      items = items.filter((p) => p.is_live === filters!.is_live);
+    }
+    if (filters?.search) {
+      const q = filters.search.toLowerCase();
+      items = items.filter(
+        (p) =>
+          p.name?.toLowerCase().includes(q) ||
+          p.phone.includes(q) ||
+          p.business_name?.toLowerCase().includes(q)
+      );
+    }
+
+    return { data: items, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch professionals' } };
+  }
+}
+
+export async function getProfessionalAdminDetail(
+  professionalId: string
+): Promise<ServiceResponse<AdminProfessionalDetail>> {
+  try {
+    const [profileRes, servicesRes, bookingsRes] = await Promise.all([
+      supabase
+        .from('professional_profiles')
+        .select(`
+          id, user_id, bio, categories, location_type, service_area,
+          salon_address, is_live, avg_rating, total_reviews, created_at,
+          user:users!professional_profiles_user_id_fkey(
+            id, name, avatar, phone, is_suspended
+          ),
+          business:businesses(*)
+        `)
+        .eq('id', professionalId)
+        .single(),
+
+      supabase
+        .from('services')
+        .select('*')
+        .eq('professional_id', professionalId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false }),
+
+      supabase
+        .from('bookings')
+        .select(`
+          id, date, time_slot, status, total_price, deposit_amount,
+          deposit_paid, created_at,
+          service:services(name, category),
+          client:users!bookings_client_id_fkey(id, name, avatar)
+        `)
+        .eq('professional_id', professionalId)
+        .order('created_at', { ascending: false })
+        .limit(10),
+    ]);
+
+    if (profileRes.error) {
+      return { data: null, error: { message: profileRes.error.message, code: profileRes.error.code } };
+    }
+
+    const profile = profileRes.data as any;
+    const allBookings = bookingsRes.data || [];
+    const completed = allBookings.filter((b: any) => b.status === 'completed');
+
+    const detail: AdminProfessionalDetail = {
+      id: profile.id,
+      user_id: profile.user_id,
+      name: profile.user?.name || null,
+      avatar: profile.user?.avatar || null,
+      phone: profile.user?.phone || '',
+      bio: profile.bio || '',
+      categories: profile.categories || [],
+      location_type: profile.location_type,
+      service_area: profile.service_area || '',
+      salon_address: profile.salon_address || null,
+      is_live: profile.is_live,
+      avg_rating: profile.avg_rating || 0,
+      total_reviews: profile.total_reviews || 0,
+      created_at: profile.created_at,
+      business: profile.business || null,
+      total_bookings: allBookings.length,
+      completed_bookings: completed.length,
+      total_revenue: completed.reduce((sum: number, b: any) => sum + (b.total_price || 0), 0),
+      services: (servicesRes.data || []) as Service[],
+      recent_bookings: allBookings as Booking[],
+    };
+
+    return { data: detail, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch professional detail' } };
+  }
+}
+
+export async function toggleProfessionalLive(
+  professionalId: string,
+  isLive: boolean
+): Promise<ServiceResponse> {
+  try {
+    const { error } = await supabase
+      .from('professional_profiles')
+      .update({ is_live: isLive, updated_at: new Date().toISOString() })
+      .eq('id', professionalId);
+
+    if (error) {
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to update professional status' } };
+  }
+}
+
+// ============================================
+// ADMIN USER MANAGEMENT — CLIENTS
+// ============================================
+
+export async function getAllClients(
+  search?: string
+): Promise<ServiceResponse<ClientListItem[]>> {
+  try {
+    const [usersRes, bookingsRes] = await Promise.all([
+      supabase
+        .from('users')
+        .select('id, name, avatar, phone, created_at, is_suspended')
+        .eq('role', 'client')
+        .order('created_at', { ascending: false }),
+
+      supabase
+        .from('bookings')
+        .select('client_id, status, total_price'),
+    ]);
+
+    if (usersRes.error) {
+      return { data: null, error: { message: usersRes.error.message, code: usersRes.error.code } };
+    }
+
+    // Build booking stats map: client_id → { count, spent }
+    const statsMap = new Map<string, { count: number; spent: number }>();
+    (bookingsRes.data || []).forEach((b: any) => {
+      const entry = statsMap.get(b.client_id) || { count: 0, spent: 0 };
+      entry.count++;
+      if (b.status === 'completed') entry.spent += b.total_price || 0;
+      statsMap.set(b.client_id, entry);
+    });
+
+    let items: ClientListItem[] = (usersRes.data || []).map((u: any) => {
+      const stats = statsMap.get(u.id) || { count: 0, spent: 0 };
+      return {
+        id: u.id,
+        name: u.name || null,
+        avatar: u.avatar || null,
+        phone: u.phone || '',
+        created_at: u.created_at,
+        is_suspended: u.is_suspended || false,
+        booking_count: stats.count,
+        total_spent: stats.spent,
+      };
+    });
+
+    if (search) {
+      const q = search.toLowerCase();
+      items = items.filter(
+        (c) => c.name?.toLowerCase().includes(q) || c.phone.includes(q)
+      );
+    }
+
+    return { data: items, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch clients' } };
+  }
+}
+
+export async function getClientAdminDetail(
+  userId: string
+): Promise<ServiceResponse<AdminClientDetail>> {
+  try {
+    const [userRes, bookingsRes] = await Promise.all([
+      supabase
+        .from('users')
+        .select('id, name, avatar, phone, created_at, is_suspended')
+        .eq('id', userId)
+        .single(),
+
+      supabase
+        .from('bookings')
+        .select(`
+          id, date, time_slot, status, total_price, deposit_amount,
+          deposit_paid, created_at, cancelled_at,
+          service:services(name, category, price),
+          professional:professional_profiles!bookings_professional_id_fkey(
+            id,
+            user:users!professional_profiles_user_id_fkey(name, avatar)
+          )
+        `)
+        .eq('client_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ]);
+
+    if (userRes.error) {
+      return { data: null, error: { message: userRes.error.message, code: userRes.error.code } };
+    }
+
+    const user = userRes.data as any;
+    const bookings = (bookingsRes.data || []) as any[];
+    const completed = bookings.filter((b) => b.status === 'completed');
+    const cancelled = bookings.filter((b) => b.status === 'cancelled');
+
+    const detail: AdminClientDetail = {
+      id: user.id,
+      name: user.name || null,
+      avatar: user.avatar || null,
+      phone: user.phone || '',
+      created_at: user.created_at,
+      is_suspended: user.is_suspended || false,
+      total_bookings: bookings.length,
+      completed_bookings: completed.length,
+      cancelled_bookings: cancelled.length,
+      total_spent: completed.reduce((sum: number, b: any) => sum + (b.total_price || 0), 0),
+      bookings: bookings as Booking[],
+    };
+
+    return { data: detail, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch client detail' } };
+  }
+}
+
+export async function toggleClientSuspension(
+  userId: string,
+  isSuspended: boolean
+): Promise<ServiceResponse> {
+  try {
+    const { error } = await supabase
+      .from('users')
+      .update({ is_suspended: isSuspended })
+      .eq('id', userId);
+
+    if (error) {
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to update client status' } };
   }
 }

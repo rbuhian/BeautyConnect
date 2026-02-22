@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BarChart3, Megaphone, Package, Star, Wallet } from 'lucide-react-native';
+import { BarChart3, Megaphone, Package, Star, Wallet, Users } from 'lucide-react-native';
 import { AdminStackParamList, AdminTabParamList } from './types';
 import { COLORS } from '../constants';
 
@@ -19,6 +19,9 @@ import AdFormScreen from '../screens/admin/AdFormScreen';
 import AffiliateFormScreen from '../screens/admin/AffiliateFormScreen';
 import AdminManagePromotionsScreen from '../screens/admin/AdminManagePromotionsScreen';
 import AdminCreatePromotionScreen from '../screens/admin/AdminCreatePromotionScreen';
+import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
+import AdminProfessionalDetailScreen from '../screens/admin/AdminProfessionalDetailScreen';
+import AdminClientDetailScreen from '../screens/admin/AdminClientDetailScreen';
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
 const Stack = createNativeStackNavigator<AdminStackParamList>();
@@ -86,6 +89,13 @@ function AdminTabs() {
           tabBarIcon: ({ color, size }) => <Wallet size={size} color={color} />,
         }}
       />
+      <Tab.Screen
+        name="Users"
+        component={AdminUsersScreen as any}
+        options={{
+          tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -103,6 +113,8 @@ export default function AdminNavigator() {
       <Stack.Screen name="AffiliateForm" component={AffiliateFormScreen} />
       <Stack.Screen name="AdminManagePromotions" component={AdminManagePromotionsScreen} />
       <Stack.Screen name="AdminCreatePromotion" component={AdminCreatePromotionScreen} />
+      <Stack.Screen name="AdminProfessionalDetail" component={AdminProfessionalDetailScreen} />
+      <Stack.Screen name="AdminClientDetail" component={AdminClientDetailScreen} />
     </Stack.Navigator>
   );
 }

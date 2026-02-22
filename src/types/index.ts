@@ -8,6 +8,7 @@ export interface User {
   avatar: string | null;
   role: UserRole;
   created_at: string;
+  is_suspended: boolean;
 }
 
 // Professional types
@@ -361,4 +362,75 @@ export interface AdminDashboardStats {
   active_featured_listings: number;
   total_affiliate_products: number;
   active_affiliate_products: number;
+  total_professionals: number;
+  active_professionals: number;
+  total_clients: number;
+}
+
+// ============================================
+// ADMIN USER MANAGEMENT TYPES
+// ============================================
+
+export interface ProfessionalListItem {
+  id: string;              // professional_profiles.id
+  user_id: string;
+  name: string | null;
+  avatar: string | null;
+  phone: string;
+  categories: Category[];
+  location_type: LocationType;
+  is_live: boolean;
+  avg_rating: number;
+  total_reviews: number;
+  created_at: string;
+  business_name: string | null;
+  business_type: BusinessType | null;
+}
+
+export interface ClientListItem {
+  id: string;              // users.id
+  name: string | null;
+  avatar: string | null;
+  phone: string;
+  created_at: string;
+  is_suspended: boolean;
+  booking_count: number;
+  total_spent: number;
+}
+
+export interface AdminProfessionalDetail {
+  id: string;
+  user_id: string;
+  name: string | null;
+  avatar: string | null;
+  phone: string;
+  bio: string;
+  categories: Category[];
+  location_type: LocationType;
+  service_area: string;
+  salon_address: string | null;
+  is_live: boolean;
+  avg_rating: number;
+  total_reviews: number;
+  created_at: string;
+  business: Business | null;
+  total_bookings: number;
+  completed_bookings: number;
+  total_revenue: number;
+  services: Service[];
+  recent_bookings: Booking[];
+}
+
+export interface AdminClientDetail {
+  id: string;
+  name: string | null;
+  avatar: string | null;
+  phone: string;
+  created_at: string;
+  is_suspended: boolean;
+  total_bookings: number;
+  completed_bookings: number;
+  cancelled_bookings: number;
+  total_spent: number;
+  bookings: Booking[];
 }
