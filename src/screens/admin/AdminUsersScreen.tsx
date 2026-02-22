@@ -398,20 +398,24 @@ const styles = StyleSheet.create({
   },
   filtersScroll: {
     flexGrow: 0,
-    marginBottom: SPACING.xs,
+    minHeight: 40,
+    marginBottom: SPACING.sm,
   },
   filtersContent: {
     paddingHorizontal: SPACING.md,
+    paddingVertical: 4,
     gap: SPACING.sm,
     flexDirection: 'row',
+    alignItems: 'center',
   },
   filterChip: {
+    height: 32,
     paddingHorizontal: SPACING.md,
-    paddingVertical: 6,
     borderRadius: RADIUS.round,
     backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
+    justifyContent: 'center',
   },
   filterChipActive: {
     backgroundColor: COLORS.primaryLight,
@@ -423,7 +427,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   filterChipTextActive: {
-    color: COLORS.primary,
+    color: '#7B1FA2',
   },
   listContent: {
     padding: SPACING.md,
