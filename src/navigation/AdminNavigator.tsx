@@ -22,6 +22,7 @@ import AdminCreatePromotionScreen from '../screens/admin/AdminCreatePromotionScr
 import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
 import AdminProfessionalDetailScreen from '../screens/admin/AdminProfessionalDetailScreen';
 import AdminClientDetailScreen from '../screens/admin/AdminClientDetailScreen';
+import AdminVerificationDetailScreen from '../screens/admin/AdminVerificationDetailScreen';
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
 const Stack = createNativeStackNavigator<AdminStackParamList>();
@@ -115,6 +116,7 @@ export default function AdminNavigator() {
       <Stack.Screen name="AdminCreatePromotion" component={AdminCreatePromotionScreen} />
       <Stack.Screen name="AdminProfessionalDetail" component={AdminProfessionalDetailScreen} />
       <Stack.Screen name="AdminClientDetail" component={AdminClientDetailScreen} />
+      <Stack.Screen name="AdminVerificationDetail" component={AdminVerificationDetailScreen} />
     </Stack.Navigator>
   );
 }

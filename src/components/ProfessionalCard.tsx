@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, MapPin, Star } from 'lucide-react-native';
+import { Heart, MapPin, Star, ShieldCheck } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES } from '../constants';
 import { ProfessionalWithDetails } from '../services/client';
 import FeaturedBadge from './ads/FeaturedBadge';
@@ -82,9 +82,14 @@ const ProfessionalCard = React.memo<ProfessionalCardProps>(({
             )}
           </View>
           <View style={styles.cardHeaderInfo}>
-            <Text style={styles.proName} numberOfLines={1}>
-              {professional.user?.name || 'Beauty Professional'}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text style={[styles.proName, { flex: 1 }]} numberOfLines={1}>
+                {professional.user?.name || 'Beauty Professional'}
+              </Text>
+              {professional.is_verified && (
+                <ShieldCheck size={15} color={COLORS.success} />
+              )}
+            </View>
             <View style={styles.locationRow}>
               <MapPin size={12} color={COLORS.textSecondary} />
               <Text style={styles.locationText} numberOfLines={1}>
@@ -206,11 +211,16 @@ const styles = StyleSheet.create({
   cardHeaderInfo: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
   proName: {
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
     color: COLORS.textPrimary,
-    marginBottom: 2,
   },
   locationRow: {
     flexDirection: 'row',

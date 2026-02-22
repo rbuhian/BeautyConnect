@@ -16,7 +16,9 @@ import {
   AdminClientDetail,
   Service,
   Booking,
+  ProfessionalVerification,
 } from '../types';
+import { getVerificationSignedUrl } from './storage';
 
 // ============================================
 // SERVICE TYPES
@@ -892,5 +894,182 @@ export async function toggleClientSuspension(
     return { data: null, error: null };
   } catch (err) {
     return { data: null, error: { message: 'Failed to update client status' } };
+  }
+}
+
+// ============================================
+// IDENTITY VERIFICATION
+// ============================================
+
+export interface VerificationListItem {
+  id: string;
+  professional_id: string;
+  name: string | null;
+  avatar: string | null;
+  phone: string;
+  submitted_at: string;
+  status: string;
+}
+
+export interface VerificationDetail extends ProfessionalVerification {
+  professional_name: string | null;
+  professional_avatar: string | null;
+  professional_phone: string;
+  id_document_signed_url: string | null;
+  certificate_signed_urls: string[];
+}
+
+export async function getPendingVerifications(): Promise<ServiceResponse<VerificationListItem[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('professional_verifications')
+      .select(`
+        id,
+        professional_id,
+        submitted_at,
+        status,
+        professional_profiles!inner (
+          user_id,
+          users!inner ( name, avatar, phone )
+        )
+      `)
+      .eq('status', 'pending')
+      .order('submitted_at', { ascending: true });
+
+    if (error) return { data: null, error: { message: error.message } };
+
+    const items: VerificationListItem[] = (data || []).map((row: any) => ({
+      id: row.id,
+      professional_id: row.professional_id,
+      submitted_at: row.submitted_at,
+      status: row.status,
+      name: row.professional_profiles?.users?.name || null,
+      avatar: row.professional_profiles?.users?.avatar || null,
+      phone: row.professional_profiles?.users?.phone || '',
+    }));
+
+    return { data: items, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch pending verifications' } };
+  }
+}
+
+export async function getVerificationDetail(
+  verificationId: string
+): Promise<ServiceResponse<VerificationDetail>> {
+  try {
+    const { data: row, error } = await supabase
+      .from('professional_verifications')
+      .select(`
+        *,
+        professional_profiles!inner (
+          user_id,
+          users!inner ( name, avatar, phone )
+        )
+      `)
+      .eq('id', verificationId)
+      .single();
+
+    if (error) return { data: null, error: { message: error.message } };
+
+    // Generate signed URLs for private documents
+    let idSignedUrl: string | null = null;
+    if (row.id_document_path) {
+      try { idSignedUrl = await getVerificationSignedUrl(row.id_document_path); } catch { /* ignore */ }
+    }
+
+    const certSignedUrls: string[] = [];
+    for (const path of (row.certificate_paths || [])) {
+      try {
+        certSignedUrls.push(await getVerificationSignedUrl(path));
+      } catch { /* ignore */ }
+    }
+
+    const detail: VerificationDetail = {
+      id: row.id,
+      professional_id: row.professional_id,
+      status: row.status,
+      id_document_path: row.id_document_path,
+      certificate_paths: row.certificate_paths || [],
+      submission_notes: row.submission_notes,
+      admin_notes: row.admin_notes,
+      submitted_at: row.submitted_at,
+      reviewed_at: row.reviewed_at,
+      reviewed_by: row.reviewed_by,
+      created_at: row.created_at,
+      professional_name: row.professional_profiles?.users?.name || null,
+      professional_avatar: row.professional_profiles?.users?.avatar || null,
+      professional_phone: row.professional_profiles?.users?.phone || '',
+      id_document_signed_url: idSignedUrl,
+      certificate_signed_urls: certSignedUrls,
+    };
+
+    return { data: detail, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch verification detail' } };
+  }
+}
+
+export async function approveVerification(
+  verificationId: string,
+  professionalId: string
+): Promise<ServiceResponse> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { error: verError } = await supabase
+      .from('professional_verifications')
+      .update({
+        status: 'verified',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: user?.id || null,
+      })
+      .eq('id', verificationId);
+
+    if (verError) return { data: null, error: { message: verError.message } };
+
+    const { error: proError } = await supabase
+      .from('professional_profiles')
+      .update({ is_verified: true, verification_status: 'verified' })
+      .eq('id', professionalId);
+
+    if (proError) return { data: null, error: { message: proError.message } };
+
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to approve verification' } };
+  }
+}
+
+export async function rejectVerification(
+  verificationId: string,
+  professionalId: string,
+  adminNotes: string
+): Promise<ServiceResponse> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { error: verError } = await supabase
+      .from('professional_verifications')
+      .update({
+        status: 'rejected',
+        admin_notes: adminNotes,
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: user?.id || null,
+      })
+      .eq('id', verificationId);
+
+    if (verError) return { data: null, error: { message: verError.message } };
+
+    const { error: proError } = await supabase
+      .from('professional_profiles')
+      .update({ is_verified: false, verification_status: 'rejected' })
+      .eq('id', professionalId);
+
+    if (proError) return { data: null, error: { message: proError.message } };
+
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to reject verification' } };
   }
 }

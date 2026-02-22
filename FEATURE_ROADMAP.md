@@ -365,24 +365,27 @@ Book services for multiple people at once.
 
 ## Phase 4: Trust & Safety
 
-### 4.1 Identity Verification
-**Priority:** High | **Category:** Backend | **Estimated:** 12 hrs
+### ~~4.1 Identity Verification~~ ✅ DONE
+**Priority:** High | **Category:** Backend | **Estimated:** 12 hrs | **Actual:** 10 hrs
 
 Build trust with verified professionals.
 
 **Features:**
-- Government ID upload and verification
-- Verified badge on professional profile
-- Certificate/license upload (e.g., cosmetology license)
-- Admin review and approval workflow
-- Verification status: pending, verified, rejected
+- ✅ Government ID upload and verification
+- ✅ Verified badge on professional profile, cards, and client-facing views
+- ✅ Certificate/license upload (e.g., cosmetology license)
+- ✅ Admin review and approval workflow
+- ✅ Verification status: pending, verified, rejected
 
 **Database:**
-- `verifications` - id, user_id, type (government_id/license/certificate), document_url, status, reviewed_by, reviewed_at, rejection_reason
+- ✅ `professional_verifications` — id, professional_id, status, id_document_path, certificate_paths, submission_notes, admin_notes, submitted_at, reviewed_at, reviewed_by
+- ✅ `professional_profiles` — added `verification_status`, `is_verified` columns
+- ✅ Private `verifications` storage bucket with RLS (signed URLs for access)
 
 **Screens:**
-- `VerificationScreen` (Professional) - Upload documents, track status
-- `VerificationReviewScreen` (Admin) - Review and approve/reject
+- ✅ `VerificationScreen` (Professional) — Upload documents, track status, resubmit after rejection
+- ✅ `AdminVerificationDetailScreen` (Admin) — Review docs, approve/reject with notes
+- ✅ `AdminUsersScreen` — New "Verifications" tab with pending count badge
 
 ---
 

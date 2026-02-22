@@ -20,6 +20,7 @@ import {
   Home,
   Building2,
   Tag,
+  ShieldCheck,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { GradientButton, Card, Loading } from '../../components';
@@ -331,9 +332,17 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
                 )}
               </View>
               <View style={styles.profileInfo}>
-                <Text style={styles.proName}>
-                  {professional.user?.name || 'Beauty Professional'}
-                </Text>
+                <View style={styles.proNameRow}>
+                  <Text style={styles.proName} numberOfLines={1}>
+                    {professional.user?.name || 'Beauty Professional'}
+                  </Text>
+                  {professional.is_verified && (
+                    <View style={styles.verifiedBadge}>
+                      <ShieldCheck size={12} color={COLORS.success} />
+                      <Text style={styles.verifiedBadgeText}>Verified</Text>
+                    </View>
+                  )}
+                </View>
                 <View style={styles.ratingRow}>
                   <Star size={16} color="#FFB800" fill="#FFB800" />
                   <Text style={styles.ratingText}>
@@ -676,11 +685,31 @@ const styles = StyleSheet.create({
   profileInfo: {
     flex: 1,
   },
+  proNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.xs,
+    flexWrap: 'wrap',
+  },
   proName: {
     fontSize: FONT_SIZES.xl,
     fontWeight: '700',
     color: COLORS.white,
-    marginBottom: SPACING.xs,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: RADIUS.round,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+  },
+  verifiedBadgeText: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '700',
+    color: COLORS.white,
   },
   ratingRow: {
     flexDirection: 'row',

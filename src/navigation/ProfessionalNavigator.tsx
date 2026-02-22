@@ -40,6 +40,7 @@ import CreatePromotionScreen from '../screens/professional/CreatePromotionScreen
 import ClientManagementScreen from '../screens/professional/ClientManagementScreen';
 import RevenueAnalyticsScreen from '../screens/professional/RevenueAnalyticsScreen';
 import SchedulingRulesScreen from '../screens/professional/SchedulingRulesScreen';
+import VerificationScreen from '../screens/professional/VerificationScreen';
 
 const Tab = createBottomTabNavigator<ProfessionalTabParamList>();
 const Stack = createNativeStackNavigator<ProfessionalStackParamList>();
@@ -141,6 +142,7 @@ export default function ProfessionalNavigator() {
       <Stack.Screen name="ClientManagement" component={ClientManagementScreen} />
       <Stack.Screen name="RevenueAnalytics" component={RevenueAnalyticsScreen} />
       <Stack.Screen name="SchedulingRules" component={SchedulingRulesScreen} />
+      <Stack.Screen name="Verification" component={VerificationScreen} />
     </Stack.Navigator>
   );
 }

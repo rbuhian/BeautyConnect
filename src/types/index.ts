@@ -15,6 +15,7 @@ export interface User {
 export type Category = 'makeup' | 'hair' | 'nails' | 'lash' | 'brow';
 export type LocationType = 'home_service' | 'salon' | 'both';
 export type BookingType = 'instant' | 'request';
+export type VerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
 
 export interface ProfessionalProfile {
   id: string;
@@ -28,6 +29,8 @@ export interface ProfessionalProfile {
   latitude: number | null;
   longitude: number | null;
   is_live: boolean;
+  is_verified: boolean;
+  verification_status: VerificationStatus;
   avg_rating: number;
   total_reviews: number;
   created_at: string;
@@ -37,6 +40,20 @@ export interface ProfessionalProfile {
   // Joined business data (if this is a salon/spa/studio)
   business?: Business;
   staff_members?: StaffMember[];
+}
+
+export interface ProfessionalVerification {
+  id: string;
+  professional_id: string;
+  status: 'pending' | 'verified' | 'rejected';
+  id_document_path: string | null;
+  certificate_paths: string[];
+  submission_notes: string | null;
+  admin_notes: string | null;
+  submitted_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  created_at: string;
 }
 
 // Business types

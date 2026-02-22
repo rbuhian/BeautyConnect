@@ -13,11 +13,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Search, User, ChevronRight, Star } from 'lucide-react-native';
+import { Search, User, ChevronRight, Star, ShieldCheck, Clock } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { AdminStackParamList } from '../../navigation/types';
 import { ProfessionalListItem, ClientListItem, LocationType } from '../../types';
-import { getAllProfessionals, getAllClients } from '../../services/admin';
+import { getAllProfessionals, getAllClients, getPendingVerifications, VerificationListItem } from '../../services/admin';
+import { formatDistanceToNow } from 'date-fns';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminTabs'>;
 
@@ -37,9 +38,10 @@ const LOCATION_FILTERS = [
 ] as const;
 
 export default function AdminUsersScreen({ navigation }: Props) {
-  const [activeTab, setActiveTab] = useState<'professionals' | 'clients'>('professionals');
+  const [activeTab, setActiveTab] = useState<'professionals' | 'clients' | 'verifications'>('professionals');
   const [professionals, setProfessionals] = useState<ProfessionalListItem[]>([]);
   const [clients, setClients] = useState<ClientListItem[]>([]);
+  const [pendingVerifications, setPendingVerifications] = useState<VerificationListItem[]>([]);
   const [proSearch, setProSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [locationFilter, setLocationFilter] = useState<LocationType | 'all'>('all');
@@ -48,12 +50,14 @@ export default function AdminUsersScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchAll = useCallback(async () => {
-    const [proRes, clientRes] = await Promise.all([
+    const [proRes, clientRes, verRes] = await Promise.all([
       getAllProfessionals(),
       getAllClients(),
+      getPendingVerifications(),
     ]);
     if (proRes.data) setProfessionals(proRes.data);
     if (clientRes.data) setClients(clientRes.data);
+    if (verRes.data) setPendingVerifications(verRes.data);
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -218,6 +222,21 @@ export default function AdminUsersScreen({ navigation }: Props) {
             Clients ({clients.length})
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.segmentTab, activeTab === 'verifications' && styles.segmentTabActive]}
+          onPress={() => setActiveTab('verifications')}
+        >
+          <View style={styles.verTabLabel}>
+            <Text style={[styles.segmentTabText, activeTab === 'verifications' && styles.segmentTabTextActive]}>
+              Verify
+            </Text>
+            {pendingVerifications.length > 0 && (
+              <View style={styles.verBadge}>
+                <Text style={styles.verBadgeText}>{pendingVerifications.length}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
       </View>
 
       {activeTab === 'professionals' ? (
@@ -289,7 +308,7 @@ export default function AdminUsersScreen({ navigation }: Props) {
             }
           />
         </>
-      ) : (
+      ) : activeTab === 'clients' ? (
         <>
           {/* Client Search */}
           <View style={styles.searchContainer}>
@@ -330,6 +349,58 @@ export default function AdminUsersScreen({ navigation }: Props) {
             }
           />
         </>
+      ) : (
+        <FlatList
+          data={pendingVerifications}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => (navigation as any).navigate('AdminVerificationDetail', { verificationId: item.id })}
+              activeOpacity={0.7}
+            >
+              <View style={styles.cardLeft}>
+                {item.avatar ? (
+                  <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarFallback}>
+                    <User size={20} color={COLORS.textSecondary} />
+                  </View>
+                )}
+              </View>
+              <View style={styles.cardContent}>
+                <View style={styles.cardTopRow}>
+                  <Text style={styles.cardName} numberOfLines={1}>
+                    {item.name || 'Unnamed'}
+                  </Text>
+                  <View style={styles.pendingBadge}>
+                    <Clock size={12} color="#F57C00" />
+                    <Text style={styles.pendingBadgeText}>Pending</Text>
+                  </View>
+                </View>
+                <Text style={styles.cardPhone}>{item.phone}</Text>
+                <Text style={styles.cardMeta}>
+                  Submitted {formatDistanceToNow(new Date(item.submitted_at), { addSuffix: true })}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          )}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />
+          }
+          ListEmptyComponent={
+            !loading ? (
+              <View style={styles.emptyState}>
+                <ShieldCheck size={40} color={COLORS.success} />
+                <Text style={styles.emptyTitle}>All Clear!</Text>
+                <Text style={styles.emptySubtitle}>No pending verification requests.</Text>
+              </View>
+            ) : null
+          }
+        />
       )}
     </SafeAreaView>
   );
@@ -378,6 +449,44 @@ const styles = StyleSheet.create({
   },
   segmentTabTextActive: {
     color: COLORS.primary,
+  },
+  verTabLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  verBadge: {
+    backgroundColor: COLORS.error,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  verBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  pendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FFF3E0',
+    borderRadius: RADIUS.round,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+  },
+  pendingBadgeText: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+    color: '#F57C00',
+  },
+  cardMeta: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   searchContainer: {
     flexDirection: 'row',

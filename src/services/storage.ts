@@ -30,6 +30,44 @@ export async function uploadImage(uri: string, bucket: 'avatars' | 'portfolios')
 }
 
 /**
+ * Upload a verification document to the private verifications bucket.
+ * Returns the storage path (not a public URL).
+ */
+export async function uploadVerificationDoc(
+  uri: string,
+  userId: string,
+  type: 'id' | 'certificate'
+): Promise<string> {
+  const fileName = `${Date.now()}.jpg`;
+  const path = `${userId}/${type}/${fileName}`;
+
+  const response = await fetch(uri);
+  const arrayBuffer = await response.arrayBuffer();
+
+  const { error } = await supabase.storage
+    .from('verifications')
+    .upload(path, arrayBuffer, {
+      contentType: 'image/jpeg',
+      upsert: false,
+    });
+
+  if (error) throw error;
+  return path;
+}
+
+/**
+ * Generate a 1-hour signed URL for a private verification document.
+ */
+export async function getVerificationSignedUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('verifications')
+    .createSignedUrl(path, 3600);
+
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+/**
  * Delete an image from Supabase Storage
  * @param url - Public URL of the image to delete
  * @param bucket - Storage bucket name

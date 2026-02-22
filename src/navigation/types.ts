@@ -91,6 +91,8 @@ export type ProfessionalStackParamList = {
   ClientManagement: undefined;
   RevenueAnalytics: undefined;
   SchedulingRules: undefined;
+  // Identity Verification
+  Verification: undefined;
 };
 
 // Admin Tab Navigator
@@ -112,6 +114,7 @@ export type AdminStackParamList = {
   AdminCreatePromotion: { promotionId?: string } | undefined;
   AdminProfessionalDetail: { professionalId: string };
   AdminClientDetail: { clientId: string };
+  AdminVerificationDetail: { verificationId: string };
 };
 
 // Root Stack

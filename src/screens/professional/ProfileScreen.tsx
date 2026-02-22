@@ -33,6 +33,9 @@ import {
   Clock,
   Package,
   Tag,
+  ShieldCheck,
+  ShieldAlert,
+  Shield,
 } from 'lucide-react-native';
 import { Card } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
@@ -198,6 +201,28 @@ export default function ProfileScreen({ navigation }: any) {
       onPress: () => navigation.navigate('SchedulingRules'),
     },
     {
+      icon: professionalProfile?.is_verified
+        ? ShieldCheck
+        : professionalProfile?.verification_status === 'rejected'
+        ? ShieldAlert
+        : Shield,
+      label: professionalProfile?.is_verified
+        ? 'Verified'
+        : professionalProfile?.verification_status === 'pending'
+        ? 'Verification Pending'
+        : professionalProfile?.verification_status === 'rejected'
+        ? 'Verification Rejected'
+        : 'Get Verified',
+      subtitle: professionalProfile?.is_verified
+        ? 'Your identity is verified'
+        : professionalProfile?.verification_status === 'pending'
+        ? 'Under review by our team'
+        : professionalProfile?.verification_status === 'rejected'
+        ? 'Tap to resubmit'
+        : 'Upload ID to get a verified badge',
+      onPress: () => navigation.navigate('Verification'),
+    },
+    {
       icon: Settings,
       label: 'Settings',
       onPress: () => navigation.navigate('Settings'),
@@ -245,7 +270,12 @@ export default function ProfileScreen({ navigation }: any) {
             </View>
 
             {/* User Info */}
-            <Text style={styles.userName}>{user?.name || 'Professional'}</Text>
+            <View style={styles.nameRow}>
+              <Text style={styles.userName}>{user?.name || 'Professional'}</Text>
+              {professionalProfile?.is_verified && (
+                <ShieldCheck size={20} color={COLORS.success} />
+              )}
+            </View>
             <View style={styles.phoneRow}>
               <Phone size={14} color={COLORS.textSecondary} />
               <Text style={styles.phoneText}>{user?.phone || ''}</Text>
@@ -445,6 +475,12 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    justifyContent: 'center',
   },
   userName: {
     fontSize: FONT_SIZES.xl,
