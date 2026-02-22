@@ -21,8 +21,10 @@ import {
   X,
   Check,
   Bell,
+  Map,
+  List,
 } from 'lucide-react-native';
-import { Card, Loading, EmptyState, SkeletonList, ProfessionalCard } from '../../components';
+import { Card, Loading, EmptyState, SkeletonList, ProfessionalCard, DiscoverMapView } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES, LOCATION_TYPES, PRICE_RANGES, DISTANCE_OPTIONS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
 import { ProfessionalFilters, Category, LocationType, PriceRange } from '../../types';
@@ -56,6 +58,7 @@ export default function DiscoverScreen({ navigation }: any) {
   const [filters, setFilters] = useState<ProfessionalFilters>({});
   const [tempFilters, setTempFilters] = useState<ProfessionalFilters>({});
   const [userLocation, setUserLocation] = useState<UserLocation | undefined>();
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const locationRequested = useRef(false);
 
   // Request location on mount
@@ -415,6 +418,14 @@ export default function DiscoverScreen({ navigation }: any) {
         <View style={styles.headerActions}>
           <TouchableOpacity
             style={styles.headerIconButton}
+            onPress={() => setViewMode((m) => (m === 'list' ? 'map' : 'list'))}
+          >
+            {viewMode === 'list'
+              ? <Map size={22} color={COLORS.primary} />
+              : <List size={22} color={COLORS.primary} />}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerIconButton}
             onPress={() => navigation.navigate('Notifications')}
           >
             <Bell size={22} color={COLORS.primary} />
@@ -530,6 +541,14 @@ export default function DiscoverScreen({ navigation }: any) {
       <View style={styles.resultsContainer}>
         {loading ? (
           renderSkeletonLoading()
+        ) : viewMode === 'map' ? (
+          <DiscoverMapView
+            professionals={professionals}
+            userLocation={userLocation}
+            favorites={favorites}
+            onPressCard={handlePressCard}
+            onToggleFavorite={handleToggleFavorite}
+          />
         ) : professionals.length === 0 ? (
           <EmptyState
             type={searchText || activeFilterCount > 0 ? 'search' : 'professionals'}
