@@ -158,7 +158,7 @@ export default function AdminClientDetailScreen({ navigation, route }: Props) {
         </View>
 
         {/* Suspension Toggle */}
-        <View style={styles.card}>
+        <View style={[styles.card, styles.statusCard]}>
           <View style={styles.statusCardLeft}>
             {detail.is_suspended ? (
               <AlertTriangle size={20} color={COLORS.error} />
@@ -175,10 +175,10 @@ export default function AdminClientDetailScreen({ navigation, route }: Props) {
             </View>
           </View>
           <Switch
-            value={detail.is_suspended}
-            onValueChange={handleToggleSuspension}
+            value={!detail.is_suspended}
+            onValueChange={(isActive) => handleToggleSuspension(!isActive)}
             disabled={toggling}
-            trackColor={{ false: COLORS.border, true: COLORS.error }}
+            trackColor={{ false: COLORS.border, true: COLORS.success }}
             thumbColor={COLORS.white}
           />
         </View>
@@ -363,6 +363,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 1,
+  },
+  statusCard: {
     flexDirection: 'row',
     alignItems: 'center',
   },
