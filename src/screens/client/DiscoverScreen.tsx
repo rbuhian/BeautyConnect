@@ -416,6 +416,7 @@ export default function DiscoverScreen({ navigation }: any) {
           <Text style={styles.subtitle}>Find your perfect beauty pro</Text>
         </View>
         <View style={styles.headerActions}>
+          {/* Map toggle disabled until Google Maps API key is configured
           <TouchableOpacity
             style={styles.headerIconButton}
             onPress={() => setViewMode((m) => (m === 'list' ? 'map' : 'list'))}
@@ -424,6 +425,7 @@ export default function DiscoverScreen({ navigation }: any) {
               ? <Map size={22} color={COLORS.primary} />
               : <List size={22} color={COLORS.primary} />}
           </TouchableOpacity>
+          */}
           <TouchableOpacity
             style={styles.headerIconButton}
             onPress={() => navigation.navigate('Notifications')}
