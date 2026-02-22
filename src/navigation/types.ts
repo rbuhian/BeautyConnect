@@ -115,6 +115,7 @@ export type AdminStackParamList = {
   AdminProfessionalDetail: { professionalId: string };
   AdminClientDetail: { clientId: string };
   AdminVerificationDetail: { verificationId: string };
+  AdminReportDetail: { reportId: string };
 };
 
 // Root Stack

@@ -13,11 +13,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Search, User, ChevronRight, Star, ShieldCheck, Clock } from 'lucide-react-native';
+import { Search, User, ChevronRight, Star, ShieldCheck, Clock, Flag } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { AdminStackParamList } from '../../navigation/types';
 import { ProfessionalListItem, ClientListItem, LocationType } from '../../types';
-import { getAllProfessionals, getAllClients, getPendingVerifications, VerificationListItem } from '../../services/admin';
+import {
+  getAllProfessionals,
+  getAllClients,
+  getPendingVerifications,
+  getPendingReports,
+  VerificationListItem,
+  ReportListItem,
+} from '../../services/admin';
 import { formatDistanceToNow } from 'date-fns';
 
 type Props = NativeStackScreenProps<AdminStackParamList, 'AdminTabs'>;
@@ -38,10 +45,11 @@ const LOCATION_FILTERS = [
 ] as const;
 
 export default function AdminUsersScreen({ navigation }: Props) {
-  const [activeTab, setActiveTab] = useState<'professionals' | 'clients' | 'verifications'>('professionals');
+  const [activeTab, setActiveTab] = useState<'professionals' | 'clients' | 'verifications' | 'reports'>('professionals');
   const [professionals, setProfessionals] = useState<ProfessionalListItem[]>([]);
   const [clients, setClients] = useState<ClientListItem[]>([]);
   const [pendingVerifications, setPendingVerifications] = useState<VerificationListItem[]>([]);
+  const [pendingReports, setPendingReports] = useState<ReportListItem[]>([]);
   const [proSearch, setProSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [locationFilter, setLocationFilter] = useState<LocationType | 'all'>('all');
@@ -50,14 +58,16 @@ export default function AdminUsersScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchAll = useCallback(async () => {
-    const [proRes, clientRes, verRes] = await Promise.all([
+    const [proRes, clientRes, verRes, repRes] = await Promise.all([
       getAllProfessionals(),
       getAllClients(),
       getPendingVerifications(),
+      getPendingReports(),
     ]);
     if (proRes.data) setProfessionals(proRes.data);
     if (clientRes.data) setClients(clientRes.data);
     if (verRes.data) setPendingVerifications(verRes.data);
+    if (repRes.data) setPendingReports(repRes.data);
     setLoading(false);
     setRefreshing(false);
   }, []);
@@ -210,15 +220,25 @@ export default function AdminUsersScreen({ navigation }: Props) {
           style={[styles.segmentTab, activeTab === 'professionals' && styles.segmentTabActive]}
           onPress={() => setActiveTab('professionals')}
         >
-          <Text style={[styles.segmentTabText, activeTab === 'professionals' && styles.segmentTabTextActive]}>
-            Professionals ({professionals.length})
+          <Text
+            style={[styles.segmentTabText, activeTab === 'professionals' && styles.segmentTabTextActive]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            Pros ({professionals.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.segmentTab, activeTab === 'clients' && styles.segmentTabActive]}
           onPress={() => setActiveTab('clients')}
         >
-          <Text style={[styles.segmentTabText, activeTab === 'clients' && styles.segmentTabTextActive]}>
+          <Text
+            style={[styles.segmentTabText, activeTab === 'clients' && styles.segmentTabTextActive]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
             Clients ({clients.length})
           </Text>
         </TouchableOpacity>
@@ -227,12 +247,33 @@ export default function AdminUsersScreen({ navigation }: Props) {
           onPress={() => setActiveTab('verifications')}
         >
           <View style={styles.verTabLabel}>
-            <Text style={[styles.segmentTabText, activeTab === 'verifications' && styles.segmentTabTextActive]}>
+            <Text
+              style={[styles.segmentTabText, activeTab === 'verifications' && styles.segmentTabTextActive]}
+              numberOfLines={1}
+            >
               Verify
             </Text>
             {pendingVerifications.length > 0 && (
               <View style={styles.verBadge}>
                 <Text style={styles.verBadgeText}>{pendingVerifications.length}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.segmentTab, activeTab === 'reports' && styles.segmentTabActive]}
+          onPress={() => setActiveTab('reports')}
+        >
+          <View style={styles.verTabLabel}>
+            <Text
+              style={[styles.segmentTabText, activeTab === 'reports' && styles.segmentTabTextActive]}
+              numberOfLines={1}
+            >
+              Reports
+            </Text>
+            {pendingReports.length > 0 && (
+              <View style={styles.verBadge}>
+                <Text style={styles.verBadgeText}>{pendingReports.length}</Text>
               </View>
             )}
           </View>
@@ -349,7 +390,7 @@ export default function AdminUsersScreen({ navigation }: Props) {
             }
           />
         </>
-      ) : (
+      ) : activeTab === 'verifications' ? (
         <FlatList
           data={pendingVerifications}
           keyExtractor={(item) => item.id}
@@ -401,6 +442,56 @@ export default function AdminUsersScreen({ navigation }: Props) {
             ) : null
           }
         />
+      ) : (
+        <FlatList
+          data={pendingReports}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => (navigation as any).navigate('AdminReportDetail', { reportId: item.id })}
+              activeOpacity={0.7}
+            >
+              <View style={styles.cardLeft}>
+                <View style={styles.reportIconContainer}>
+                  <Flag size={20} color={COLORS.error} />
+                </View>
+              </View>
+              <View style={styles.cardContent}>
+                <View style={styles.cardTopRow}>
+                  <Text style={styles.cardName} numberOfLines={1}>
+                    {item.reporter_name || 'Unknown'} → {item.reported_name || 'Unknown'}
+                  </Text>
+                </View>
+                <View style={styles.reportReasonRow}>
+                  <View style={styles.reasonChip}>
+                    <Text style={styles.reasonChipText}>
+                      {item.reason.replace(/_/g, ' ')}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.cardMeta}>
+                  {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          )}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[COLORS.primary]} />
+          }
+          ListEmptyComponent={
+            !loading ? (
+              <View style={styles.emptyState}>
+                <Flag size={40} color={COLORS.textLight} />
+                <Text style={styles.emptyTitle}>No Pending Reports</Text>
+                <Text style={styles.emptySubtitle}>All reports have been reviewed.</Text>
+              </View>
+            ) : null
+          }
+        />
       )}
     </SafeAreaView>
   );
@@ -426,8 +517,8 @@ const styles = StyleSheet.create({
   segmentContainer: {
     flexDirection: 'row',
     backgroundColor: COLORS.white,
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     gap: SPACING.sm,
@@ -435,12 +526,14 @@ const styles = StyleSheet.create({
   segmentTab: {
     flex: 1,
     paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.xs,
     borderRadius: RADIUS.sm,
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: COLORS.chipBackground,
   },
   segmentTabActive: {
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: COLORS.primary,
   },
   segmentTabText: {
     fontSize: FONT_SIZES.sm,
@@ -448,7 +541,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   segmentTabTextActive: {
-    color: COLORS.primary,
+    color: COLORS.white,
   },
   verTabLabel: {
     flexDirection: 'row',
@@ -678,5 +771,29 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     paddingHorizontal: SPACING.xl,
+  },
+  reportIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFEBEE',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reportReasonRow: {
+    flexDirection: 'row',
+    marginBottom: 2,
+  },
+  reasonChip: {
+    backgroundColor: '#FFEBEE',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.round,
+  },
+  reasonChipText: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: '600',
+    color: COLORS.error,
+    textTransform: 'capitalize',
   },
 });

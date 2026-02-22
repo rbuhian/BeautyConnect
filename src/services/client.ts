@@ -43,7 +43,8 @@ export interface UserLocation {
 
 export async function getDiscoverProfessionals(
   filters?: ProfessionalFilters,
-  userLocation?: UserLocation
+  userLocation?: UserLocation,
+  blockedUserIds?: string[]
 ): Promise<ServiceResponse<ProfessionalWithDetails[]>> {
   try {
     let query = supabase
@@ -54,6 +55,11 @@ export async function getDiscoverProfessionals(
         services:services(*)
       `)
       .eq('is_live', true);
+
+    // Exclude blocked professionals
+    if (blockedUserIds && blockedUserIds.length > 0) {
+      query = query.not('user_id', 'in', `(${blockedUserIds.join(',')})`);
+    }
 
     // Apply category filter
     if (filters?.category) {

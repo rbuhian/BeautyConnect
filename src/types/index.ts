@@ -451,3 +451,38 @@ export interface AdminClientDetail {
   total_spent: number;
   bookings: Booking[];
 }
+
+// ============================================
+// REPORT & BLOCK TYPES
+// ============================================
+
+export type ReportReason =
+  | 'harassment'
+  | 'inappropriate_content'
+  | 'fraud'
+  | 'unsafe_practices'
+  | 'no_show'
+  | 'spam'
+  | 'other';
+
+export type ReportStatus = 'pending' | 'reviewed' | 'actioned' | 'dismissed';
+
+export interface UserReport {
+  id: string;
+  reporter_id: string;
+  reported_user_id: string;
+  reason: ReportReason;
+  details: string | null;
+  status: ReportStatus;
+  admin_notes: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface UserBlock {
+  id: string;
+  blocker_id: string;
+  blocked_id: string;
+  created_at: string;
+}

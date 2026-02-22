@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -21,6 +24,9 @@ import {
   Building2,
   Tag,
   ShieldCheck,
+  MoreVertical,
+  UserX,
+  Flag,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { GradientButton, Card, Loading } from '../../components';
@@ -36,6 +42,8 @@ import {
 } from '../../services/client';
 import { getActivePackages } from '../../services/packages';
 import { getActivePromotions } from '../../services/promotions';
+import { blockUser, unblockUser, isUserBlocked, submitReport } from '../../services/reports';
+import { ReportReason } from '../../types';
 
 const { width } = Dimensions.get('window');
 const PORTFOLIO_IMAGE_SIZE = (width - SPACING.lg * 2 - SPACING.sm * 2) / 3;
@@ -51,6 +59,12 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'services' | 'packages' | 'portfolio' | 'reviews'>('services');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedReason, setSelectedReason] = useState<ReportReason | null>(null);
+  const [reportDetails, setReportDetails] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -64,6 +78,11 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
 
       if (proResult.data) {
         setProfessional(proResult.data);
+        // Check block status once professional user id is known
+        if (proResult.data.user?.id) {
+          const blockRes = await isUserBlocked(proResult.data.user.id);
+          if (blockRes.data) setIsBlocked(true);
+        }
       }
       if (reviewsResult.data) {
         setReviews(reviewsResult.data);
@@ -98,6 +117,52 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
     if (!user?.id) return;
     setIsFavorite(!isFavorite);
     await toggleFavorite(user.id, professionalId, !isFavorite);
+  };
+
+  const handleToggleBlock = () => {
+    if (!professional?.user?.id) return;
+    const name = professional.user.name || 'this professional';
+    if (isBlocked) {
+      Alert.alert('Unblock Professional', `Unblock ${name}? They will appear in Discover again.`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unblock',
+          onPress: async () => {
+            await unblockUser(professional.user.id);
+            setIsBlocked(false);
+            setShowOptionsModal(false);
+          },
+        },
+      ]);
+    } else {
+      Alert.alert('Block Professional', `Block ${name}? They will no longer appear in Discover.`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            await blockUser(professional.user.id);
+            setIsBlocked(true);
+            setShowOptionsModal(false);
+          },
+        },
+      ]);
+    }
+  };
+
+  const handleSubmitReport = async () => {
+    if (!selectedReason || !professional?.user?.id) return;
+    setSubmittingReport(true);
+    const result = await submitReport(professional.user.id, selectedReason, reportDetails.trim() || undefined);
+    setSubmittingReport(false);
+    if (result.error) {
+      Alert.alert('Error', result.error.message);
+      return;
+    }
+    setShowReportModal(false);
+    setSelectedReason(null);
+    setReportDetails('');
+    Alert.alert('Report Submitted', 'Thank you. Our team will review your report.');
   };
 
   const handleBookService = (service: Service) => {
@@ -302,16 +367,24 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
             >
               <ArrowLeft size={22} color={COLORS.white} />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={handleToggleFavorite}
-            >
-              <Heart
-                size={22}
-                color={isFavorite ? '#FF6B6B' : COLORS.white}
-                fill={isFavorite ? '#FF6B6B' : 'transparent'}
-              />
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                style={styles.headerButton}
+                onPress={handleToggleFavorite}
+              >
+                <Heart
+                  size={22}
+                  color={isFavorite ? '#FF6B6B' : COLORS.white}
+                  fill={isFavorite ? '#FF6B6B' : 'transparent'}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.headerButton}
+                onPress={() => setShowOptionsModal(true)}
+              >
+                <MoreVertical size={22} color={COLORS.white} />
+              </TouchableOpacity>
+            </View>
           </SafeAreaView>
 
           {/* Profile Info Overlay */}
@@ -616,6 +689,115 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
           </View>
         </View>
       </ScrollView>
+
+      {/* Options modal */}
+      <Modal
+        visible={showOptionsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowOptionsModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowOptionsModal(false)}
+        >
+          <View style={styles.optionsSheet}>
+            <TouchableOpacity
+              style={styles.optionRow}
+              onPress={handleToggleBlock}
+            >
+              <UserX size={20} color={isBlocked ? COLORS.textSecondary : COLORS.error} />
+              <Text style={[styles.optionText, isBlocked && { color: COLORS.textSecondary }]}>
+                {isBlocked ? `Unblock ${professional?.user?.name || 'Professional'}` : `Block ${professional?.user?.name || 'Professional'}`}
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.optionDivider} />
+            <TouchableOpacity
+              style={styles.optionRow}
+              onPress={() => {
+                setShowOptionsModal(false);
+                setShowReportModal(true);
+              }}
+            >
+              <Flag size={20} color={COLORS.error} />
+              <Text style={[styles.optionText, { color: COLORS.error }]}>
+                Report {professional?.user?.name || 'Professional'}
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.optionDivider} />
+            <TouchableOpacity
+              style={styles.optionRow}
+              onPress={() => setShowOptionsModal(false)}
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Report modal */}
+      <Modal
+        visible={showReportModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.reportSheet}>
+            <Text style={styles.reportTitle}>Report Professional</Text>
+            <Text style={styles.reportSubtitle}>Select a reason:</Text>
+            <View style={styles.reasonGrid}>
+              {([
+                ['harassment', 'Harassment'],
+                ['inappropriate_content', 'Inappropriate Content'],
+                ['fraud', 'Fraud'],
+                ['unsafe_practices', 'Unsafe Practices'],
+                ['no_show', 'No-Show'],
+                ['spam', 'Spam'],
+                ['other', 'Other'],
+              ] as [ReportReason, string][]).map(([value, label]) => (
+                <TouchableOpacity
+                  key={value}
+                  style={[styles.reasonPill, selectedReason === value && styles.reasonPillSelected]}
+                  onPress={() => setSelectedReason(value)}
+                >
+                  <Text style={[styles.reasonPillText, selectedReason === value && styles.reasonPillTextSelected]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={styles.reportInput}
+              value={reportDetails}
+              onChangeText={setReportDetails}
+              placeholder="Additional details (optional)..."
+              placeholderTextColor={COLORS.textSecondary}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+            <View style={styles.reportActions}>
+              <TouchableOpacity
+                style={[styles.reportBtn, styles.reportCancelBtn]}
+                onPress={() => { setShowReportModal(false); setSelectedReason(null); setReportDetails(''); }}
+              >
+                <Text style={styles.reportCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.reportBtn, styles.reportSubmitBtn, !selectedReason && styles.reportSubmitDisabled]}
+                onPress={handleSubmitReport}
+                disabled={!selectedReason || submittingReport}
+              >
+                <Text style={styles.reportSubmitText}>
+                  {submittingReport ? 'Submitting...' : 'Submit Report'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1077,4 +1259,113 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     color: COLORS.textSecondary,
   },
+  headerRight: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: COLORS.overlay,
+    justifyContent: 'flex-end',
+  },
+  optionsSheet: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.xxl,
+    paddingHorizontal: SPACING.lg,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    paddingVertical: SPACING.md,
+  },
+  optionText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '500',
+    color: COLORS.textPrimary,
+  },
+  optionDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+  cancelText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    width: '100%',
+  },
+  reportSheet: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    paddingBottom: SPACING.xxl,
+  },
+  reportTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  reportSubtitle: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.md,
+  },
+  reasonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  reasonPill: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.chipBackground,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  reasonPillSelected: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primary,
+  },
+  reasonPillText: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  reasonPillTextSelected: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  reportInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textPrimary,
+    minHeight: 80,
+    marginBottom: SPACING.lg,
+  },
+  reportActions: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  reportBtn: {
+    flex: 1,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+  },
+  reportCancelBtn: { backgroundColor: COLORS.chipBackground },
+  reportSubmitBtn: { backgroundColor: COLORS.error },
+  reportSubmitDisabled: { opacity: 0.5 },
+  reportCancelText: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.textPrimary },
+  reportSubmitText: { fontSize: FONT_SIZES.md, fontWeight: '700', color: COLORS.white },
 });

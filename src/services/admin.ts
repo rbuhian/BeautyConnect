@@ -1073,3 +1073,150 @@ export async function rejectVerification(
     return { data: null, error: { message: 'Failed to reject verification' } };
   }
 }
+
+// ============================================
+// REPORTS
+// ============================================
+
+export interface ReportListItem {
+  id: string;
+  reporter_id: string;
+  reporter_name: string | null;
+  reported_user_id: string;
+  reported_name: string | null;
+  reason: string;
+  status: string;
+  created_at: string;
+}
+
+export interface ReportDetail {
+  id: string;
+  reporter_id: string;
+  reporter_name: string | null;
+  reporter_phone: string | null;
+  reporter_avatar: string | null;
+  reported_user_id: string;
+  reported_name: string | null;
+  reported_phone: string | null;
+  reported_avatar: string | null;
+  reported_role: string;
+  reason: string;
+  details: string | null;
+  status: string;
+  admin_notes: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  total_reports_against: number;
+}
+
+export async function getPendingReports(): Promise<ServiceResponse<ReportListItem[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('user_reports')
+      .select(`
+        id,
+        reporter_id,
+        reported_user_id,
+        reason,
+        status,
+        created_at,
+        reporter:users!reporter_id ( name ),
+        reported:users!reported_user_id ( name )
+      `)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
+
+    if (error) return { data: null, error: { message: error.message } };
+
+    const items: ReportListItem[] = (data || []).map((row: any) => ({
+      id: row.id,
+      reporter_id: row.reporter_id,
+      reporter_name: row.reporter?.name || null,
+      reported_user_id: row.reported_user_id,
+      reported_name: row.reported?.name || null,
+      reason: row.reason,
+      status: row.status,
+      created_at: row.created_at,
+    }));
+
+    return { data: items, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch pending reports' } };
+  }
+}
+
+export async function getReportDetail(
+  reportId: string
+): Promise<ServiceResponse<ReportDetail>> {
+  try {
+    const { data: row, error } = await supabase
+      .from('user_reports')
+      .select(`
+        *,
+        reporter:users!reporter_id ( name, phone, avatar ),
+        reported:users!reported_user_id ( name, phone, avatar, role )
+      `)
+      .eq('id', reportId)
+      .single();
+
+    if (error) return { data: null, error: { message: error.message } };
+
+    // Count all reports against the reported user
+    const { count } = await supabase
+      .from('user_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('reported_user_id', row.reported_user_id);
+
+    const detail: ReportDetail = {
+      id: row.id,
+      reporter_id: row.reporter_id,
+      reporter_name: row.reporter?.name || null,
+      reporter_phone: row.reporter?.phone || null,
+      reporter_avatar: row.reporter?.avatar || null,
+      reported_user_id: row.reported_user_id,
+      reported_name: row.reported?.name || null,
+      reported_phone: row.reported?.phone || null,
+      reported_avatar: row.reported?.avatar || null,
+      reported_role: row.reported?.role || 'client',
+      reason: row.reason,
+      details: row.details,
+      status: row.status,
+      admin_notes: row.admin_notes,
+      reviewed_by: row.reviewed_by,
+      reviewed_at: row.reviewed_at,
+      created_at: row.created_at,
+      total_reports_against: count || 0,
+    };
+
+    return { data: detail, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to fetch report detail' } };
+  }
+}
+
+export async function reviewReport(
+  reportId: string,
+  status: 'actioned' | 'dismissed',
+  adminNotes?: string
+): Promise<ServiceResponse> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { error } = await supabase
+      .from('user_reports')
+      .update({
+        status,
+        admin_notes: adminNotes || null,
+        reviewed_by: user?.id || null,
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', reportId);
+
+    if (error) return { data: null, error: { message: error.message } };
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to review report' } };
+  }
+}

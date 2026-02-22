@@ -8,6 +8,7 @@ import {
   TextInput,
   RefreshControl,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +24,8 @@ import {
   Calendar,
   Star,
   Briefcase,
+  UserX,
+  UserCheck,
 } from 'lucide-react-native';
 import { Card, Loading } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
@@ -36,6 +39,7 @@ import {
 } from '../../services/client-management';
 import { Booking } from '../../types';
 import { format, parseISO } from 'date-fns';
+import { blockUser, unblockUser, isUserBlocked } from '../../services/reports';
 
 const STATUS_COLORS: Record<string, string> = {
   completed: COLORS.success,
@@ -56,6 +60,7 @@ export default function ClientManagementScreen({ navigation }: any) {
     bookings: Booking[];
   } | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [blockedClients, setBlockedClients] = useState<Record<string, boolean>>({});
 
   const fetchClients = useCallback(async () => {
     if (!professionalProfile?.id) return;
@@ -92,10 +97,15 @@ export default function ClientManagementScreen({ navigation }: any) {
     if (!professionalProfile?.id) return;
 
     try {
-      const [statsRes, historyRes] = await Promise.all([
+      const [statsRes, historyRes, blockRes] = await Promise.all([
         getClientStats(professionalProfile.id, clientId),
         getClientBookingHistory(professionalProfile.id, clientId),
+        isUserBlocked(clientId),
       ]);
+
+      if (blockRes.data !== undefined) {
+        setBlockedClients((prev) => ({ ...prev, [clientId]: !!blockRes.data }));
+      }
 
       setClientDetails({
         stats: statsRes.data,
@@ -105,6 +115,34 @@ export default function ClientManagementScreen({ navigation }: any) {
       console.error('Error fetching client details:', err);
     } finally {
       setLoadingDetails(false);
+    }
+  };
+
+  const handleBlockClient = (client: ClientSummary) => {
+    const isBlocked = blockedClients[client.clientId];
+    if (isBlocked) {
+      Alert.alert('Unblock Client', `Unblock ${client.name}?`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Unblock',
+          onPress: async () => {
+            await unblockUser(client.clientId);
+            setBlockedClients((prev) => ({ ...prev, [client.clientId]: false }));
+          },
+        },
+      ]);
+    } else {
+      Alert.alert('Block Client', `Block ${client.name}? They will be prevented from contacting you.`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            await blockUser(client.clientId);
+            setBlockedClients((prev) => ({ ...prev, [client.clientId]: true }));
+          },
+        },
+      ]);
     }
   };
 
@@ -216,6 +254,24 @@ export default function ClientManagementScreen({ navigation }: any) {
                     )}
                   </View>
                 )}
+
+                {/* Block/Unblock */}
+                <TouchableOpacity
+                  style={styles.blockRow}
+                  onPress={() => handleBlockClient(item)}
+                >
+                  {blockedClients[item.clientId] ? (
+                    <>
+                      <UserCheck size={16} color={COLORS.textSecondary} />
+                      <Text style={styles.unblockText}>Unblock Client</Text>
+                    </>
+                  ) : (
+                    <>
+                      <UserX size={16} color={COLORS.error} />
+                      <Text style={styles.blockText}>Block Client</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
 
                 {/* Recent Bookings */}
                 <Text style={styles.detailSectionTitle}>Recent Bookings</Text>
@@ -555,6 +611,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     textTransform: 'capitalize',
+  },
+  blockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
+  },
+  blockText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.error,
+  },
+  unblockText: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
   },
   // Empty state
   emptyCard: {

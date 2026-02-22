@@ -425,21 +425,37 @@ Let professionals set and enforce their own cancellation policies.
 
 ---
 
-### 4.4 Report & Block Users
-**Priority:** Medium | **Category:** Backend | **Estimated:** 6 hrs
+### ~~4.4 Report & Block Users~~ ✅ DONE
+**Priority:** Medium | **Category:** Backend + UI | **Estimated:** 6 hrs | **Actual:** 5 hrs
 
 Safety tools for both clients and professionals.
 
-**Features:**
-- Report inappropriate behavior, harassment, or fraud
-- Block users (prevents future bookings and messaging)
-- Admin review queue for reports
-- Auto-flag accounts with multiple reports
-- Temporary and permanent bans
+**Implemented:**
+- ✅ Bidirectional blocking: clients block/unblock professionals (from `⋯` in ProfessionalProfileScreen header); professionals block/unblock clients (from expanded row in ClientManagementScreen)
+- ✅ Blocked professionals filtered out of Discover on next load (`getBlockedUserIds` → `NOT IN` query)
+- ✅ Reason-based report modal with 7 categories: Harassment, Inappropriate Content, Fraud, Unsafe Practices, No-Show, Spam, Other + optional details text
+- ✅ Admin review queue: 4th "Reports" tab in AdminUsersScreen with red pending-count badge
+- ✅ Auto-flag chip shown when reported user has ≥ 3 total reports
+- ✅ Admin can Dismiss or Take Action (mark actioned only, or action + suspend user)
+- ✅ Fixed RLS: `reporter_id` and `blocker_id` set explicitly in INSERT payloads
+
+**Files:**
+- `supabase/migrations/20260222_report_block.sql` — `user_blocks` + `user_reports` tables with RLS
+- `src/services/reports.ts` — `blockUser`, `unblockUser`, `isUserBlocked`, `getBlockedUserIds`, `submitReport`
+- `src/screens/admin/AdminReportDetailScreen.tsx` — Reporter/reported cards, reason, notes, dismiss/action buttons
+- `src/services/admin.ts` — Added `getPendingReports`, `getReportDetail`, `reviewReport`, `ReportListItem`, `ReportDetail`
+- `src/services/client.ts` — `getDiscoverProfessionals` accepts optional `blockedUserIds` param
+- `src/screens/client/DiscoverScreen.tsx` — Fetches blocked IDs before discover query
+- `src/screens/client/ProfessionalProfileScreen.tsx` — `⋯` header button, block/report bottom-sheet modals
+- `src/screens/professional/ClientManagementScreen.tsx` — Block/unblock row in expanded client card
+- `src/screens/admin/AdminUsersScreen.tsx` — 4th "Reports" tab with badge; fixed tab bar wrapping (solid primary active, `adjustsFontSizeToFit`)
+- `src/navigation/types.ts` — Added `AdminReportDetail: { reportId: string }`
+- `src/navigation/AdminNavigator.tsx` — Registered `AdminReportDetailScreen`
+- `src/types/index.ts` — Added `ReportReason`, `ReportStatus`, `UserReport`, `UserBlock`
 
 **Database:**
-- `reports` - id, reporter_id, reported_id, reason, description, status, created_at
-- `blocks` - blocker_id, blocked_id, created_at
+- `user_blocks` — blocker_id, blocked_id, UNIQUE(blocker_id, blocked_id), RLS: users manage own blocks
+- `user_reports` — reporter_id, reported_user_id, reason (CHECK), details, status (CHECK), admin_notes, reviewed_by, reviewed_at
 
 ---
 
@@ -594,14 +610,14 @@ Expand to iOS market.
 | Medium | Multi-Language (i18n) | 3 | 12 |
 | Medium | Dispute Resolution | 4 | 10 |
 | Medium | Cancellation Policy | 4 | 6 |
-| Medium | Report & Block | 4 | 6 |
+| ~~Medium~~ | ~~Report & Block~~ ✅ | 4 | 6 |
 | Medium | Gift Cards & Vouchers | 5 | 10 |
 | Medium | SMS Confirmations | 6 | 6 |
 | Medium | In-App Stories | 3 | 14 |
 | Low | Group Bookings | 3 | 14 |
 | Low | Offline Mode | 6 | 14 |
 
-**Total estimated: ~308 hours across 26 features (5 completed = ~60 hrs done, ~248 hrs remaining)**
+**Total estimated: ~308 hours across 26 features (7 completed = ~71 hrs done, ~237 hrs remaining)**
 
 ---
 
@@ -625,7 +641,7 @@ Expand to iOS market.
 ### Sprint 4 (Trust & Safety)
 10. Identity Verification
 11. Cancellation Policy Management
-12. Report & Block Users
+12. ~~Report & Block Users~~ ✅
 
 ### Sprint 5 (Platform Expansion)
 13. Multi-Platform (iOS)

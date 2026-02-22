@@ -36,6 +36,7 @@ import {
   toggleFavorite,
   UserLocation,
 } from '../../services/client';
+import { getBlockedUserIds } from '../../services/reports';
 import { getFeaturedProfessionals, getActiveAds } from '../../services/ads';
 import { FeedAdCard, SponsoredContentCard } from '../../components/ads';
 import { AdCreative, DiscoverFeedItem } from '../../types';
@@ -129,7 +130,8 @@ export default function DiscoverScreen({ navigation }: any) {
       if (searchText.trim()) {
         result = await searchProfessionals(searchText.trim());
       } else {
-        result = await getDiscoverProfessionals(filters, userLocation);
+        const { data: blockedIds } = await getBlockedUserIds();
+        result = await getDiscoverProfessionals(filters, userLocation, blockedIds ?? []);
       }
 
       // Fetch ads and featured listings in parallel
