@@ -10,7 +10,7 @@ export interface ClientSummary {
   clientId: string;
   name: string;
   avatar: string | null;
-  phone: string;
+  email: string;
   totalBookings: number;
   totalRevenue: number;
   lastBookingDate: string;
@@ -63,7 +63,7 @@ export async function getClientList(
         clientMap.set(clientId, {
           name: b.client?.name || 'Client',
           avatar: b.client?.avatar || null,
-          phone: b.client?.phone || '',
+          email: b.client?.email || '',
           bookings: [],
         });
       }
@@ -100,7 +100,7 @@ export async function getClientList(
         clientId,
         name: info.name,
         avatar: info.avatar,
-        phone: info.phone,
+        email: info.email,
         totalBookings: info.bookings.length,
         totalRevenue,
         lastBookingDate,

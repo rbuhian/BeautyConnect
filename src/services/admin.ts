@@ -635,7 +635,7 @@ export async function getAllProfessionals(
       user_id: row.user_id,
       name: row.user?.name || null,
       avatar: row.user?.avatar || null,
-      phone: row.user?.phone || '',
+      email: row.user?.email || '',
       categories: row.categories || [],
       location_type: row.location_type,
       is_live: row.is_live,
@@ -719,7 +719,7 @@ export async function getProfessionalAdminDetail(
       user_id: profile.user_id,
       name: profile.user?.name || null,
       avatar: profile.user?.avatar || null,
-      phone: profile.user?.phone || '',
+      email: profile.user?.email || '',
       bio: profile.bio || '',
       categories: profile.categories || [],
       location_type: profile.location_type,
@@ -801,7 +801,7 @@ export async function getAllClients(
         id: u.id,
         name: u.name || null,
         avatar: u.avatar || null,
-        phone: u.phone || '',
+        email: u.email || '',
         created_at: u.created_at,
         is_suspended: u.is_suspended || false,
         booking_count: stats.count,
@@ -812,7 +812,7 @@ export async function getAllClients(
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(
-        (c) => c.name?.toLowerCase().includes(q) || c.phone.includes(q)
+        (c) => c.name?.toLowerCase().includes(q) || c.email.includes(q)
       );
     }
 
@@ -862,7 +862,7 @@ export async function getClientAdminDetail(
       id: user.id,
       name: user.name || null,
       avatar: user.avatar || null,
-      phone: user.phone || '',
+      email: user.email || '',
       created_at: user.created_at,
       is_suspended: user.is_suspended || false,
       total_bookings: bookings.length,
@@ -906,7 +906,7 @@ export interface VerificationListItem {
   professional_id: string;
   name: string | null;
   avatar: string | null;
-  phone: string;
+  email: string;
   submitted_at: string;
   status: string;
 }
@@ -914,7 +914,7 @@ export interface VerificationListItem {
 export interface VerificationDetail extends ProfessionalVerification {
   professional_name: string | null;
   professional_avatar: string | null;
-  professional_phone: string;
+  professional_email: string;
   id_document_signed_url: string | null;
   certificate_signed_urls: string[];
 }
@@ -945,7 +945,7 @@ export async function getPendingVerifications(): Promise<ServiceResponse<Verific
       status: row.status,
       name: row.professional_profiles?.users?.name || null,
       avatar: row.professional_profiles?.users?.avatar || null,
-      phone: row.professional_profiles?.users?.phone || '',
+      email: row.professional_profiles?.users?.email || '',
     }));
 
     return { data: items, error: null };
@@ -999,7 +999,7 @@ export async function getVerificationDetail(
       created_at: row.created_at,
       professional_name: row.professional_profiles?.users?.name || null,
       professional_avatar: row.professional_profiles?.users?.avatar || null,
-      professional_phone: row.professional_profiles?.users?.phone || '',
+      professional_email: row.professional_profiles?.users?.email || '',
       id_document_signed_url: idSignedUrl,
       certificate_signed_urls: certSignedUrls,
     };
@@ -1093,11 +1093,11 @@ export interface ReportDetail {
   id: string;
   reporter_id: string;
   reporter_name: string | null;
-  reporter_phone: string | null;
+  reporter_email: string | null;
   reporter_avatar: string | null;
   reported_user_id: string;
   reported_name: string | null;
-  reported_phone: string | null;
+  reported_email: string | null;
   reported_avatar: string | null;
   reported_role: string;
   reason: string;
@@ -1172,11 +1172,11 @@ export async function getReportDetail(
       id: row.id,
       reporter_id: row.reporter_id,
       reporter_name: row.reporter?.name || null,
-      reporter_phone: row.reporter?.phone || null,
+      reporter_email: row.reporter?.email || null,
       reporter_avatar: row.reporter?.avatar || null,
       reported_user_id: row.reported_user_id,
       reported_name: row.reported?.name || null,
-      reported_phone: row.reported?.phone || null,
+      reported_email: row.reported?.email || null,
       reported_avatar: row.reported?.avatar || null,
       reported_role: row.reported?.role || 'client',
       reason: row.reason,

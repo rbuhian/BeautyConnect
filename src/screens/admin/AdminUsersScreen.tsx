@@ -96,7 +96,7 @@ export default function AdminUsersScreen({ navigation }: Props) {
       list = list.filter(
         (p) =>
           p.name?.toLowerCase().includes(q) ||
-          p.phone.includes(q) ||
+          p.email.includes(q) ||
           p.business_name?.toLowerCase().includes(q)
       );
     }
@@ -107,7 +107,7 @@ export default function AdminUsersScreen({ navigation }: Props) {
     if (!clientSearch.trim()) return clients;
     const q = clientSearch.toLowerCase();
     return clients.filter(
-      (c) => c.name?.toLowerCase().includes(q) || c.phone.includes(q)
+      (c) => c.name?.toLowerCase().includes(q) || c.email.includes(q)
     );
   }, [clients, clientSearch]);
 
@@ -139,7 +139,7 @@ export default function AdminUsersScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <Text style={styles.cardPhone}>{item.phone}</Text>
+        <Text style={styles.cardPhone}>{item.email}</Text>
 
         {item.business_name && (
           <Text style={styles.cardBusiness} numberOfLines={1}>
@@ -197,7 +197,7 @@ export default function AdminUsersScreen({ navigation }: Props) {
             </View>
           )}
         </View>
-        <Text style={styles.cardPhone}>{item.phone}</Text>
+        <Text style={styles.cardPhone}>{item.email}</Text>
         <Text style={styles.bookingCount}>
           {item.booking_count} {item.booking_count === 1 ? 'booking' : 'bookings'}
         </Text>
@@ -419,7 +419,7 @@ export default function AdminUsersScreen({ navigation }: Props) {
                     <Text style={styles.pendingBadgeText}>Pending</Text>
                   </View>
                 </View>
-                <Text style={styles.cardPhone}>{item.phone}</Text>
+                <Text style={styles.cardPhone}>{item.email}</Text>
                 <Text style={styles.cardMeta}>
                   Submitted {formatDistanceToNow(new Date(item.submitted_at), { addSuffix: true })}
                 </Text>

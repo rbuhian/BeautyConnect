@@ -33,6 +33,7 @@ import {
 import { getActiveAds } from '../../services/ads';
 import { validatePromoCode, recordPromotionUse } from '../../services/promotions';
 import { sendNewBookingNotification } from '../../services/notifications';
+import { sendEmailNotification, BookingEmailData } from '../../services/email';
 import { createDepositCheckout, waitForDepositPayment } from '../../services/payment';
 import PaymentWebView from '../../components/PaymentWebView';
 
@@ -271,6 +272,37 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
           formattedDate,
           bookingId
         );
+
+        // Send email notifications (fire-and-forget)
+        const longDate = dateObj.toLocaleDateString('en-PH', {
+          weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+        });
+        const [h, m] = selectedTime.split(':');
+        const hour = parseInt(h);
+        const timeFormatted = `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+        const locationText = locationType === 'home'
+          ? 'Home Service'
+          : professional.salon_address || 'At Salon';
+        const emailData: BookingEmailData = {
+          bookingId,
+          clientName: user.name || 'Client',
+          professionalName: professional.user?.name || 'Beauty Professional',
+          serviceName: service.name,
+          date: longDate,
+          time: timeFormatted,
+          locationText,
+          depositAmount,
+          totalPrice: finalPrice,
+        };
+        sendEmailNotification(user.id, 'booking_new_client', emailData);
+        sendEmailNotification(professional.user_id, 'booking_new_pro', emailData);
+        // Schedule 24h reminder for both parties
+        const bookingDateTime = new Date(`${selectedDate}T${selectedTime}`);
+        const reminderAt = new Date(bookingDateTime.getTime() - 24 * 60 * 60 * 1000);
+        if (reminderAt > new Date()) {
+          sendEmailNotification(user.id, 'booking_reminder', emailData, reminderAt);
+          sendEmailNotification(professional.user_id, 'booking_reminder', emailData, reminderAt);
+        }
       }
 
       // Initiate deposit payment

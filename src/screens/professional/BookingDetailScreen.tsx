@@ -17,7 +17,7 @@ import {
   Calendar,
   Clock,
   MapPin,
-  Phone,
+  Mail,
   MessageCircle,
   User,
   Check,
@@ -42,6 +42,7 @@ import {
   scheduleBookingReminder,
   sendStaffAssignedNotification,
 } from '../../services/notifications';
+import { sendEmailNotification, BookingEmailData } from '../../services/email';
 import {
   getActiveStaffMembers,
   reassignBookingStaff,
@@ -173,6 +174,22 @@ export default function BookingDetailScreen({ navigation, route }: any) {
     return format(parseISO(dateStr), 'EEEE, MMMM d, yyyy');
   };
 
+  const buildEmailData = (): BookingEmailData => {
+    const [h, m] = (booking.time_slot || '00:00').split(':');
+    const hour = parseInt(h);
+    return {
+      bookingId: booking.id,
+      clientName: booking.client?.name || 'Client',
+      professionalName: user?.name || 'Beauty Professional',
+      serviceName: booking.service?.name || 'Service',
+      date: format(parseISO(booking.date), 'EEEE, MMMM d, yyyy'),
+      time: `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`,
+      locationText: booking.location_type === 'home' ? 'Home Service' : 'At Salon',
+      depositAmount: booking.deposit_amount || 0,
+      totalPrice: booking.total_price || 0,
+    };
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
@@ -239,6 +256,15 @@ export default function BookingDetailScreen({ navigation, route }: any) {
                     booking.time_slot,
                     booking.id
                   );
+
+                  // Email: confirmed to client + 24h reminder for both
+                  const emailData = buildEmailData();
+                  sendEmailNotification(booking.client_id, 'booking_confirmed', emailData);
+                  const reminderAt = new Date(bookingDate.getTime() - 24 * 60 * 60 * 1000);
+                  if (reminderAt > new Date()) {
+                    sendEmailNotification(booking.client_id, 'booking_reminder', emailData, reminderAt);
+                    if (user?.id) sendEmailNotification(user.id, 'booking_reminder', emailData, reminderAt);
+                  }
                 }
 
                 Alert.alert('Success', 'Booking confirmed!');
@@ -280,6 +306,7 @@ export default function BookingDetailScreen({ navigation, route }: any) {
                     booking.service?.name || 'Service',
                     booking.id
                   );
+                  sendEmailNotification(booking.client_id, 'booking_declined', buildEmailData());
                 }
 
                 Alert.alert('Booking Declined', 'The client has been notified.');
@@ -378,6 +405,7 @@ export default function BookingDetailScreen({ navigation, route }: any) {
                   formattedDate,
                   booking.id
                 );
+                sendEmailNotification(booking.client_id, 'booking_cancelled', buildEmailData());
               }
 
               Alert.alert('Booking Cancelled', 'The client has been notified.');
@@ -394,9 +422,9 @@ export default function BookingDetailScreen({ navigation, route }: any) {
     ]);
   };
 
-  const callClient = () => {
-    if (booking.client?.phone) {
-      Linking.openURL(`tel:${booking.client.phone}`);
+  const emailClient = () => {
+    if (booking.client?.email) {
+      Linking.openURL(`mailto:${booking.client.email}`);
     }
   };
 
@@ -455,13 +483,13 @@ export default function BookingDetailScreen({ navigation, route }: any) {
                 <Text style={styles.clientName}>
                   {booking.client?.name || 'Client'}
                 </Text>
-                <Text style={styles.clientPhone}>{booking.client?.phone}</Text>
+                <Text style={styles.clientPhone}>{booking.client?.email}</Text>
               </View>
             </View>
             <View style={styles.clientActions}>
-              <TouchableOpacity style={styles.clientAction} onPress={callClient}>
-                <Phone size={20} color={COLORS.primary} />
-                <Text style={styles.clientActionText}>Call</Text>
+              <TouchableOpacity style={styles.clientAction} onPress={emailClient}>
+                <Mail size={20} color={COLORS.primary} />
+                <Text style={styles.clientActionText}>Email</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.clientAction}

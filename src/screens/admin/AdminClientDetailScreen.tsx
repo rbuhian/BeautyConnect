@@ -16,7 +16,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ArrowLeft,
   User,
-  Phone,
+  Mail,
   AlertTriangle,
   CheckCircle,
 } from 'lucide-react-native';
@@ -87,9 +87,9 @@ export default function AdminClientDetailScreen({ navigation, route }: Props) {
     );
   };
 
-  const handleCallPhone = () => {
-    if (detail?.phone) {
-      Linking.openURL(`tel:${detail.phone}`);
+  const handleEmailClient = () => {
+    if (detail?.email) {
+      Linking.openURL(`mailto:${detail.email}`);
     }
   };
 
@@ -147,9 +147,9 @@ export default function AdminClientDetailScreen({ navigation, route }: Props) {
           )}
           <Text style={styles.name}>{detail.name || 'Unnamed Client'}</Text>
 
-          <TouchableOpacity style={styles.phoneRow} onPress={handleCallPhone}>
-            <Phone size={14} color={COLORS.primary} />
-            <Text style={styles.phone}>{detail.phone}</Text>
+          <TouchableOpacity style={styles.phoneRow} onPress={handleEmailClient}>
+            <Mail size={14} color={COLORS.primary} />
+            <Text style={styles.phone}>{detail.email}</Text>
           </TouchableOpacity>
 
           <Text style={styles.memberSince}>

@@ -4,7 +4,7 @@ import { AuthStackParamList } from './types';
 
 // Screens (will be created later)
 import SplashScreen from '../screens/auth/SplashScreen';
-import PhoneInputScreen from '../screens/auth/PhoneInputScreen';
+import EmailInputScreen from '../screens/auth/EmailInputScreen';
 import OtpVerificationScreen from '../screens/auth/OtpVerificationScreen';
 import RoleSelectionScreen from '../screens/auth/RoleSelectionScreen';
 import ClientOnboardingScreen from '../screens/auth/ClientOnboardingScreen';
@@ -26,7 +26,7 @@ export default function AuthNavigator({ initialRoute = 'Splash' }: AuthNavigator
       }}
     >
       <Stack.Screen name="Splash" component={SplashScreen} />
-      <Stack.Screen name="PhoneInput" component={PhoneInputScreen} />
+      <Stack.Screen name="EmailInput" component={EmailInputScreen} />
       <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
       <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
       <Stack.Screen name="ClientOnboarding" component={ClientOnboardingScreen} />

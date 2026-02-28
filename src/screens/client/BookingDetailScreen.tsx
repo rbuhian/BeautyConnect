@@ -16,7 +16,7 @@ import {
   Calendar,
   Clock,
   MapPin,
-  Phone,
+  Mail,
   MessageCircle,
   Star,
   X,
@@ -31,6 +31,7 @@ import { Booking } from '../../types';
 import { getBookingById, cancelBooking, hasReviewedBooking } from '../../services/client';
 import { getBookingReview } from '../../services/review';
 import { sendBookingCancelledNotification } from '../../services/notifications';
+import { sendEmailNotification, BookingEmailData } from '../../services/email';
 import { createDepositCheckout, waitForDepositPayment } from '../../services/payment';
 import { Review } from '../../types';
 
@@ -142,6 +143,24 @@ export default function BookingDetailScreen({ navigation, route }: any) {
                     formattedDate,
                     bookingId
                   );
+
+                  // Email professional about cancellation
+                  const [h, m] = (booking.time_slot || '00:00').split(':');
+                  const hour = parseInt(h);
+                  const emailData: BookingEmailData = {
+                    bookingId: booking.id,
+                    clientName: user.name || 'Client',
+                    professionalName: (booking.professional as any)?.user?.name || 'Beauty Professional',
+                    serviceName: (booking.service as any)?.name || 'Service',
+                    date: new Date(booking.date).toLocaleDateString('en-PH', {
+                      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+                    }),
+                    time: `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`,
+                    locationText: booking.location_type === 'home' ? 'Home Service' : 'At Salon',
+                    depositAmount: booking.deposit_amount || 0,
+                    totalPrice: booking.total_price || 0,
+                  };
+                  sendEmailNotification(professionalUserId, 'booking_cancelled', emailData);
                 }
 
                 Alert.alert('Booking Cancelled', 'Your booking has been cancelled.');
@@ -199,10 +218,10 @@ export default function BookingDetailScreen({ navigation, route }: any) {
     setShowPayment(false);
   };
 
-  const handleCall = () => {
-    const phone = (booking?.professional as any)?.user?.phone;
-    if (phone) {
-      Linking.openURL(`tel:${phone}`);
+  const handleEmail = () => {
+    const email = (booking?.professional as any)?.user?.email;
+    if (email) {
+      Linking.openURL(`mailto:${email}`);
     }
   };
 
@@ -326,8 +345,8 @@ export default function BookingDetailScreen({ navigation, route }: any) {
           </View>
 
           <View style={styles.proActions}>
-            <TouchableOpacity style={styles.proActionButton} onPress={handleCall}>
-              <Phone size={20} color={COLORS.primary} />
+            <TouchableOpacity style={styles.proActionButton} onPress={handleEmail}>
+              <Mail size={20} color={COLORS.primary} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.proActionButton} onPress={handleMessage}>
               <MessageCircle size={20} color={COLORS.primary} />

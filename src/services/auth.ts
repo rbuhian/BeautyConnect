@@ -11,11 +11,11 @@ export interface AuthResponse<T = void> {
   error: AuthError | null;
 }
 
-// Sign in with phone - sends OTP
-export async function signInWithPhone(phone: string): Promise<AuthResponse> {
+// Sign in with email - sends OTP
+export async function signInWithEmail(email: string): Promise<AuthResponse> {
   try {
     const { error } = await supabase.auth.signInWithOtp({
-      phone,
+      email,
     });
 
     if (error) {
@@ -29,13 +29,13 @@ export async function signInWithPhone(phone: string): Promise<AuthResponse> {
 }
 
 // Helper function to migrate seed data
-async function migrateSeedDataToNewUser(newUserId: string, phone: string): Promise<boolean> {
+async function migrateSeedDataToNewUser(newUserId: string, email: string): Promise<boolean> {
   try {
-    // Check if seed data exists for this phone number
+    // Check if seed data exists for this email
     const { data: seedUser, error: seedError } = await supabase
       .from('users')
       .select('*')
-      .eq('phone', phone)
+      .eq('email', email)
       .neq('id', newUserId)
       .single();
 
@@ -44,7 +44,7 @@ async function migrateSeedDataToNewUser(newUserId: string, phone: string): Promi
       return false;
     }
 
-    console.log('Found seed data for', phone, '- migrating to new user ID', newUserId);
+    console.log('Found seed data for', email, '- migrating to new user ID', newUserId);
 
     // Create or update user record with seed data
     // Use upsert in case a basic user record was already created
@@ -52,7 +52,7 @@ async function migrateSeedDataToNewUser(newUserId: string, phone: string): Promi
       .from('users')
       .upsert({
         id: newUserId,
-        phone: phone,
+        email: email,
         name: seedUser.name,
         avatar: seedUser.avatar,
         role: seedUser.role,
@@ -445,10 +445,10 @@ async function migrateSeedDataToNewUser(newUserId: string, phone: string): Promi
     }
 
     // Delete old seed user record using database function (bypasses RLS)
-    // This prevents duplicate phone number entries
+    // This prevents duplicate email entries
     const { error: deleteError } = await supabase
-      .rpc('delete_seed_user_by_phone', {
-        target_phone: phone,
+      .rpc('delete_seed_user_by_email', {
+        target_email: email,
         keep_user_id: newUserId
       });
 
@@ -456,7 +456,7 @@ async function migrateSeedDataToNewUser(newUserId: string, phone: string): Promi
       console.error('Error deleting old seed user:', deleteError);
       // Don't fail the migration, just log the error
     } else {
-      console.log('Deleted old seed user for phone:', phone);
+      console.log('Deleted old seed user for email:', email);
     }
 
     console.log('Seed data migration completed successfully');
@@ -469,14 +469,14 @@ async function migrateSeedDataToNewUser(newUserId: string, phone: string): Promi
 
 // Verify OTP
 export async function verifyOtp(
-  phone: string,
+  email: string,
   token: string
 ): Promise<AuthResponse<{ isNewUser: boolean }>> {
   try {
     const { data, error } = await supabase.auth.verifyOtp({
-      phone,
+      email,
       token,
-      type: 'sms',
+      type: 'email',
     });
 
     if (error) {
@@ -491,7 +491,7 @@ export async function verifyOtp(
 
     // Always try to migrate seed data if it exists
     // This handles cases where a basic user record may have been created by old triggers
-    await migrateSeedDataToNewUser(authUserId, phone);
+    await migrateSeedDataToNewUser(authUserId, email);
 
     // Fetch the user profile (either newly migrated or existing)
     let { data: userProfile } = await supabase
@@ -502,12 +502,12 @@ export async function verifyOtp(
 
     // If no user profile exists, create a basic one for new users
     if (!userProfile) {
-      console.log('Creating new user profile for:', phone);
+      console.log('Creating new user profile for:', email);
       const { data: newUser, error: createError } = await supabase
         .from('users')
         .insert({
           id: authUserId,
-          phone: phone,
+          email: email,
           role: 'client', // Default role, will be updated in role selection
         })
         .select()

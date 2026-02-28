@@ -156,7 +156,7 @@ export default function AdminProfessionalDetailScreen({ navigation, route }: Pro
             </View>
           )}
           <Text style={styles.name}>{detail.name || 'Unnamed Professional'}</Text>
-          <Text style={styles.phone}>{detail.phone}</Text>
+          <Text style={styles.phone}>{detail.email}</Text>
 
           <View style={styles.badgeRow}>
             <View style={styles.locationBadge}>

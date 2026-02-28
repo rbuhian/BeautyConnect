@@ -3,7 +3,7 @@ import { Session } from '@supabase/supabase-js';
 import { User, ProfessionalProfile } from '../types';
 import { supabase } from '../services/supabase';
 import {
-  signInWithPhone,
+  signInWithEmail,
   verifyOtp,
   getCurrentUser,
   updateUserProfile,
@@ -22,8 +22,8 @@ interface AuthState {
 
   // Actions
   initialize: () => Promise<void>;
-  sendOtp: (phone: string) => Promise<{ success: boolean; error?: string }>;
-  verifyOtp: (phone: string, token: string) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
+  sendOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
+  verifyOtp: (email: string, token: string) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
   updateProfile: (updates: Partial<Pick<User, 'name' | 'avatar' | 'role'>>) => Promise<{ success: boolean; error?: string }>;
   setRole: (role: 'client' | 'professional') => Promise<{ success: boolean; error?: string }>;
   refreshProfessionalProfile: () => Promise<void>;
@@ -80,10 +80,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  sendOtp: async (phone: string) => {
+  sendOtp: async (email: string) => {
     // Don't set global loading - screens handle their own loading states
     set({ error: null });
-    const { error } = await signInWithPhone(phone);
+    const { error } = await signInWithEmail(email);
 
     if (error) {
       set({ error: error.message });
@@ -93,10 +93,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return { success: true };
   },
 
-  verifyOtp: async (phone: string, token: string) => {
+  verifyOtp: async (email: string, token: string) => {
     // Don't set global loading - screens handle their own loading states
     set({ error: null });
-    const { data, error } = await verifyOtp(phone, token);
+    const { data, error } = await verifyOtp(email, token);
 
     if (error) {
       set({ error: error.message });

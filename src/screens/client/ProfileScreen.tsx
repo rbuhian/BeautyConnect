@@ -17,7 +17,7 @@ import {
   Star,
   Settings,
   LogOut,
-  Phone,
+  Mail,
   ChevronRight,
   Wallet,
 } from 'lucide-react-native';
@@ -101,8 +101,8 @@ export default function ProfileScreen({ navigation }: any) {
             {/* User Info */}
             <Text style={styles.userName}>{user?.name || 'User'}</Text>
             <View style={styles.phoneRow}>
-              <Phone size={14} color={COLORS.textSecondary} />
-              <Text style={styles.phoneText}>{user?.phone || ''}</Text>
+              <Mail size={14} color={COLORS.textSecondary} />
+              <Text style={styles.phoneText}>{user?.email || ''}</Text>
             </View>
           </Card>
         </View>

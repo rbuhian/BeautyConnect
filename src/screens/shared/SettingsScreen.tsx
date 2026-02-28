@@ -30,17 +30,38 @@ import {
   savePushToken,
   deactivatePushToken,
 } from '../../services/notifications';
+import { supabase } from '../../services/supabase';
 
 export default function SettingsScreen({ navigation }: any) {
   const { user } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [pushToken, setPushToken] = useState<string | null>(null);
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Check if notifications are already enabled
     checkNotificationStatus();
+    loadEmailPreference();
   }, []);
+
+  const loadEmailPreference = async () => {
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from('users')
+      .select('email_notifications')
+      .eq('id', user.id)
+      .single();
+    if (data) setEmailNotificationsEnabled(data.email_notifications ?? true);
+  };
+
+  const handleEmailNotificationToggle = async (enabled: boolean) => {
+    if (!user?.id) return;
+    setEmailNotificationsEnabled(enabled);
+    await supabase
+      .from('users')
+      .update({ email_notifications: enabled })
+      .eq('id', user.id);
+  };
 
   const checkNotificationStatus = async () => {
     try {
@@ -106,6 +127,14 @@ export default function SettingsScreen({ navigation }: any) {
           type: 'toggle' as const,
           value: notificationsEnabled,
           onToggle: handleNotificationToggle,
+        },
+        {
+          icon: Mail,
+          label: 'Email Notifications',
+          subtitle: 'Booking confirmations and reminders',
+          type: 'toggle' as const,
+          value: emailNotificationsEnabled,
+          onToggle: handleEmailNotificationToggle,
         },
         {
           icon: Smartphone,

@@ -6,8 +6,8 @@ import { ProfessionalProfile, Booking, AdCreative, AffiliateProduct } from '../t
 // Auth Stack
 export type AuthStackParamList = {
   Splash: undefined;
-  PhoneInput: undefined;
-  OtpVerification: { phone: string };
+  EmailInput: undefined;
+  OtpVerification: { email: string };
   RoleSelection: undefined;
   ClientOnboarding: undefined;
   ProfessionalOnboarding: undefined;

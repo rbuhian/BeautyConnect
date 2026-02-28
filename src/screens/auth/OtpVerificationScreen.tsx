@@ -19,7 +19,8 @@ export default function OtpVerificationScreen({
   navigation,
   route,
 }: AuthScreenProps<'OtpVerification'>) {
-  const { phone } = route.params;
+  const { email } = route.params;
+  const maskedEmail = email.replace(/^(.{1,2})(.*)(@.*)$/, (_, a, b, c) => a + b.replace(/./g, '*') + c);
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -74,7 +75,7 @@ export default function OtpVerificationScreen({
     setLoading(true);
     setError('');
 
-    const result = await verifyOtp(phone, otpCode);
+    const result = await verifyOtp(email, otpCode);
 
     setLoading(false);
 
@@ -94,12 +95,12 @@ export default function OtpVerificationScreen({
         errorLower.includes('fetch') ||
         errorLower.includes('token') ||
         errorLower.includes('otp') ||
-        errorLower.includes('phone provider') ||
+        errorLower.includes('email provider') ||
         errorLower.includes('unsupported')
       ) {
         Alert.alert(
           'Development Mode',
-          'Phone auth not configured. Proceeding to role selection for testing.\n\nIn production, users would verify their real OTP here.',
+          'Email auth not configured. Proceeding to role selection for testing.\n\nIn production, users would verify their real OTP here.',
           [
             {
               text: 'OK',
@@ -117,7 +118,7 @@ export default function OtpVerificationScreen({
     if (resendTimer === 0) {
       setResendTimer(30);
       setError('');
-      const result = await sendOtp(phone);
+      const result = await sendOtp(email);
       if (!result.success) {
         setError(result.error || 'Failed to resend code');
       }
@@ -134,10 +135,10 @@ export default function OtpVerificationScreen({
       </TouchableOpacity>
 
       <View style={styles.content}>
-        <Text style={styles.title}>Verify your number</Text>
+        <Text style={styles.title}>Verify your email</Text>
         <Text style={styles.subtitle}>
           Enter the 6-digit code sent to{'\n'}
-          <Text style={styles.phone}>{phone}</Text>
+          <Text style={styles.phone}>{maskedEmail}</Text>
         </Text>
 
         <View style={styles.otpContainer}>

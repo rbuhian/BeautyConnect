@@ -1,5 +1,5 @@
 import {
-  signInWithPhone,
+  signInWithEmail,
   verifyOtp,
   getCurrentUser,
   updateUserProfile,
@@ -18,26 +18,26 @@ describe('Auth Service', () => {
   });
 
   // ============================================
-  // signInWithPhone
+  // signInWithEmail
   // ============================================
-  describe('signInWithPhone', () => {
+  describe('signInWithEmail', () => {
     it('should send OTP successfully', async () => {
       (mockSupabase.auth.signInWithOtp as jest.Mock).mockResolvedValue({ error: null });
 
-      const result = await signInWithPhone('+639123456789');
+      const result = await signInWithEmail('test@example.com');
 
       expect(result.error).toBeNull();
       expect(mockSupabase.auth.signInWithOtp).toHaveBeenCalledWith({
-        phone: '+639123456789',
+        email: 'test@example.com',
       });
     });
 
     it('should handle auth error', async () => {
       (mockSupabase.auth.signInWithOtp as jest.Mock).mockResolvedValue({
-        error: { message: 'Rate limit exceeded', code: 'over_sms_send_rate_limit' },
+        error: { message: 'Rate limit exceeded', code: 'over_email_send_rate_limit' },
       });
 
-      const result = await signInWithPhone('+639123456789');
+      const result = await signInWithEmail('test@example.com');
 
       expect(result.error).toBeTruthy();
       expect(result.error!.message).toBe('Rate limit exceeded');
@@ -46,7 +46,7 @@ describe('Auth Service', () => {
     it('should handle unexpected throws', async () => {
       (mockSupabase.auth.signInWithOtp as jest.Mock).mockRejectedValue(new Error('Network error'));
 
-      const result = await signInWithPhone('+639123456789');
+      const result = await signInWithEmail('test@example.com');
 
       expect(result.error).toBeTruthy();
       expect(result.error!.message).toBe('Failed to send OTP. Please try again.');

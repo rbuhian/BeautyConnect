@@ -19,7 +19,7 @@ import {
   CalendarCheck,
   Settings,
   LogOut,
-  Phone,
+  Mail,
   ChevronRight,
   Star,
   CheckCircle,
@@ -277,8 +277,8 @@ export default function ProfileScreen({ navigation }: any) {
               )}
             </View>
             <View style={styles.phoneRow}>
-              <Phone size={14} color={COLORS.textSecondary} />
-              <Text style={styles.phoneText}>{user?.phone || ''}</Text>
+              <Mail size={14} color={COLORS.textSecondary} />
+              <Text style={styles.phoneText}>{user?.email || ''}</Text>
             </View>
 
             {/* Account Type Badge */}

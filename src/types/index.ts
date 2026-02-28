@@ -3,12 +3,13 @@ export type UserRole = 'client' | 'professional' | 'admin';
 
 export interface User {
   id: string;
-  phone: string;
+  email: string;
   name: string | null;
   avatar: string | null;
   role: UserRole;
   created_at: string;
   is_suspended: boolean;
+  email_notifications?: boolean;
 }
 
 // Professional types
@@ -393,7 +394,7 @@ export interface ProfessionalListItem {
   user_id: string;
   name: string | null;
   avatar: string | null;
-  phone: string;
+  email: string;
   categories: Category[];
   location_type: LocationType;
   is_live: boolean;
@@ -408,7 +409,7 @@ export interface ClientListItem {
   id: string;              // users.id
   name: string | null;
   avatar: string | null;
-  phone: string;
+  email: string;
   created_at: string;
   is_suspended: boolean;
   booking_count: number;
@@ -420,7 +421,7 @@ export interface AdminProfessionalDetail {
   user_id: string;
   name: string | null;
   avatar: string | null;
-  phone: string;
+  email: string;
   bio: string;
   categories: Category[];
   location_type: LocationType;
@@ -442,7 +443,7 @@ export interface AdminClientDetail {
   id: string;
   name: string | null;
   avatar: string | null;
-  phone: string;
+  email: string;
   created_at: string;
   is_suspended: boolean;
   total_bookings: number;

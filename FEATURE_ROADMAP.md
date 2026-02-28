@@ -9,7 +9,7 @@ A comprehensive plan for additional features to enhance the BeautyConnect platfo
 BeautyConnect is a React Native (Expo SDK 54) marketplace connecting beauty professionals with clients in the Philippines. The app currently supports:
 
 - **3 user roles:** Client, Professional, Admin
-- **40 completed features** including: phone OTP auth, booking flow, real-time chat, reviews, push notifications, payment processing (PayMongo), featured listings, ad system, staff management, geolocation sorting, payment dashboards, client CRM, revenue analytics, scheduling rules, service packages, and promotions & discounts
+- **40 completed features** including: email OTP auth (email as username, OTP delivered via email), booking flow, real-time chat, reviews, push notifications, payment processing (PayMongo), featured listings, ad system, staff management, geolocation sorting, payment dashboards, client CRM, revenue analytics, scheduling rules, service packages, and promotions & discounts
 - **189 automated tests** across 8 test suites
 - **20+ database tables** with Row-Level Security
 
@@ -496,7 +496,36 @@ Platform takes a percentage of each booking.
 
 ---
 
-### 5.3 Gift Cards & Vouchers
+### 5.3 Multi-Currency Support
+**Priority:** Medium | **Category:** Backend + UI | **Estimated:** 10 hrs
+
+Allow users to view prices and pay in their preferred currency, targeting OFW clients and foreign tourists booking services in the Philippines.
+
+**Features:**
+- Supported currencies: PHP (default), USD, EUR, SGD, AED, GBP, JPY, AUD
+- User selects preferred display currency in Settings (stored per user)
+- All prices displayed in selected currency using live exchange rates
+- Exchange rates fetched and cached daily (e.g., via ExchangeRate-API or Open Exchange Rates)
+- Payments still processed in PHP via PayMongo; display currency is cosmetic conversion
+- Professional prices always stored in PHP; conversion applied at display time
+- Admin dashboard revenue figures switchable between PHP and USD
+- Currency selector chip on Discover/Booking screens for quick switching
+
+**Implementation:**
+- `src/services/currency.ts` — `fetchExchangeRates`, `convertPrice`, `formatCurrency(amount, currency)`
+- Cache rates in AsyncStorage with 24-hour TTL
+- `CurrencyContext` — provides `selectedCurrency`, `setSelectedCurrency`, `convert(phpAmount)`
+- Wrap app in `CurrencyProvider`; all price display components consume context
+- Settings screen: currency picker row
+- `formatCurrency` handles locale-appropriate symbols and decimal conventions
+
+**Database:**
+- Add `preferred_currency` column (VARCHAR 3, default `'PHP'`) to `users` table
+- `exchange_rates` table (optional server-side cache): id, base (`PHP`), rates JSONB, fetched_at
+
+---
+
+### 5.4 Gift Cards & Vouchers
 **Priority:** Medium | **Category:** Backend + UI | **Estimated:** 10 hrs
 
 Enable gifting of beauty services.
@@ -504,13 +533,13 @@ Enable gifting of beauty services.
 **Features:**
 - Purchase digital gift cards (fixed amounts: PHP 500, 1000, 2000, 5000)
 - Custom amount gift cards
-- Send via SMS or in-app
+- Send via email or in-app
 - Recipient redeems during booking checkout
 - Gift card balance tracking
 - Expiry date (1 year from purchase)
 
 **Database:**
-- `gift_cards` - id, purchaser_id, recipient_phone, amount, balance, code, expires_at, status, created_at
+- `gift_cards` - id, purchaser_id, recipient_email, amount, balance, code, expires_at, status, created_at
 
 ---
 
@@ -535,17 +564,17 @@ Automate payments to professionals.
 
 ---
 
-### 6.2 SMS Booking Confirmations
+### 6.2 Email & SMS Booking Confirmations
 **Priority:** Medium | **Category:** Backend | **Estimated:** 6 hrs
 
-Reach users who may miss push notifications.
+Reach users who may miss push notifications. Email is the primary channel (aligned with email-based auth); SMS is a secondary fallback.
 
 **Features:**
-- SMS confirmation when booking is created
-- SMS reminder 24 hours before appointment
-- SMS notification when professional confirms/declines
-- Configurable SMS preferences in Settings
-- Use Semaphore or Twilio for Philippine SMS
+- Email confirmation when booking is created (primary)
+- Email reminder 24 hours before appointment
+- Email notification when professional confirms/declines
+- Optional SMS fallback for users who opt in (via Semaphore or Twilio)
+- Configurable notification preferences in Settings (email on/off, SMS on/off)
 
 ---
 
@@ -586,6 +615,34 @@ Expand to iOS market.
 
 ---
 
+## Phase 7: Core Infrastructure
+
+### 7.1 Email-Based Authentication ✅ IMPLEMENTED
+**Priority:** Critical | **Category:** Backend + UI | **Estimated:** 4 hrs | **Status:** Done
+
+Replace phone number + SMS OTP with email + email OTP for account creation and login.
+
+**Implemented:**
+- Email input screen replaces phone number screen (no more +63 formatting)
+- OTP delivered via Supabase email provider (zero SMS cost)
+- Email regex validation instead of 10-digit phone validation
+- `users.email` column replaces `users.phone` in database
+- `verifyOtp` uses `type: 'email'` instead of `type: 'sms'`
+- All profile/settings displays updated from phone → email
+- Masked email display on OTP screen (e.g. `k***@gmail.com`)
+
+**Files:**
+- `supabase/migrations/20260228_email_auth.sql` - Add `email` col, drop `phone` col
+- `src/screens/auth/EmailInputScreen.tsx` - Replaces PhoneInputScreen
+- `src/screens/auth/OtpVerificationScreen.tsx` - Uses email param + email OTP type
+- `src/services/auth.ts` - `signInWithEmail`, `verifyOtp` with `type: 'email'`
+- `src/stores/authStore.ts` - `sendOtp(email)`, `verifyOtp(email, token)`
+- `src/navigation/types.ts` - `EmailInput` route, `OtpVerification: { email }`
+- `src/navigation/AuthNavigator.tsx` - Updated imports/screen names
+- `src/types/index.ts` - `email: string` replaces `phone: string` in User
+
+---
+
 ## Implementation Priority Matrix
 
 | Priority | Feature | Phase | Est. Hours |
@@ -611,13 +668,15 @@ Expand to iOS market.
 | Medium | Dispute Resolution | 4 | 10 |
 | Medium | Cancellation Policy | 4 | 6 |
 | ~~Medium~~ | ~~Report & Block~~ ✅ | 4 | 6 |
+| Medium | Multi-Currency Support | 5 | 10 |
 | Medium | Gift Cards & Vouchers | 5 | 10 |
-| Medium | SMS Confirmations | 6 | 6 |
+| Medium | Email & SMS Confirmations | 6 | 6 |
 | Medium | In-App Stories | 3 | 14 |
 | Low | Group Bookings | 3 | 14 |
 | Low | Offline Mode | 6 | 14 |
+| ~~Critical~~ | ~~Email-Based Authentication~~ ✅ | 7 | 4 |
 
-**Total estimated: ~308 hours across 26 features (7 completed = ~71 hrs done, ~237 hrs remaining)**
+**Total estimated: ~322 hours across 28 features (8 completed = ~75 hrs done, ~247 hrs remaining)**
 
 ---
 
@@ -646,7 +705,8 @@ Expand to iOS market.
 ### Sprint 5 (Platform Expansion)
 13. Multi-Platform (iOS)
 14. Subscription Plans
-15. ~~Service Packages & Bundles~~ ✅ (completed early)
+15. Multi-Currency Support
+16. ~~Service Packages & Bundles~~ ✅ (completed early)
 
 ### Sprint 6 (Engagement & Discovery)
 16. Before & After Gallery
@@ -655,7 +715,7 @@ Expand to iOS market.
 
 ### Sprint 7 (Polish & Scale)
 19. Multi-Language Support
-20. SMS Confirmations
+20. Email & SMS Confirmations
 21. Waitlist / Cancellation Alerts
 22. Dispute Resolution
 23. Gift Cards & Vouchers
