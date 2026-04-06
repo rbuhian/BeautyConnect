@@ -11,19 +11,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  BarChart3,
-  Eye,
-  MousePointerClick,
-  TrendingUp,
-  Star,
-  Package,
-  DollarSign,
-  Megaphone,
   Tag,
   Users,
   UserCheck,
 } from 'lucide-react-native';
-import { COLORS, FONT_SIZES, SPACING, RADIUS, CURRENCY } from '../../constants';
+import { COLORS, FONT_SIZES, SPACING, RADIUS } from '../../constants';
 import { AdminDashboardStats } from '../../types';
 import { getAdminDashboardStats } from '../../services/admin';
 import { useAuth } from '../../hooks/useAuth';
@@ -78,7 +70,7 @@ export default function AdsDashboardScreen({ navigation }: Props) {
         style={styles.header}
       >
         <View>
-          <Text style={styles.headerTitle}>Ad Management</Text>
+          <Text style={styles.headerTitle}>Admin Dashboard</Text>
           <Text style={styles.headerSubtitle}>
             Welcome, {user?.name || 'Admin'}
           </Text>
@@ -95,61 +87,6 @@ export default function AdsDashboardScreen({ navigation }: Props) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Overview Stats */}
-        <Text style={styles.sectionTitle}>Overview</Text>
-        <View style={styles.statsGrid}>
-          <StatCard
-            icon={<Megaphone size={20} color={COLORS.primary} />}
-            label="Total Ads"
-            value={formatNumber(stats?.total_ads || 0)}
-            subValue={`${stats?.active_ads || 0} active`}
-          />
-          <StatCard
-            icon={<Eye size={20} color="#4CAF50" />}
-            label="Impressions"
-            value={formatNumber(stats?.total_impressions || 0)}
-          />
-          <StatCard
-            icon={<MousePointerClick size={20} color="#2196F3" />}
-            label="Clicks"
-            value={formatNumber(stats?.total_clicks || 0)}
-          />
-          <StatCard
-            icon={<TrendingUp size={20} color="#FF9800" />}
-            label="CTR"
-            value={`${stats?.overall_ctr || 0}%`}
-          />
-        </View>
-
-        {/* Revenue Stats */}
-        <Text style={styles.sectionTitle}>Revenue</Text>
-        <View style={styles.statsGrid}>
-          <StatCard
-            icon={<DollarSign size={20} color="#4CAF50" />}
-            label="Featured Revenue"
-            value={`${CURRENCY.symbol}${formatNumber(stats?.total_featured_revenue || 0)}`}
-            wide
-          />
-          <StatCard
-            icon={<Star size={20} color="#FFB800" />}
-            label="Active Boosts"
-            value={String(stats?.active_featured_listings || 0)}
-            wide
-          />
-        </View>
-
-        {/* Products Stats */}
-        <Text style={styles.sectionTitle}>Affiliate Products</Text>
-        <View style={styles.statsGrid}>
-          <StatCard
-            icon={<Package size={20} color={COLORS.primary} />}
-            label="Total Products"
-            value={String(stats?.total_affiliate_products || 0)}
-            subValue={`${stats?.active_affiliate_products || 0} active`}
-            wide
-          />
-        </View>
-
         {/* Users Stats */}
         <Text style={styles.sectionTitle}>Users</Text>
         <View style={styles.statsGrid}>
@@ -171,7 +108,7 @@ export default function AdsDashboardScreen({ navigation }: Props) {
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => (navigation as any).navigate('AdForm')}
+            onPress={() => (navigation as any).navigate('AdminManagePromotions')}
           >
             <LinearGradient
               colors={[COLORS.gradientStart, COLORS.gradientEnd]}
@@ -179,29 +116,9 @@ export default function AdsDashboardScreen({ navigation }: Props) {
               end={{ x: 1, y: 0 }}
               style={styles.actionGradient}
             >
-              <Megaphone size={24} color={COLORS.white} />
-              <Text style={styles.actionText}>Create New Ad</Text>
+              <Tag size={24} color={COLORS.white} />
+              <Text style={styles.actionText}>Manage Platform Promotions</Text>
             </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => (navigation as any).navigate('AffiliateForm')}
-          >
-            <View style={styles.actionOutline}>
-              <Package size={24} color={COLORS.primary} />
-              <Text style={styles.actionOutlineText}>Add Affiliate Product</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => (navigation as any).navigate('AdminManagePromotions')}
-          >
-            <View style={styles.actionOutline}>
-              <Tag size={24} color={COLORS.primary} />
-              <Text style={styles.actionOutlineText}>Manage Platform Promotions</Text>
-            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>

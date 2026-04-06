@@ -1,7 +1,7 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
-import { ProfessionalProfile, Booking, AdCreative, AffiliateProduct } from '../types';
+import { ProfessionalProfile, Booking } from '../types';
 
 // Auth Stack
 export type AuthStackParamList = {
@@ -98,9 +98,6 @@ export type ProfessionalStackParamList = {
 // Admin Tab Navigator
 export type AdminTabParamList = {
   Overview: undefined;
-  Ads: undefined;
-  Affiliates: undefined;
-  Featured: undefined;
   Payments: undefined;
   Users: undefined;
 };
@@ -108,8 +105,6 @@ export type AdminTabParamList = {
 // Admin Stack
 export type AdminStackParamList = {
   AdminTabs: NavigatorScreenParams<AdminTabParamList>;
-  AdForm: { adId?: string; ad?: AdCreative } | undefined;
-  AffiliateForm: { productId?: string; product?: AffiliateProduct } | undefined;
   AdminManagePromotions: undefined;
   AdminCreatePromotion: { promotionId?: string } | undefined;
   AdminProfessionalDetail: { professionalId: string };

@@ -3,20 +3,15 @@ import { StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BarChart3, Megaphone, Package, Star, Wallet, Users } from 'lucide-react-native';
+import { BarChart3, Wallet, Users } from 'lucide-react-native';
 import { AdminStackParamList, AdminTabParamList } from './types';
 import { COLORS } from '../constants';
 
 // Tab Screens
 import AdsDashboardScreen from '../screens/admin/AdsDashboardScreen';
-import ManageAdsScreen from '../screens/admin/ManageAdsScreen';
-import ManageAffiliatesScreen from '../screens/admin/ManageAffiliatesScreen';
-import FeaturedListingsScreen from '../screens/admin/FeaturedListingsScreen';
 import AdminPaymentsScreen from '../screens/admin/AdminPaymentsScreen';
 
 // Stack Screens
-import AdFormScreen from '../screens/admin/AdFormScreen';
-import AffiliateFormScreen from '../screens/admin/AffiliateFormScreen';
 import AdminManagePromotionsScreen from '../screens/admin/AdminManagePromotionsScreen';
 import AdminCreatePromotionScreen from '../screens/admin/AdminCreatePromotionScreen';
 import AdminUsersScreen from '../screens/admin/AdminUsersScreen';
@@ -64,27 +59,6 @@ function AdminTabs() {
         }}
       />
       <Tab.Screen
-        name="Ads"
-        component={ManageAdsScreen as any}
-        options={{
-          tabBarIcon: ({ color, size }) => <Megaphone size={size} color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="Affiliates"
-        component={ManageAffiliatesScreen as any}
-        options={{
-          tabBarIcon: ({ color, size }) => <Package size={size} color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="Featured"
-        component={FeaturedListingsScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => <Star size={size} color={color} />,
-        }}
-      />
-      <Tab.Screen
         name="Payments"
         component={AdminPaymentsScreen}
         options={{
@@ -111,8 +85,6 @@ export default function AdminNavigator() {
       }}
     >
       <Stack.Screen name="AdminTabs" component={AdminTabs} />
-      <Stack.Screen name="AdForm" component={AdFormScreen} />
-      <Stack.Screen name="AffiliateForm" component={AffiliateFormScreen} />
       <Stack.Screen name="AdminManagePromotions" component={AdminManagePromotionsScreen} />
       <Stack.Screen name="AdminCreatePromotion" component={AdminCreatePromotionScreen} />
       <Stack.Screen name="AdminProfessionalDetail" component={AdminProfessionalDetailScreen} />
