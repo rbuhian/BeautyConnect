@@ -48,15 +48,25 @@ export async function updateProfessionalProfile(
   updates: Partial<Pick<ProfessionalProfile, 'bio' | 'categories' | 'portfolio_photos' | 'service_area' | 'location_type' | 'salon_address' | 'latitude' | 'longitude' | 'is_live'>>
 ): Promise<ServiceResponse<ProfessionalProfile>> {
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('professional_profiles')
       .update(updates)
-      .eq('id', profileId)
-      .select('*, user:users(*), business:businesses(*), staff_members:staff_members(*)')
-      .single();
+      .eq('id', profileId);
 
     if (error) {
+      console.error('[updateProfessionalProfile] error:', error);
       return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    // Fetch the updated profile separately to avoid RLS issues on joined selects
+    const { data, error: fetchError } = await supabase
+      .from('professional_profiles')
+      .select('*')
+      .eq('id', profileId)
+      .single();
+
+    if (fetchError) {
+      return { data: null, error: { message: fetchError.message, code: fetchError.code } };
     }
 
     return { data: data as ProfessionalProfile, error: null };

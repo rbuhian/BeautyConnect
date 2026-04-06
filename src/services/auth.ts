@@ -560,15 +560,25 @@ export async function updateUserProfile(
   updates: Partial<Pick<User, 'name' | 'avatar' | 'role'>>
 ): Promise<AuthResponse<User>> {
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('users')
       .update(updates)
-      .eq('id', userId)
-      .select()
-      .single();
+      .eq('id', userId);
 
     if (error) {
+      console.error('[updateUserProfile] error:', error);
       return { data: null, error: { message: error.message } };
+    }
+
+    // Fetch separately to avoid chained-select RLS issues
+    const { data, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) {
+      return { data: null, error: { message: fetchError.message } };
     }
 
     return { data: data as User, error: null };

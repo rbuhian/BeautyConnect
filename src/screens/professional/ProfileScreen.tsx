@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -37,6 +37,7 @@ import {
   ShieldAlert,
   Shield,
 } from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Card } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
@@ -51,10 +52,12 @@ export default function ProfileScreen({ navigation }: any) {
   const [isStaffMember, setIsStaffMember] = useState(false);
   const [staffMemberInfo, setStaffMemberInfo] = useState<StaffMember | null>(null);
 
-  // Refresh profile on mount to get latest data including business
-  useEffect(() => {
-    refreshProfessionalProfile();
-  }, []);
+  // Refresh profile every time screen comes into focus (e.g. returning from EditProfile)
+  useFocusEffect(
+    useCallback(() => {
+      refreshProfessionalProfile();
+    }, [])
+  );
 
   // Debug logging
   useEffect(() => {
@@ -107,7 +110,8 @@ export default function ProfileScreen({ navigation }: any) {
     if (result.error) {
       // Revert on error
       setIsLiveLocal(!value);
-      Alert.alert('Error', 'Failed to update profile status');
+      console.error('[handleToggleLive] error:', result.error);
+      Alert.alert('Error', `Failed to update profile status: ${result.error.message}`);
     }
 
     setToggling(false);

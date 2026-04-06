@@ -277,7 +277,7 @@ export default function EditProfileScreen({ navigation }: any) {
       // Update professional profile
       if (isProfessional && professionalProfile?.id) {
         const liveStatus = isLive && canGoLive();
-        await updateProfessionalProfile(professionalProfile.id, {
+        const proResult = await updateProfessionalProfile(professionalProfile.id, {
           bio,
           categories,
           portfolio_photos: portfolioPhotos,
@@ -288,6 +288,10 @@ export default function EditProfileScreen({ navigation }: any) {
           longitude,
           is_live: liveStatus,
         });
+
+        if (proResult.error) {
+          throw new Error(proResult.error.message || 'Failed to update professional profile');
+        }
 
         // Refresh professional profile in store
         await refreshProfessionalProfile();

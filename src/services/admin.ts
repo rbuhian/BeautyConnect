@@ -618,7 +618,7 @@ export async function getAllProfessionals(
         total_reviews,
         created_at,
         user:users!professional_profiles_user_id_fkey(
-          id, name, avatar, phone, is_suspended
+          id, name, avatar, email, is_suspended
         ),
         business:businesses(
           id, business_name, business_type
@@ -657,7 +657,7 @@ export async function getAllProfessionals(
       items = items.filter(
         (p) =>
           p.name?.toLowerCase().includes(q) ||
-          p.phone.includes(q) ||
+          p.email.includes(q) ||
           p.business_name?.toLowerCase().includes(q)
       );
     }
@@ -679,7 +679,7 @@ export async function getProfessionalAdminDetail(
           id, user_id, bio, categories, location_type, service_area,
           salon_address, is_live, avg_rating, total_reviews, created_at,
           user:users!professional_profiles_user_id_fkey(
-            id, name, avatar, phone, is_suspended
+            id, name, avatar, email, is_suspended
           ),
           business:businesses(*)
         `)
@@ -773,7 +773,7 @@ export async function getAllClients(
     const [usersRes, bookingsRes] = await Promise.all([
       supabase
         .from('users')
-        .select('id, name, avatar, phone, created_at, is_suspended')
+        .select('id, name, avatar, email, created_at, is_suspended')
         .eq('role', 'client')
         .order('created_at', { ascending: false }),
 
@@ -829,7 +829,7 @@ export async function getClientAdminDetail(
     const [userRes, bookingsRes] = await Promise.all([
       supabase
         .from('users')
-        .select('id, name, avatar, phone, created_at, is_suspended')
+        .select('id, name, avatar, email, created_at, is_suspended')
         .eq('id', userId)
         .single(),
 
@@ -930,7 +930,7 @@ export async function getPendingVerifications(): Promise<ServiceResponse<Verific
         status,
         professional_profiles!inner (
           user_id,
-          users!inner ( name, avatar, phone )
+          users!inner ( name, avatar, email )
         )
       `)
       .eq('status', 'pending')
@@ -964,7 +964,7 @@ export async function getVerificationDetail(
         *,
         professional_profiles!inner (
           user_id,
-          users!inner ( name, avatar, phone )
+          users!inner ( name, avatar, email )
         )
       `)
       .eq('id', verificationId)
@@ -1154,8 +1154,8 @@ export async function getReportDetail(
       .from('user_reports')
       .select(`
         *,
-        reporter:users!reporter_id ( name, phone, avatar ),
-        reported:users!reported_user_id ( name, phone, avatar, role )
+        reporter:users!reporter_id ( name, email, avatar ),
+        reported:users!reported_user_id ( name, email, avatar, role )
       `)
       .eq('id', reportId)
       .single();
