@@ -9,7 +9,12 @@
       "Bash(tee:*)",
       "Bash(echo:*)",
       "Read(//tmp/**)",
-      "Bash(npm install)"
+      "Bash(npm install)",
+      "Read(//mnt/e/Program/BeautyConnect/**)",
+      "Bash(export NVM_DIR=\"$HOME/.nvm\")",
+      "Bash([ -s \"$NVM_DIR/nvm.sh\" ])",
+      "Bash(. \"$NVM_DIR/nvm.sh\")",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

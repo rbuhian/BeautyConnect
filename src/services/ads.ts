@@ -9,6 +9,7 @@ import {
   ProfessionalProfile,
   Service,
 } from '../types';
+import { FEATURES } from '../constants';
 
 // ============================================
 // SERVICE TYPES (matches client.ts pattern)
@@ -41,6 +42,7 @@ export async function getActiveAds(
   targetRole: 'client' | 'professional',
   categories?: Category[]
 ): Promise<ServiceResponse<AdCreative[]>> {
+  if (!FEATURES.ADS_ENABLED) return { data: [], error: null };
   try {
     let query = supabase
       .from('ad_creatives')
@@ -84,6 +86,7 @@ export async function getActiveAds(
 export async function getFeaturedProfessionals(): Promise<
   ServiceResponse<FeaturedProfessional[]>
 > {
+  if (!FEATURES.ADS_ENABLED) return { data: [], error: null };
   try {
     const now = new Date().toISOString();
 
@@ -214,6 +217,7 @@ export async function createFeaturedListing(
 export async function getAffiliateProducts(
   categories?: Category[]
 ): Promise<ServiceResponse<AffiliateProduct[]>> {
+  if (!FEATURES.ADS_ENABLED) return { data: [], error: null };
   try {
     const { data, error } = await supabase
       .from('affiliate_products')
@@ -250,6 +254,7 @@ export async function recordImpression(
   screen: string,
   position: number = 0
 ): Promise<void> {
+  if (!FEATURES.ADS_ENABLED) return;
   try {
     await supabase.from('ad_impressions').insert({
       ad_id: adId,
@@ -267,6 +272,7 @@ export async function recordClick(
   userId: string,
   screen: string
 ): Promise<void> {
+  if (!FEATURES.ADS_ENABLED) return;
   try {
     await supabase.from('ad_clicks').insert({
       ad_id: adId,

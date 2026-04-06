@@ -48,44 +48,16 @@ export default function EmailInputScreen({ navigation }: AuthScreenProps<'EmailI
       } else {
         console.log('[EmailInput] OTP failed:', result.error);
         const errorLower = result.error?.toLowerCase() || '';
-        const isDevelopmentError =
-          errorLower.includes('invalid api key') ||
-          errorLower.includes('fetch') ||
-          errorLower.includes('network') ||
-          errorLower.includes('url') ||
-          errorLower.includes('database') ||
-          errorLower.includes('saving') ||
-          errorLower.includes('user') ||
-          !result.error;
-
-        if (isDevelopmentError) {
-          Alert.alert(
-            'Development Mode',
-            `Backend not fully configured. Proceeding to OTP screen for testing.\n\nError: ${result.error || 'Unknown'}`,
-            [
-              {
-                text: 'OK',
-                onPress: () => navigation.navigate('OtpVerification', { email }),
-              },
-            ]
-          );
+        if (errorLower.includes('network') || errorLower.includes('fetch')) {
+          setError('Network error. Please check your internet connection and try again.');
         } else {
-          setError(result.error || 'Failed to send verification code');
+          setError(result.error || 'Failed to send verification code. Please try again.');
         }
       }
     } catch (err) {
       console.error('[EmailInput] Exception:', err);
       setLoading(false);
-      Alert.alert(
-        'Development Mode',
-        'An error occurred. Proceeding to OTP screen for testing.',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.navigate('OtpVerification', { email }),
-          },
-        ]
-      );
+      setError('Network error. Please check your internet connection and try again.');
     }
   };
 

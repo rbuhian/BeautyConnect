@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { AuthScreenProps } from '../../navigation/types';
@@ -88,28 +87,11 @@ export default function OtpVerificationScreen({
         // The auth state change will trigger navigation automatically
       }
     } else {
-      // For development/testing, allow bypass if Supabase phone auth isn't configured
       const errorLower = result.error?.toLowerCase() || '';
-      if (
-        errorLower.includes('invalid api key') ||
-        errorLower.includes('fetch') ||
-        errorLower.includes('token') ||
-        errorLower.includes('otp') ||
-        errorLower.includes('email provider') ||
-        errorLower.includes('unsupported')
-      ) {
-        Alert.alert(
-          'Development Mode',
-          'Email auth not configured. Proceeding to role selection for testing.\n\nIn production, users would verify their real OTP here.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('RoleSelection'),
-            },
-          ]
-        );
+      if (errorLower.includes('network') || errorLower.includes('fetch')) {
+        setError('Network error. Please check your internet connection and try again.');
       } else {
-        setError(result.error || 'Invalid verification code');
+        setError(result.error || 'Invalid verification code. Please try again.');
       }
     }
   };

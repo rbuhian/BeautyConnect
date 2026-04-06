@@ -139,6 +139,11 @@ export const MAX_BIO_LENGTH = 500;
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
+// Feature flags
+export const FEATURES = {
+  ADS_ENABLED: false,
+} as const;
+
 // Advertising
 export const AD_CONFIG = {
   FEED_AD_FREQUENCY: 8,                // Insert 1 ad card every N professional cards
