@@ -308,7 +308,7 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
 
           {/* Price info */}
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Service fee</Text>
+            <Text style={styles.priceLabel}>Total</Text>
             <Text style={styles.priceValue}>₱{service.price.toLocaleString()}</Text>
           </View>
 

@@ -180,14 +180,7 @@ export default function ManageServicesScreen({ navigation }: any) {
                   </View>
                 </View>
 
-                <View style={styles.depositRow}>
-                  <Text style={styles.depositLabel}>Deposit (30%):</Text>
-                  <Text style={styles.depositAmount}>
-                    ₱{service.deposit_amount.toLocaleString()}
-                  </Text>
-                </View>
-
-                <View style={styles.serviceActions}>
+<View style={styles.serviceActions}>
                   <TouchableOpacity
                     style={styles.actionButton}
                     onPress={() => navigation.navigate('EditService', { service })}

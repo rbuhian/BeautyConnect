@@ -172,16 +172,6 @@ export default function AddServiceScreen({ navigation }: any) {
             onChangeText={(text) => setPrice(text.replace(/[^0-9.]/g, ''))}
             keyboardType="numeric"
           />
-          {price && parseFloat(price) > 0 && (
-            <Card style={styles.depositCard}>
-              <Text style={styles.depositLabel}>
-                Deposit (30%): <Text style={styles.depositAmount}>₱{depositAmount.toLocaleString()}</Text>
-              </Text>
-              <Text style={styles.depositNote}>
-                Clients pay this amount upfront to secure their booking
-              </Text>
-            </Card>
-          )}
         </View>
 
         {/* Booking Type */}

@@ -434,32 +434,6 @@ export default function BookingDetailScreen({ navigation, route }: any) {
               ₱{booking.total_price?.toLocaleString()}
             </Text>
           </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Deposit (30%)</Text>
-            <View style={styles.paymentValue}>
-              <Text style={styles.depositAmount}>
-                ₱{booking.deposit_amount?.toLocaleString()}
-              </Text>
-              <Text
-                style={[
-                  styles.paymentStatus,
-                  { color: booking.deposit_paid ? COLORS.success : COLORS.warning },
-                ]}
-              >
-                {booking.deposit_paid ? 'Paid' : 'Pending'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Balance Due</Text>
-            <Text style={styles.balanceAmount}>
-              ₱{((booking.total_price || 0) - (booking.deposit_amount || 0)).toLocaleString()}
-            </Text>
-          </View>
         </Card>
 
 
