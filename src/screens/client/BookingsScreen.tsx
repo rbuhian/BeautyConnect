@@ -103,7 +103,7 @@ export default function BookingsScreen({ navigation }: any) {
 
     return (
       <TouchableOpacity
-        onPress={() => navigation.navigate('BookingDetail', { bookingId: item.id })}
+        onPress={() => navigation.navigate('BookingDetail', { bookingId: item.id, booking: item })}
         activeOpacity={0.9}
       >
         <Card style={styles.bookingCard}>
