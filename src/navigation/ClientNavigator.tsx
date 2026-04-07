@@ -22,6 +22,7 @@ import BookingsScreen from '../screens/client/BookingsScreen';
 import ChatScreen from '../screens/shared/ChatScreen';
 import WriteReviewScreen from '../screens/client/WriteReviewScreen';
 import GalleryScreen from '../screens/client/GalleryScreen';
+import ProfessionalReviewsScreen from '../screens/client/ProfessionalReviewsScreen';
 import ClientReviewsScreen from '../screens/client/ClientReviewsScreen';
 import FavoritesScreen from '../screens/client/FavoritesScreen';
 import EditProfileScreen from '../screens/shared/EditProfileScreen';
@@ -108,6 +109,7 @@ export default function ClientNavigator() {
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="WriteReview" component={WriteReviewScreen} />
       <Stack.Screen name="Gallery" component={GalleryScreen} />
+      <Stack.Screen name="ProfessionalReviews" component={ProfessionalReviewsScreen} />
       <Stack.Screen name="Reviews" component={ClientReviewsScreen} />
       <Stack.Screen name="Favorites" component={FavoritesScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />

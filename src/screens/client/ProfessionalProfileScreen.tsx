@@ -247,7 +247,14 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
               <Text style={styles.ratingBig}>{avgRating.toFixed(1)}</Text>
               <StarRating rating={avgRating} size={18} activeColor={COLORS.warning} inactiveColor="rgba(255,255,255,0.3)" spacing={2} />
               <Text style={styles.ratingCount}>{totalReviews} reviews</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Reviews')}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ProfessionalReviews', {
+                  reviews,
+                  professionalName: professional.user?.name || 'Artist',
+                  avgRating,
+                  totalReviews,
+                })}
+              >
                 <Text style={styles.seeAll}>&gt;</Text>
               </TouchableOpacity>
             </View>

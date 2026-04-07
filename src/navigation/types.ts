@@ -39,6 +39,7 @@ export type ClientStackParamList = {
     professionalAvatar: string | null;
   };
   Gallery: { photos: string[]; title?: string };
+  ProfessionalReviews: { reviews: any[]; professionalName: string; avgRating: number; totalReviews: number };
   Reviews: undefined;
   Favorites: undefined;
   EditProfile: undefined;
