@@ -147,21 +147,6 @@ export default function ProfileScreen({ navigation }: any) {
       label: 'Manage Services',
       onPress: () => navigation.navigate('ManageServices'),
     },
-    {
-      icon: Package,
-      label: 'Service Packages',
-      onPress: () => navigation.navigate('ManagePackages'),
-    },
-    {
-      icon: Tag,
-      label: 'Promotions & Discounts',
-      onPress: () => navigation.navigate('ManagePromotions'),
-    },
-    {
-      icon: Calendar,
-      label: 'Manage Availability',
-      onPress: () => navigation.navigate('Availability'),
-    },
     // Show Team Management only for business owners
     ...(hasBusiness
       ? [
@@ -193,38 +178,6 @@ export default function ProfileScreen({ navigation }: any) {
       icon: Users,
       label: 'My Clients',
       onPress: () => navigation.navigate('ClientManagement'),
-    },
-    {
-      icon: TrendingUp,
-      label: 'Revenue Analytics',
-      onPress: () => navigation.navigate('RevenueAnalytics'),
-    },
-    {
-      icon: Clock,
-      label: 'Scheduling Rules',
-      onPress: () => navigation.navigate('SchedulingRules'),
-    },
-    {
-      icon: professionalProfile?.is_verified
-        ? ShieldCheck
-        : professionalProfile?.verification_status === 'rejected'
-        ? ShieldAlert
-        : Shield,
-      label: professionalProfile?.is_verified
-        ? 'Verified'
-        : professionalProfile?.verification_status === 'pending'
-        ? 'Verification Pending'
-        : professionalProfile?.verification_status === 'rejected'
-        ? 'Verification Rejected'
-        : 'Get Verified',
-      subtitle: professionalProfile?.is_verified
-        ? 'Your identity is verified'
-        : professionalProfile?.verification_status === 'pending'
-        ? 'Under review by our team'
-        : professionalProfile?.verification_status === 'rejected'
-        ? 'Tap to resubmit'
-        : 'Upload ID to get a verified badge',
-      onPress: () => navigation.navigate('Verification'),
     },
     {
       icon: Settings,

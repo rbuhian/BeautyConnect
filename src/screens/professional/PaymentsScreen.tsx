@@ -116,19 +116,7 @@ export default function PaymentsScreen({ navigation }: any) {
             <Text style={styles.summaryLabel}>Total Earnings</Text>
           </Card>
 
-          <Card style={[styles.summaryCard, { backgroundColor: '#E3F2FD' }]}>
-            <View style={[styles.summaryIcon, { backgroundColor: '#BBDEFB' }]}>
-              <Wallet size={20} color="#1976D2" />
-            </View>
-            <Text style={styles.summaryValue}>
-              ₱{(summary?.depositTotal || 0).toLocaleString()}
-            </Text>
-            <Text style={styles.summaryLabel}>
-              Deposits ({summary?.depositsCollected || 0})
-            </Text>
-          </Card>
-
-          <Card style={[styles.summaryCard, { backgroundColor: '#F3E5F5' }]}>
+<Card style={[styles.summaryCard, { backgroundColor: '#F3E5F5' }]}>
             <View style={[styles.summaryIcon, { backgroundColor: '#E1BEE7' }]}>
               <Sparkles size={20} color={COLORS.primary} />
             </View>
@@ -174,48 +162,6 @@ export default function PaymentsScreen({ navigation }: any) {
           </Card>
         </View>
 
-        {/* Pending Deposits */}
-        {pendingDeposits.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Pending Deposits</Text>
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{pendingDeposits.length}</Text>
-              </View>
-            </View>
-            {pendingDeposits.slice(0, 5).map((booking) => (
-              <TouchableOpacity
-                key={booking.id}
-                activeOpacity={0.8}
-                onPress={() => navigation.navigate('BookingDetail', { booking })}
-              >
-                <Card style={styles.depositCard}>
-                  <View style={styles.depositRow}>
-                    <View style={[styles.depositIcon, { backgroundColor: '#FFF3E0' }]}>
-                      <AlertCircle size={18} color={COLORS.warning} />
-                    </View>
-                    <View style={styles.depositInfo}>
-                      <Text style={styles.depositClient}>
-                        {booking.client?.name || 'Client'}
-                      </Text>
-                      <Text style={styles.depositService}>
-                        {booking.service?.name || 'Service'}
-                      </Text>
-                    </View>
-                    <View style={styles.depositRight}>
-                      <Text style={styles.depositAmount}>
-                        ₱{(booking.deposit_amount || 0).toLocaleString()}
-                      </Text>
-                      <Text style={styles.depositDate}>
-                        {format(parseISO(booking.date), 'MMM d')}
-                      </Text>
-                    </View>
-                  </View>
-                </Card>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
 
         {/* Recent Transactions */}
         <View style={styles.section}>
