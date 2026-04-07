@@ -20,6 +20,7 @@ import {
   Mail,
   ChevronRight,
   Wallet,
+  CalendarDays,
 } from 'lucide-react-native';
 import { Card } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
@@ -52,14 +53,14 @@ export default function ProfileScreen({ navigation }: any) {
       onPress: () => navigation.navigate('EditProfile'),
     },
     {
+      icon: CalendarDays,
+      label: 'My Bookings',
+      onPress: () => navigation.navigate('Bookings'),
+    },
+    {
       icon: Star,
       label: 'My Reviews',
       onPress: () => navigation.navigate('Reviews'),
-    },
-    {
-      icon: Heart,
-      label: 'My Favorites',
-      onPress: () => navigation.navigate('Favorites'),
     },
     {
       icon: Wallet,
