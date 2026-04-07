@@ -50,10 +50,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default function BookingDetailScreen({ navigation, route }: any) {
-  const { bookingId } = route.params;
+  const { bookingId, booking: initialBooking } = route.params;
   const { user } = useAuth();
-  const [booking, setBooking] = useState<Booking | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [booking, setBooking] = useState<Booking | null>(initialBooking || null);
+  const [loading, setLoading] = useState(!initialBooking);
   const [cancelling, setCancelling] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
   const [myReview, setMyReview] = useState<Review | null>(null);
@@ -73,7 +73,6 @@ export default function BookingDetailScreen({ navigation, route }: any) {
           const reviewResult = await hasReviewedBooking(bookingId, user.id);
           setHasReviewed(reviewResult.data || false);
 
-          // Fetch the review if it exists
           if (reviewResult.data) {
             const myReviewResult = await getBookingReview(bookingId, user.id);
             if (myReviewResult.data) {
@@ -82,6 +81,7 @@ export default function BookingDetailScreen({ navigation, route }: any) {
           }
         }
       }
+      // If fetch fails but we have initialBooking, keep showing it
     } catch (err) {
       console.error('Error fetching booking:', err);
     } finally {
@@ -462,25 +462,6 @@ export default function BookingDetailScreen({ navigation, route }: any) {
           </View>
         </Card>
 
-        {/* Pay Deposit Button */}
-        {!booking.deposit_paid && (booking.status === 'pending' || booking.status === 'confirmed') && (
-          <TouchableOpacity
-            style={styles.payDepositButton}
-            onPress={handlePayDeposit}
-            disabled={payingDeposit}
-          >
-            <LinearGradient
-              colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.payDepositGradient}
-            >
-              <Text style={styles.payDepositText}>
-                {payingDeposit ? 'Processing...' : `Pay Deposit — ₱${booking.deposit_amount?.toLocaleString()}`}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
 
         {/* Actions */}
         {booking.status === 'completed' && !hasReviewed && (

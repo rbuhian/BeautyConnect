@@ -15,7 +15,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, X, Home, Building2 } from 'lucide
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Loading } from '../../components';
 import { BookingInterstitialAd } from '../../components/ads';
-import { COLORS, SPACING, FONT_SIZES, RADIUS, DEPOSIT_PERCENTAGE, AD_CONFIG } from '../../constants';
+import { COLORS, SPACING, FONT_SIZES, RADIUS, AD_CONFIG } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
 import { Service, AdCreative } from '../../types';
 import {
@@ -26,9 +26,10 @@ import {
 import { getActiveAds } from '../../services/ads';
 import { sendNewBookingNotification } from '../../services/notifications';
 import { sendEmailNotification, BookingEmailData } from '../../services/email';
-import { createDepositCheckout, waitForDepositPayment } from '../../services/payment';
-import PaymentWebView from '../../components/PaymentWebView';
 import StarRating from '../../components/StarRating';
+
+const PAYMENT_METHODS = ['GCash', 'PayMaya', 'Banks'] as const;
+type PaymentMethod = typeof PAYMENT_METHODS[number];
 
 const AppLogo = require('../../../BeautyConnect.png');
 const AVATAR_COLORS = ['#4DD9C0', '#E85D8A', '#F5C842', '#6B8EF5', '#E07B3A'];
@@ -64,12 +65,11 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
   const [showInterstitial, setShowInterstitial] = useState(false);
   const [interstitialAd, setInterstitialAd] = useState<AdCreative | null>(null);
   const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
-  const [showPayment, setShowPayment] = useState(false);
-  const [paymentUrl, setPaymentUrl] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const showLocationStep =
     professional.location_type === 'both' || professional.location_type === 'home_service';
-  const depositAmount = service.price * DEPOSIT_PERCENTAGE;
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -140,7 +140,7 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
     setShowTimeModal(true);
   };
 
-  const navigateToBookingDetail = async (bookingId: string) => {
+  const navigateToBookingDetail = async (bookingId: string, bookingData?: any) => {
     const lastShown = await AsyncStorage.getItem('last_interstitial_ts');
     const cooldownOk = !lastShown || Date.now() - parseInt(lastShown, 10) > AD_CONFIG.INTERSTITIAL_COOLDOWN_MS;
     if (cooldownOk) {
@@ -152,12 +152,16 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
         return;
       }
     }
-    navigation.replace('BookingDetail', { bookingId });
+    navigation.replace('BookingDetail', { bookingId, booking: bookingData });
   };
 
   const handleConfirmBooking = async () => {
     if (!user?.id || !selectedDate || !selectedTime) {
       Alert.alert('Required', 'Please select a date and time.');
+      return;
+    }
+    if (!selectedPaymentMethod) {
+      Alert.alert('Required', 'Please select a payment method.');
       return;
     }
     setSubmitting(true);
@@ -169,7 +173,7 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
         date: selectedDate,
         time_slot: selectedTime,
         location_type: locationType,
-        deposit_amount: depositAmount,
+        deposit_amount: 0,
         total_price: service.price,
       });
 
@@ -192,7 +196,7 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
           bookingId, clientName: user.name || 'Client',
           professionalName: professional.user?.name || 'Beauty Professional',
           serviceName: service.name, date: longDate, time: timeFormatted,
-          locationText, depositAmount, totalPrice: service.price,
+          locationText, depositAmount: 0, totalPrice: service.price,
         };
         sendEmailNotification(user.id, 'booking_new_client', emailData);
         sendEmailNotification(professional.user_id, 'booking_new_pro', emailData);
@@ -204,40 +208,12 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
         }
       }
 
-      const checkoutResult = await createDepositCheckout(bookingId, depositAmount, service.name);
-      if (checkoutResult.data) {
-        setConfirmedBookingId(bookingId);
-        setPaymentUrl(checkoutResult.data.checkoutUrl);
-        setShowPayment(true);
-      } else {
-        Alert.alert('Booking Created', "Your booking was created but we couldn't start the payment. You can pay the deposit from the booking details.", [
-          { text: 'View Booking', onPress: () => navigateToBookingDetail(bookingId) },
-        ]);
-      }
+      navigateToBookingDetail(bookingId, result.data);
     } catch {
       Alert.alert('Error', 'Failed to create booking. Please try again.');
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handlePaymentSuccess = async () => {
-    setShowPayment(false);
-    if (!confirmedBookingId) return;
-    const status = await waitForDepositPayment(confirmedBookingId);
-    Alert.alert(
-      status === 'paid' ? 'Deposit Paid!' : 'Payment Processing',
-      status === 'paid' ? 'Your deposit has been received. Your booking is confirmed.' : 'Your payment is being processed.',
-      [{ text: 'View Booking', onPress: () => navigateToBookingDetail(confirmedBookingId) }]
-    );
-  };
-
-  const handlePaymentCancel = () => {
-    setShowPayment(false);
-    if (!confirmedBookingId) return;
-    Alert.alert('Deposit Not Paid', 'Your booking was created but the deposit is still pending.', [
-      { text: 'View Booking', onPress: () => navigateToBookingDetail(confirmedBookingId) },
-    ]);
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -335,16 +311,22 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
             <Text style={styles.priceLabel}>Service fee</Text>
             <Text style={styles.priceValue}>₱{service.price.toLocaleString()}</Text>
           </View>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Deposit required</Text>
-            <Text style={styles.depositValue}>₱{depositAmount.toLocaleString()}</Text>
+
+          {/* Payment Method */}
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Payment Method:</Text>
+            <TouchableOpacity style={styles.pill} onPress={() => setShowPaymentModal(true)}>
+              <Text style={[styles.pillText, !selectedPaymentMethod && styles.pillPlaceholder]}>
+                {selectedPaymentMethod || 'Select payment method'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Confirm */}
           <TouchableOpacity
-            style={[styles.confirmBtn, (!selectedDate || !selectedTime || submitting) && styles.confirmBtnDisabled]}
+            style={[styles.confirmBtn, (!selectedDate || !selectedTime || !selectedPaymentMethod || submitting) && styles.confirmBtnDisabled]}
             onPress={handleConfirmBooking}
-            disabled={!selectedDate || !selectedTime || submitting}
+            disabled={!selectedDate || !selectedTime || !selectedPaymentMethod || submitting}
           >
             <LinearGradient
               colors={['#E91E8C', '#FF6B35']}
@@ -488,15 +470,48 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
         </View>
       </Modal>
 
-      {/* ── Payment WebView ── */}
-      {showPayment && (
-        <PaymentWebView
-          url={paymentUrl}
-          onSuccess={handlePaymentSuccess}
-          onCancel={handlePaymentCancel}
-          onClose={() => setShowPayment(false)}
-        />
-      )}
+      {/* ── Payment Method Modal ── */}
+      <Modal visible={showPaymentModal} transparent animationType="slide" onRequestClose={() => setShowPaymentModal(false)}>
+        <View style={styles.modalOverlay}>
+          <LinearGradient
+            colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.paymentModalSheet}
+          >
+            <LinearGradient
+              colors={['#E91E8C', '#FF6B35']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.paymentModalHeader}
+            >
+              <Text style={styles.paymentModalTitle}>Payment Method</Text>
+            </LinearGradient>
+            <View style={styles.paymentMethodList}>
+              {PAYMENT_METHODS.map((method) => (
+                <TouchableOpacity
+                  key={method}
+                  style={[
+                    styles.paymentMethodBtn,
+                    selectedPaymentMethod === method && styles.paymentMethodBtnSelected,
+                  ]}
+                  onPress={() => { setSelectedPaymentMethod(method); setShowPaymentModal(false); }}
+                >
+                  <Text style={[
+                    styles.paymentMethodText,
+                    selectedPaymentMethod === method && styles.paymentMethodTextSelected,
+                  ]}>
+                    {method.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.paymentCancelBtn} onPress={() => setShowPaymentModal(false)}>
+              <Text style={styles.paymentCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      </Modal>
 
       {/* ── Interstitial Ad ── */}
       {showInterstitial && interstitialAd && confirmedBookingId && (
@@ -507,6 +522,7 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
             navigation.replace('BookingDetail', { bookingId: confirmedBookingId });
           }}
         />
+
       )}
     </LinearGradient>
   );
@@ -684,6 +700,56 @@ const styles = StyleSheet.create({
   timeSlotSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   timeSlotText: { fontSize: FONT_SIZES.sm, color: COLORS.textPrimary },
   timeSlotTextSelected: { color: COLORS.white, fontWeight: '600' },
+
+  // Payment method modal
+  paymentModalSheet: {
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    overflow: 'hidden',
+    paddingBottom: SPACING.xl,
+  },
+  paymentModalHeader: {
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  paymentModalTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  paymentMethodList: {
+    paddingHorizontal: SPACING.lg,
+    gap: SPACING.md,
+  },
+  paymentMethodBtn: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.xxl,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+  },
+  paymentMethodBtnSelected: {
+    backgroundColor: COLORS.primary,
+  },
+  paymentMethodText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    letterSpacing: 1,
+  },
+  paymentMethodTextSelected: {
+    color: COLORS.white,
+  },
+  paymentCancelBtn: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.sm,
+    alignItems: 'center',
+  },
+  paymentCancelText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: FONT_SIZES.sm,
+  },
 
   // Location
   locationOptions: { flexDirection: 'row', gap: SPACING.md, padding: SPACING.md },
