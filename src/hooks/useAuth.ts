@@ -28,6 +28,8 @@ export function useAuth() {
     // Actions
     sendOtp: store.sendOtp,
     verifyOtp: store.verifyOtp,
+    signUp: store.signUp,
+    signIn: store.signIn,
     updateProfile: store.updateProfile,
     setRole: store.setRole,
     refreshProfessionalProfile: store.refreshProfessionalProfile,

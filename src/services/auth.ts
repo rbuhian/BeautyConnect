@@ -28,6 +28,62 @@ export async function signInWithEmail(email: string): Promise<AuthResponse> {
   }
 }
 
+// Sign up with email and password
+export async function signUpWithPassword(
+  email: string,
+  password: string,
+  name: string,
+  role: 'client' | 'professional'
+): Promise<AuthResponse<{ userId: string }>> {
+  try {
+    const { data, error } = await supabase.auth.signUp({ email, password });
+
+    if (error) {
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    if (!data.user?.id) {
+      return { data: null, error: { message: 'Account creation failed. Please try again.' } };
+    }
+
+    const userId = data.user.id;
+
+    // Create user record
+    const { error: profileError } = await supabase.from('users').upsert({
+      id: userId,
+      email,
+      name,
+      role,
+    }, { onConflict: 'id' });
+
+    if (profileError) {
+      console.error('[signUpWithPassword] profile error:', profileError);
+    }
+
+    return { data: { userId }, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to create account. Please try again.' } };
+  }
+}
+
+// Sign in with email and password
+export async function signInWithPassword(
+  email: string,
+  password: string
+): Promise<AuthResponse> {
+  try {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to sign in. Please try again.' } };
+  }
+}
+
 // Helper function to migrate seed data
 async function migrateSeedDataToNewUser(newUserId: string, email: string): Promise<boolean> {
   try {

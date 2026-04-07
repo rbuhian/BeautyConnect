@@ -2,13 +2,14 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthStackParamList } from './types';
 
-// Screens (will be created later)
 import SplashScreen from '../screens/auth/SplashScreen';
-import EmailInputScreen from '../screens/auth/EmailInputScreen';
-import OtpVerificationScreen from '../screens/auth/OtpVerificationScreen';
+import SignInScreen from '../screens/auth/SignInScreen';
 import RoleSelectionScreen from '../screens/auth/RoleSelectionScreen';
+import CreateAccountScreen from '../screens/auth/CreateAccountScreen';
 import ClientOnboardingScreen from '../screens/auth/ClientOnboardingScreen';
 import ProfessionalOnboardingScreen from '../screens/auth/ProfessionalOnboardingScreen';
+import EmailInputScreen from '../screens/auth/EmailInputScreen';
+import OtpVerificationScreen from '../screens/auth/OtpVerificationScreen';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -26,11 +27,13 @@ export default function AuthNavigator({ initialRoute = 'Splash' }: AuthNavigator
       }}
     >
       <Stack.Screen name="Splash" component={SplashScreen} />
-      <Stack.Screen name="EmailInput" component={EmailInputScreen} />
-      <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
+      <Stack.Screen name="SignIn" component={SignInScreen} />
       <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
+      <Stack.Screen name="CreateAccount" component={CreateAccountScreen} />
       <Stack.Screen name="ClientOnboarding" component={ClientOnboardingScreen} />
       <Stack.Screen name="ProfessionalOnboarding" component={ProfessionalOnboardingScreen} />
+      <Stack.Screen name="EmailInput" component={EmailInputScreen} />
+      <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
     </Stack.Navigator>
   );
 }

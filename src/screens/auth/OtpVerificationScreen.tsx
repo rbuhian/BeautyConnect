@@ -18,14 +18,14 @@ export default function OtpVerificationScreen({
   navigation,
   route,
 }: AuthScreenProps<'OtpVerification'>) {
-  const { email } = route.params;
+  const { email, role } = route.params;
   const maskedEmail = email.replace(/^(.{1,2})(.*)(@.*)$/, (_, a, b, c) => a + b.replace(/./g, '*') + c);
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resendTimer, setResendTimer] = useState(30);
   const inputRefs = useRef<(TextInput | null)[]>([]);
-  const { verifyOtp, sendOtp } = useAuth();
+  const { verifyOtp, sendOtp, setRole } = useAuth();
 
   useEffect(() => {
     if (resendTimer > 0) {
@@ -79,13 +79,16 @@ export default function OtpVerificationScreen({
     setLoading(false);
 
     if (result.success) {
-      // Navigate based on whether user is new or existing
       if (result.isNewUser) {
-        navigation.navigate('RoleSelection');
-      } else {
-        // User exists and is logged in - RootNavigator will handle redirect
-        // The auth state change will trigger navigation automatically
+        const selectedRole = role || 'client';
+        await setRole(selectedRole);
+        if (selectedRole === 'professional') {
+          navigation.navigate('ProfessionalOnboarding');
+        } else {
+          navigation.navigate('ClientOnboarding');
+        }
       }
+      // Existing user: RootNavigator handles redirect via auth state change
     } else {
       const errorLower = result.error?.toLowerCase() || '';
       if (errorLower.includes('network') || errorLower.includes('fetch')) {

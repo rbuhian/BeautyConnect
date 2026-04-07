@@ -26,14 +26,14 @@ export default function SplashScreen({ navigation }: AuthScreenProps<'Splash'>) 
         {/* Auth Buttons */}
         <View style={styles.authButtons}>
           <Button
-            title="Get Started"
-            onPress={() => navigation.navigate('EmailInput')}
+            title="Create account"
+            onPress={() => navigation.navigate('RoleSelection')}
             variant="primary"
             size="large"
           />
           <Button
-            title="Sign In"
-            onPress={() => navigation.navigate('EmailInput')}
+            title="Sign in"
+            onPress={() => navigation.navigate('SignIn')}
             variant="secondary"
             size="large"
           />

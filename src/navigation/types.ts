@@ -6,9 +6,11 @@ import { ProfessionalProfile, Booking } from '../types';
 // Auth Stack
 export type AuthStackParamList = {
   Splash: undefined;
-  EmailInput: undefined;
-  OtpVerification: { email: string };
+  SignIn: undefined;
   RoleSelection: undefined;
+  CreateAccount: { role: 'client' | 'professional' };
+  EmailInput: { role?: 'client' | 'professional' } | undefined;
+  OtpVerification: { email: string; role?: 'client' | 'professional' };
   ClientOnboarding: undefined;
   ProfessionalOnboarding: undefined;
 };

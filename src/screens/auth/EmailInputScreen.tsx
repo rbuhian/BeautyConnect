@@ -16,7 +16,8 @@ import { useAuth } from '../../hooks/useAuth';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export default function EmailInputScreen({ navigation }: AuthScreenProps<'EmailInput'>) {
+export default function EmailInputScreen({ navigation, route }: AuthScreenProps<'EmailInput'>) {
+  const role = route.params?.role;
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -44,7 +45,7 @@ export default function EmailInputScreen({ navigation }: AuthScreenProps<'EmailI
 
       if (result.success) {
         console.log('[EmailInput] Navigating to OTP screen');
-        navigation.navigate('OtpVerification', { email });
+        navigation.navigate('OtpVerification', { email, role });
       } else {
         console.log('[EmailInput] OTP failed:', result.error);
         const errorLower = result.error?.toLowerCase() || '';

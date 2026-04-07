@@ -15,6 +15,7 @@ interface InputProps extends TextInputProps {
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   containerStyle?: ViewStyle;
+  inputContainerStyle?: ViewStyle;
 }
 
 export default function Input({
@@ -23,13 +24,14 @@ export default function Input({
   leftIcon,
   rightIcon,
   containerStyle,
+  inputContainerStyle,
   style,
   ...props
 }: InputProps) {
   return (
     <View style={containerStyle}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <View style={[styles.inputContainer, error && styles.inputError]}>
+      <View style={[styles.inputContainer, error && styles.inputError, inputContainerStyle]}>
         {leftIcon && <View style={styles.iconLeft}>{leftIcon}</View>}
         <TextInput
           style={[styles.input, leftIcon ? styles.inputWithLeftIcon : undefined, style]}

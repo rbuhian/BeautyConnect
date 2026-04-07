@@ -5,6 +5,8 @@ import { supabase } from '../services/supabase';
 import {
   signInWithEmail,
   verifyOtp,
+  signUpWithPassword,
+  signInWithPassword,
   getCurrentUser,
   updateUserProfile,
   createProfessionalProfile,
@@ -24,6 +26,8 @@ interface AuthState {
   initialize: () => Promise<void>;
   sendOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
   verifyOtp: (email: string, token: string) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
+  signUp: (name: string, email: string, password: string, role: 'client' | 'professional') => Promise<{ success: boolean; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   updateProfile: (updates: Partial<Pick<User, 'name' | 'avatar' | 'role'>>) => Promise<{ success: boolean; error?: string }>;
   setRole: (role: 'client' | 'professional') => Promise<{ success: boolean; error?: string }>;
   refreshProfessionalProfile: () => Promise<void>;
@@ -88,6 +92,52 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (error) {
       set({ error: error.message });
       return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  },
+
+  signUp: async (name: string, email: string, password: string, role: 'client' | 'professional') => {
+    set({ error: null });
+    const { error } = await signUpWithPassword(email, password, name, role);
+
+    if (error) {
+      set({ error: error.message });
+      return { success: false, error: error.message };
+    }
+
+    // Fetch user after signup (session is set automatically if email confirmation is off)
+    const { data: user } = await getCurrentUser();
+    set({ user });
+
+    if (role === 'professional' && user) {
+      const { data: proProfile } = await getProfessionalProfile(user.id);
+      if (!proProfile) {
+        const { data: newProfile } = await createProfessionalProfile(user.id);
+        set({ professionalProfile: newProfile });
+      } else {
+        set({ professionalProfile: proProfile });
+      }
+    }
+
+    return { success: true };
+  },
+
+  signIn: async (email: string, password: string) => {
+    set({ error: null });
+    const { error } = await signInWithPassword(email, password);
+
+    if (error) {
+      set({ error: error.message });
+      return { success: false, error: error.message };
+    }
+
+    const { data: user } = await getCurrentUser();
+    set({ user });
+
+    if (user?.role === 'professional') {
+      const { data: proProfile } = await getProfessionalProfile(user.id);
+      set({ professionalProfile: proProfile });
     }
 
     return { success: true };
