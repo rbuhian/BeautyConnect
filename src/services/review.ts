@@ -48,6 +48,23 @@ export async function submitReview(
 
     if (error) throw error;
 
+    // Recompute and update avg_rating + total_reviews on professional_profiles
+    const { data: allReviews } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('reviewee_id', revieweeId);
+
+    if (allReviews && allReviews.length > 0) {
+      const avg = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+      await supabase
+        .from('professional_profiles')
+        .update({
+          avg_rating: Math.round(avg * 10) / 10,
+          total_reviews: allReviews.length,
+        })
+        .eq('user_id', revieweeId);
+    }
+
     return { data: data as Review, error: null };
   } catch (error) {
     console.error('Error submitting review:', error);

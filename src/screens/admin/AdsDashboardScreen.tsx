@@ -10,11 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  Tag,
-  Users,
-  UserCheck,
-} from 'lucide-react-native';
+import { Megaphone, Settings2 } from 'lucide-react-native';
 import { COLORS, FONT_SIZES, SPACING, RADIUS } from '../../constants';
 import { AdminDashboardStats } from '../../types';
 import { getAdminDashboardStats } from '../../services/admin';
@@ -55,10 +51,10 @@ export default function AdsDashboardScreen({ navigation }: Props) {
     ]);
   };
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toString();
+  const formatCurrency = (num: number) => {
+    if (num >= 1000000) return `₱${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `₱${(num / 1000).toFixed(1)}K`;
+    return `₱${num.toLocaleString()}`;
   };
 
   return (
@@ -70,6 +66,7 @@ export default function AdsDashboardScreen({ navigation }: Props) {
         style={styles.header}
       >
         <View>
+          <Text style={styles.appName}>Maquillage Ph</Text>
           <Text style={styles.headerTitle}>Admin Dashboard</Text>
           <Text style={styles.headerSubtitle}>
             Welcome, {user?.name || 'Admin'}
@@ -87,38 +84,48 @@ export default function AdsDashboardScreen({ navigation }: Props) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Users Stats */}
-        <Text style={styles.sectionTitle}>Users</Text>
-        <View style={styles.statsGrid}>
-          <StatCard
-            icon={<Users size={20} color={COLORS.primary} />}
-            label="Professionals"
-            value={String(stats?.total_professionals || 0)}
-            subValue={`${stats?.active_professionals || 0} live`}
+        {/* Stats Pills */}
+        <View style={styles.statsContainer}>
+          <StatPill
+            label="Total Users"
+            value={String(stats?.total_users ?? 0)}
+            colors={[COLORS.gradientStart, '#e091c4']}
           />
-          <StatCard
-            icon={<UserCheck size={20} color="#4CAF50" />}
-            label="Clients"
-            value={String(stats?.total_clients || 0)}
+          <StatPill
+            label="Total Bookings"
+            value={String(stats?.total_bookings ?? 0)}
+            colors={['#d886c0', COLORS.gradientEnd]}
+          />
+          <StatPill
+            label="Total Earnings"
+            value={formatCurrency(stats?.total_earnings ?? 0)}
+            colors={[COLORS.gradientEnd, '#e8a898']}
           />
         </View>
 
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsContainer}>
+        <View style={styles.actionsGrid}>
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => (navigation as any).navigate('AdminManagePromotions')}
+            onPress={() => (navigation as any).navigate('AdminAnnouncement')}
+            activeOpacity={0.8}
           >
-            <LinearGradient
-              colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.actionGradient}
-            >
-              <Tag size={24} color={COLORS.white} />
-              <Text style={styles.actionText}>Manage Platform Promotions</Text>
-            </LinearGradient>
+            <View style={styles.actionIconContainer}>
+              <Megaphone size={36} color={COLORS.white} strokeWidth={1.5} />
+            </View>
+            <Text style={styles.actionLabel}>Announcement</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => (navigation as any).navigate('AdminManageAccounts')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.actionIconContainer}>
+              <Settings2 size={36} color={COLORS.white} strokeWidth={1.5} />
+            </View>
+            <Text style={styles.actionLabel}>Manage{'\n'}Accounts</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -126,26 +133,26 @@ export default function AdsDashboardScreen({ navigation }: Props) {
   );
 }
 
-function StatCard({
-  icon,
+function StatPill({
   label,
   value,
-  subValue,
-  wide,
+  colors,
 }: {
-  icon: React.ReactNode;
   label: string;
   value: string;
-  subValue?: string;
-  wide?: boolean;
+  colors: [string, string];
 }) {
   return (
-    <View style={[styles.statCard, wide && styles.statCardWide]}>
-      <View style={styles.statIcon}>{icon}</View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-      {subValue && <Text style={styles.statSubValue}>{subValue}</Text>}
-    </View>
+    <LinearGradient
+      colors={colors}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={styles.statPill}
+    >
+      <Text style={styles.statPillText}>
+        {label} :  {value}
+      </Text>
+    </LinearGradient>
   );
 }
 
@@ -160,6 +167,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.lg,
+  },
+  appName: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: '300',
+    color: COLORS.white,
+    fontStyle: 'italic',
+    marginBottom: 2,
   },
   headerTitle: {
     fontSize: FONT_SIZES.xxl,
@@ -190,81 +204,56 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     paddingBottom: SPACING.xxl,
   },
+  statsContainer: {
+    gap: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  statPill: {
+    borderRadius: RADIUS.xxl,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  statPillText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
   sectionTitle: {
     fontSize: FONT_SIZES.lg,
     fontWeight: '700',
     color: COLORS.textPrimary,
     marginBottom: SPACING.md,
-    marginTop: SPACING.md,
   },
-  statsGrid: {
+  actionsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  statCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    width: '48%',
-    flexGrow: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  statCardWide: {
-    width: '100%',
-  },
-  statIcon: {
-    marginBottom: SPACING.sm,
-  },
-  statValue: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  statLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  statSubValue: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.primary,
-    marginTop: 2,
-  },
-  actionsContainer: {
-    gap: SPACING.sm,
+    gap: SPACING.lg,
+    justifyContent: 'center',
   },
   actionCard: {
-    borderRadius: RADIUS.md,
-    overflow: 'hidden',
-  },
-  actionGradient: {
-    flexDirection: 'row',
+    flex: 1,
     alignItems: 'center',
-    gap: SPACING.md,
-    padding: SPACING.lg,
+    gap: SPACING.sm,
   },
-  actionText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  actionOutline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    padding: SPACING.lg,
+  actionIconContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(201,160,220,0.15)',
     borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderRadius: RADIUS.md,
+    borderColor: COLORS.gradientStart,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  actionOutlineText: {
+  actionLabel: {
     fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.primary,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+    textAlign: 'center',
   },
 });

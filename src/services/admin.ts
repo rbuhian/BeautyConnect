@@ -1,4 +1,8 @@
 import { supabase } from './supabase';
+import { FunctionsHttpError } from '@supabase/supabase-js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../constants';
+
+const ADMIN_FUNCTION_SECRET = 'maquillage_admin_2026';
 import {
   AdCreative,
   AdCreativeWithStats,
@@ -535,6 +539,8 @@ export async function getAdminDashboardStats(): Promise<ServiceResponse<AdminDas
       affiliateResult,
       professionalsResult,
       clientsResult,
+      bookingsResult,
+      earningsResult,
     ] = await Promise.all([
       supabase.from('ad_creatives').select('status', { count: 'exact' }),
       supabase.from('ad_impressions').select('*', { count: 'exact', head: true }),
@@ -543,6 +549,8 @@ export async function getAdminDashboardStats(): Promise<ServiceResponse<AdminDas
       supabase.from('affiliate_products').select('is_active', { count: 'exact' }),
       supabase.from('professional_profiles').select('is_live'),
       supabase.from('users').select('role', { count: 'exact' }).eq('role', 'client'),
+      supabase.from('bookings').select('*', { count: 'exact', head: true }),
+      supabase.from('bookings').select('total_amount').eq('status', 'completed'),
     ]);
 
     const ads = adsResult.data || [];
@@ -569,6 +577,10 @@ export async function getAdminDashboardStats(): Promise<ServiceResponse<AdminDas
     const activeProfessionals = professionals.filter((p: any) => p.is_live).length;
     const totalClients = clientsResult.count || 0;
 
+    const totalBookings = bookingsResult.count || 0;
+    const completedBookings = earningsResult.data || [];
+    const totalEarnings = completedBookings.reduce((sum: number, b: any) => sum + (b.total_amount || 0), 0);
+
     return {
       data: {
         total_ads: totalAds,
@@ -584,6 +596,9 @@ export async function getAdminDashboardStats(): Promise<ServiceResponse<AdminDas
         total_professionals: totalProfessionals,
         active_professionals: activeProfessionals,
         total_clients: totalClients,
+        total_users: totalProfessionals + totalClients,
+        total_bookings: totalBookings,
+        total_earnings: totalEarnings,
       },
       error: null,
     };
@@ -1218,5 +1233,123 @@ export async function reviewReport(
     return { data: null, error: null };
   } catch (err) {
     return { data: null, error: { message: 'Failed to review report' } };
+  }
+}
+
+// ============================================
+// ADMIN ANNOUNCEMENTS
+// ============================================
+
+export async function sendAdminAnnouncement(message: string): Promise<ServiceResponse> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from('announcements').insert({
+      message,
+      sent_by: user?.id || null,
+      created_at: new Date().toISOString(),
+    });
+    if (error) return { data: null, error: { message: error.message } };
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to send announcement' } };
+  }
+}
+
+// ============================================
+// ADMIN ACCOUNT MANAGEMENT
+// ============================================
+
+export interface AccountSearchResult {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string;
+  is_suspended: boolean;
+  avatar: string | null;
+}
+
+export async function searchAccountByEmail(
+  query: string
+): Promise<ServiceResponse<AccountSearchResult[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, email, role, is_suspended, avatar')
+      .ilike('email', `%${query}%`)
+      .limit(10);
+
+    if (error) return { data: null, error: { message: error.message } };
+    return { data: (data || []) as AccountSearchResult[], error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to search accounts' } };
+  }
+}
+
+export async function adminResetUserPassword(
+  userId: string,
+  newPassword: string
+): Promise<ServiceResponse> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-update-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        userId,
+        password: newPassword,
+        adminSecret: ADMIN_FUNCTION_SECRET,
+      }),
+    });
+
+    const body = await res.json();
+    if (!res.ok) return { data: null, error: { message: body?.error || `Error ${res.status}` } };
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to reset password' } };
+  }
+}
+
+export async function adminResetUserEmail(
+  userId: string,
+  newEmail: string
+): Promise<ServiceResponse> {
+  try {
+    const { error } = await supabase
+      .from('users')
+      .update({ email: newEmail, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+    if (error) return { data: null, error: { message: error.message } };
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to reset email' } };
+  }
+}
+
+export async function adminFreezeAccount(
+  userId: string,
+  freeze: boolean
+): Promise<ServiceResponse> {
+  try {
+    const { error } = await supabase
+      .from('users')
+      .update({ is_suspended: freeze, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+    if (error) return { data: null, error: { message: error.message } };
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to freeze account' } };
+  }
+}
+
+export async function adminDeleteAccount(userId: string): Promise<ServiceResponse> {
+  try {
+    const { error } = await supabase.from('users').delete().eq('id', userId);
+    if (error) return { data: null, error: { message: error.message } };
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to delete account' } };
   }
 }

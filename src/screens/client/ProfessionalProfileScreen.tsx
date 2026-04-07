@@ -100,8 +100,10 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
     : '?';
   const categories: string[] = professional.categories || [];
   const photos: string[] = professional.portfolio_photos || [];
-  const avgRating = professional.avg_rating ?? 0;
-  const totalReviews = professional.total_reviews ?? 0;
+  const totalReviews = reviews.length > 0 ? reviews.length : (professional.total_reviews ?? 0);
+  const avgRating = reviews.length > 0
+    ? reviews.reduce((sum: number, r: Review) => sum + r.rating, 0) / reviews.length
+    : (professional.avg_rating ?? 0);
 
   return (
     <LinearGradient

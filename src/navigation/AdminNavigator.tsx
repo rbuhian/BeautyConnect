@@ -1,8 +1,6 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BarChart3, Wallet, Users } from 'lucide-react-native';
 import { AdminStackParamList, AdminTabParamList } from './types';
 import { COLORS } from '../constants';
@@ -19,32 +17,20 @@ import AdminProfessionalDetailScreen from '../screens/admin/AdminProfessionalDet
 import AdminClientDetailScreen from '../screens/admin/AdminClientDetailScreen';
 import AdminVerificationDetailScreen from '../screens/admin/AdminVerificationDetailScreen';
 import AdminReportDetailScreen from '../screens/admin/AdminReportDetailScreen';
+import AdminAnnouncementScreen from '../screens/admin/AdminAnnouncementScreen';
+import AdminManageAccountsScreen from '../screens/admin/AdminManageAccountsScreen';
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
 const Stack = createNativeStackNavigator<AdminStackParamList>();
 
 function AdminTabs() {
-  const insets = useSafeAreaInsets();
-
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textLight,
-        tabBarStyle: {
-          borderTopLeftRadius: 30,
-          borderTopRightRadius: 30,
-          paddingTop: 10,
-          paddingBottom: 10 + insets.bottom,
-          height: 70 + insets.bottom,
-          backgroundColor: COLORS.white,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -5 },
-          shadowOpacity: 0.08,
-          shadowRadius: 20,
-          elevation: 20,
-        },
+        tabBarStyle: { display: 'none' },
         tabBarLabelStyle: {
           fontSize: 11,
           marginTop: 4,
@@ -91,6 +77,8 @@ export default function AdminNavigator() {
       <Stack.Screen name="AdminClientDetail" component={AdminClientDetailScreen} />
       <Stack.Screen name="AdminVerificationDetail" component={AdminVerificationDetailScreen} />
       <Stack.Screen name="AdminReportDetail" component={AdminReportDetailScreen} />
+      <Stack.Screen name="AdminAnnouncement" component={AdminAnnouncementScreen} />
+      <Stack.Screen name="AdminManageAccounts" component={AdminManageAccountsScreen} />
     </Stack.Navigator>
   );
 }

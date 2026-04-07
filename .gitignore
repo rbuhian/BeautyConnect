@@ -68,6 +68,5 @@ ehthumbs.db
 Desktop.ini
 
 # Credentials / secrets
-google-services.json
 GoogleService-Info.plist
 *.keystore

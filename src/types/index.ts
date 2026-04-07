@@ -383,6 +383,9 @@ export interface AdminDashboardStats {
   total_professionals: number;
   active_professionals: number;
   total_clients: number;
+  total_users: number;
+  total_bookings: number;
+  total_earnings: number;
 }
 
 // ============================================

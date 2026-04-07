@@ -77,6 +77,29 @@ export async function getDiscoverProfessionals(
       return { data: null, error: { message: error.message, code: error.code } };
     }
 
+    // Fetch review stats for all professionals in one query
+    const userIds = (data || []).map((p) => p.user_id).filter(Boolean);
+    const reviewStatsMap: Record<string, { avg: number; count: number }> = {};
+    if (userIds.length > 0) {
+      const { data: reviewRows } = await supabase
+        .from('reviews')
+        .select('reviewee_id, rating')
+        .in('reviewee_id', userIds);
+      if (reviewRows) {
+        reviewRows.forEach((r: any) => {
+          if (!reviewStatsMap[r.reviewee_id]) {
+            reviewStatsMap[r.reviewee_id] = { avg: 0, count: 0 };
+          }
+          reviewStatsMap[r.reviewee_id].count += 1;
+          reviewStatsMap[r.reviewee_id].avg += r.rating;
+        });
+        Object.keys(reviewStatsMap).forEach((id) => {
+          const s = reviewStatsMap[id];
+          s.avg = Math.round((s.avg / s.count) * 10) / 10;
+        });
+      }
+    }
+
     // Calculate min/max prices and distance
     let professionals = (data || []).map((pro) => {
       const activeServices = (pro.services || []).filter((s: Service) => s.is_active);
@@ -92,10 +115,13 @@ export async function getDiscoverProfessionals(
         );
       }
 
+      const stats = reviewStatsMap[pro.user_id];
       return {
         ...pro,
         min_price: prices.length > 0 ? Math.min(...prices) : 0,
         max_price: prices.length > 0 ? Math.max(...prices) : 0,
+        avg_rating: stats ? stats.avg : (pro.avg_rating ?? 0),
+        total_reviews: stats ? stats.count : (pro.total_reviews ?? 0),
         distance,
       };
     }) as ProfessionalWithDetails[];

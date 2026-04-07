@@ -9,6 +9,10 @@ import {
   Switch,
   Alert,
   Platform,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -22,6 +26,10 @@ import {
   ChevronRight,
   Smartphone,
   Info,
+  Lock,
+  X,
+  Eye,
+  EyeOff,
 } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
@@ -38,6 +46,16 @@ export default function SettingsScreen({ navigation }: any) {
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  // Change password modal
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     checkNotificationStatus();
@@ -116,7 +134,60 @@ export default function SettingsScreen({ navigation }: any) {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (!newPassword || !currentPassword) {
+      Alert.alert('Required', 'Please fill in all fields.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      Alert.alert('Too short', 'New password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Mismatch', 'New passwords do not match.');
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      // Re-authenticate with current password first
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: currentPassword,
+      });
+      if (signInError) {
+        Alert.alert('Incorrect Password', 'Your current password is incorrect.');
+        return;
+      }
+      // Update to new password
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
+      setShowPasswordModal(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      Alert.alert('Success', 'Your password has been changed.');
+    } catch {
+      Alert.alert('Error', 'Failed to change password. Please try again.');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   const settingsGroups = [
+    {
+      title: 'Account',
+      items: [
+        {
+          icon: Lock,
+          label: 'Change Password',
+          subtitle: 'Update your account password',
+          onPress: () => setShowPasswordModal(true),
+        },
+      ],
+    },
     {
       title: 'Notifications',
       items: [
@@ -308,6 +379,79 @@ export default function SettingsScreen({ navigation }: any) {
           )}
         </View>
       </ScrollView>
+
+      {/* Change Password Modal */}
+      <Modal visible={showPasswordModal} transparent animationType="slide" onRequestClose={() => setShowPasswordModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Change Password</Text>
+              <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
+                <X size={22} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputLabel}>Current Password</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                placeholder="Enter current password"
+                placeholderTextColor={COLORS.textSecondary}
+                secureTextEntry={!showCurrent}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowCurrent(!showCurrent)}>
+                {showCurrent ? <EyeOff size={20} color={COLORS.textSecondary} /> : <Eye size={20} color={COLORS.textSecondary} />}
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputLabel}>New Password</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="At least 6 characters"
+                placeholderTextColor={COLORS.textSecondary}
+                secureTextEntry={!showNew}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowNew(!showNew)}>
+                {showNew ? <EyeOff size={20} color={COLORS.textSecondary} /> : <Eye size={20} color={COLORS.textSecondary} />}
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputLabel}>Confirm New Password</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Repeat new password"
+                placeholderTextColor={COLORS.textSecondary}
+                secureTextEntry={!showConfirm}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
+                {showConfirm ? <EyeOff size={20} color={COLORS.textSecondary} /> : <Eye size={20} color={COLORS.textSecondary} />}
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.saveBtn, changingPassword && styles.saveBtnDisabled]}
+              onPress={handleChangePassword}
+              disabled={changingPassword}
+            >
+              {changingPassword
+                ? <ActivityIndicator color={COLORS.white} />
+                : <Text style={styles.saveBtnText}>Save New Password</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -399,5 +543,63 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     marginTop: SPACING.sm,
     maxWidth: '80%',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    paddingBottom: SPACING.xl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  modalTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  inputLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.inputBackground,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: SPACING.md,
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textPrimary,
+  },
+  saveBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.xxl,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+  },
+  saveBtnDisabled: { opacity: 0.6 },
+  saveBtnText: {
+    color: COLORS.white,
+    fontSize: FONT_SIZES.md,
+    fontWeight: '700',
   },
 });
