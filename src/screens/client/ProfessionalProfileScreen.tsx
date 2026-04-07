@@ -7,163 +7,63 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
-  Modal,
-  TextInput,
-  Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  ArrowLeft,
-  Heart,
-  Star,
-  MapPin,
-  Clock,
-  Calendar,
-  Home,
-  Building2,
-  Tag,
-  ShieldCheck,
-  MoreVertical,
-  UserX,
-  Flag,
-} from 'lucide-react-native';
-import * as Clipboard from 'expo-clipboard';
-import { GradientButton, Card, Loading } from '../../components';
+import { ArrowLeft, Star, MapPin, Clock, Calendar } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES, DEPOSIT_PERCENTAGE } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
-import { Service, Review, ServicePackage, Promotion } from '../../types';
+import { Service, Review } from '../../types';
 import {
   getProfessionalById,
   getProfessionalReviews,
   ProfessionalWithDetails,
-  getFavorites,
-  toggleFavorite,
 } from '../../services/client';
-import { getActivePackages } from '../../services/packages';
-import { getActivePromotions } from '../../services/promotions';
-import { blockUser, unblockUser, isUserBlocked, submitReport } from '../../services/reports';
-import { ReportReason } from '../../types';
+import StarRating from '../../components/StarRating';
+import { Loading } from '../../components';
 
 const { width } = Dimensions.get('window');
-const PORTFOLIO_IMAGE_SIZE = (width - SPACING.lg * 2 - SPACING.sm * 2) / 3;
+const PHOTO_SIZE = (width - SPACING.lg * 2 - SPACING.sm * 3) / 4;
+
+const CATEGORY_ICONS: Record<string, string> = {
+  makeup: '💄',
+  hair: '✂️',
+  nails: '💅',
+  lash: '👁️',
+  brow: '🪮',
+};
+
+const AVATAR_COLORS = ['#4DD9C0', '#E85D8A', '#F5C842', '#6B8EF5', '#E07B3A'];
 
 export default function ProfessionalProfileScreen({ navigation, route }: any) {
-  const { professionalId } = route.params;
+  const { professionalId, initialData } = route.params;
   const { user } = useAuth();
-  const [professional, setProfessional] = useState<ProfessionalWithDetails | null>(null);
+
+  const [professional, setProfessional] = useState<ProfessionalWithDetails | null>(
+    initialData || null
+  );
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [packages, setPackages] = useState<ServicePackage[]>([]);
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'services' | 'packages' | 'portfolio' | 'reviews'>('services');
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const [showOptionsModal, setShowOptionsModal] = useState(false);
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [selectedReason, setSelectedReason] = useState<ReportReason | null>(null);
-  const [reportDetails, setReportDetails] = useState('');
-  const [submittingReport, setSubmittingReport] = useState(false);
+  const [loading, setLoading] = useState(!initialData);
 
   const fetchData = useCallback(async () => {
     try {
-      const [proResult, reviewsResult, favResult, pkgResult, promoResult] = await Promise.all([
+      const [proResult, reviewsResult] = await Promise.all([
         getProfessionalById(professionalId),
         getProfessionalReviews(professionalId),
-        user?.id ? getFavorites(user.id) : Promise.resolve({ data: [] as string[] }),
-        getActivePackages(professionalId),
-        getActivePromotions(professionalId),
       ]);
-
-      if (proResult.data) {
-        setProfessional(proResult.data);
-        // Check block status once professional user id is known
-        if (proResult.data.user?.id) {
-          const blockRes = await isUserBlocked(proResult.data.user.id);
-          if (blockRes.data) setIsBlocked(true);
-        }
-      }
-      if (reviewsResult.data) {
-        setReviews(reviewsResult.data);
-      }
-      if (favResult.data) {
-        setIsFavorite(favResult.data.includes(professionalId));
-      }
-      if (pkgResult.data) {
-        setPackages(pkgResult.data);
-      }
-      if (promoResult.data) {
-        setPromotions(promoResult.data);
-      }
+      if (proResult.data) setProfessional(proResult.data);
+      if (reviewsResult.data) setReviews(reviewsResult.data);
     } catch (err) {
       console.error('Error fetching professional:', err);
     } finally {
       setLoading(false);
     }
-  }, [professionalId, user?.id]);
+  }, [professionalId]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const handleCopyCode = async (code: string) => {
-    await Clipboard.setStringAsync(code);
-    setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2000);
-  };
-
-  const handleToggleFavorite = async () => {
-    if (!user?.id) return;
-    setIsFavorite(!isFavorite);
-    await toggleFavorite(user.id, professionalId, !isFavorite);
-  };
-
-  const handleToggleBlock = () => {
-    if (!professional?.user?.id) return;
-    const name = professional.user.name || 'this professional';
-    if (isBlocked) {
-      Alert.alert('Unblock Professional', `Unblock ${name}? They will appear in Discover again.`, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unblock',
-          onPress: async () => {
-            await unblockUser(professional.user.id);
-            setIsBlocked(false);
-            setShowOptionsModal(false);
-          },
-        },
-      ]);
-    } else {
-      Alert.alert('Block Professional', `Block ${name}? They will no longer appear in Discover.`, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Block',
-          style: 'destructive',
-          onPress: async () => {
-            await blockUser(professional.user.id);
-            setIsBlocked(true);
-            setShowOptionsModal(false);
-          },
-        },
-      ]);
-    }
-  };
-
-  const handleSubmitReport = async () => {
-    if (!selectedReason || !professional?.user?.id) return;
-    setSubmittingReport(true);
-    const result = await submitReport(professional.user.id, selectedReason, reportDetails.trim() || undefined);
-    setSubmittingReport(false);
-    if (result.error) {
-      Alert.alert('Error', result.error.message);
-      return;
-    }
-    setShowReportModal(false);
-    setSelectedReason(null);
-    setReportDetails('');
-    Alert.alert('Report Submitted', 'Thank you. Our team will review your report.');
-  };
 
   const handleBookService = (service: Service) => {
     navigation.navigate('BookingFlow', {
@@ -174,1198 +74,388 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
     });
   };
 
-  const handleBookPackage = (pkg: ServicePackage) => {
-    // MVP: Book with the first service for time slot calculation,
-    // but use the package price
-    const firstService = pkg.package_services?.[0]?.service;
-    if (!firstService) {
-      return;
-    }
-    // Create a modified service with the package price for BookingFlow
-    const packageService: Service = {
-      ...firstService,
-      name: pkg.name,
-      price: pkg.total_price,
-      deposit_amount: pkg.total_price * DEPOSIT_PERCENTAGE,
-      // Use the longest service duration for time slot calculation
-      duration_minutes: (pkg.package_services || []).reduce(
-        (sum, ps) => sum + (ps.service?.duration_minutes || 0),
-        0
-      ),
-    };
-    navigation.navigate('BookingFlow', {
-      professionalId,
-      serviceId: firstService.id,
-      professional,
-      service: packageService,
-    });
-  };
-
-  const getLocationLabel = () => {
-    if (!professional) return '';
-    switch (professional.location_type) {
-      case 'home_service':
-        return 'Home Service Only';
-      case 'salon':
-        return 'Salon Only';
-      case 'both':
-        return 'Home Service & Salon';
-      default:
-        return '';
-    }
-  };
-
-  const activeServices = professional?.services?.filter((s) => s.is_active) || [];
-
-  const renderServiceCard = (service: Service) => {
-    const depositAmount = service.price * DEPOSIT_PERCENTAGE;
-
-    return (
-      <Card key={service.id} style={styles.serviceCard}>
-        <View style={styles.serviceHeader}>
-          <View style={styles.serviceInfo}>
-            <Text style={styles.serviceName}>{service.name}</Text>
-            <View style={styles.serviceMeta}>
-              <View style={styles.serviceMetaItem}>
-                <Clock size={14} color={COLORS.textSecondary} />
-                <Text style={styles.serviceMetaText}>{service.duration_minutes} mins</Text>
-              </View>
-              <View style={styles.categoryBadge}>
-                <Text style={styles.categoryBadgeText}>
-                  {CATEGORIES.find((c) => c.value === service.category)?.label}
-                </Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.servicePricing}>
-            <Text style={styles.servicePrice}>₱{service.price.toLocaleString()}</Text>
-            <Text style={styles.depositText}>
-              ₱{depositAmount.toLocaleString()} deposit
-            </Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.bookButton}
-          onPress={() => handleBookService(service)}
-        >
-          <LinearGradient
-            colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.bookButtonGradient}
-          >
-            <Calendar size={16} color={COLORS.white} />
-            <Text style={styles.bookButtonText}>Book Now</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </Card>
-    );
-  };
-
-  const renderPortfolio = () => (
-    <View style={styles.portfolioGrid}>
-      {professional?.portfolio_photos?.map((photo, index) => (
-        <TouchableOpacity key={index} style={styles.portfolioItem}>
-          <Image source={{ uri: photo }} style={styles.portfolioImage} />
-        </TouchableOpacity>
-      ))}
-      {(!professional?.portfolio_photos || professional.portfolio_photos.length === 0) && (
-        <Text style={styles.emptyText}>No portfolio photos yet</Text>
-      )}
-    </View>
-  );
-
-  const renderReview = (review: Review) => (
-    <Card key={review.id} style={styles.reviewCard}>
-      <View style={styles.reviewHeader}>
-        <View style={styles.reviewerInfo}>
-          {review.reviewer?.avatar ? (
-            <Image source={{ uri: review.reviewer.avatar }} style={styles.reviewerAvatar} />
-          ) : (
-            <LinearGradient
-              colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-              style={styles.reviewerAvatar}
-            >
-              <Text style={styles.reviewerInitial}>
-                {review.reviewer?.name?.[0]?.toUpperCase() || '?'}
-              </Text>
-            </LinearGradient>
-          )}
-          <View>
-            <Text style={styles.reviewerName}>{review.reviewer?.name || 'Anonymous'}</Text>
-            <Text style={styles.reviewService}>{review.service_name}</Text>
-          </View>
-        </View>
-        <View style={styles.ratingContainer}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Star
-              key={star}
-              size={14}
-              color="#FFB800"
-              fill={star <= review.rating ? '#FFB800' : 'transparent'}
-            />
-          ))}
-        </View>
-      </View>
-      <Text style={styles.reviewText}>{review.text}</Text>
-      <Text style={styles.reviewDate}>
-        {new Date(review.created_at).toLocaleDateString('en-PH', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        })}
-      </Text>
-    </Card>
-  );
-
-  if (loading) {
+  if (loading && !professional) {
     return <Loading fullScreen message="Loading profile..." />;
   }
 
   if (!professional) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <ArrowLeft size={24} color={COLORS.textPrimary} />
+      <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.gradient}>
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <ArrowLeft size={24} color={COLORS.white} />
           </TouchableOpacity>
-        </View>
-        <View style={styles.errorState}>
-          <Text style={styles.errorText}>Professional not found</Text>
-        </View>
-      </SafeAreaView>
+          <View style={styles.centered}>
+            <Text style={styles.errorText}>Profile not available</Text>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
+  const activeServices = professional.services?.filter((s: Service) => s.is_active) || [];
+  const avatarBg = AVATAR_COLORS[0];
+  const initials = professional.user?.name
+    ? professional.user.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+    : '?';
+  const categories: string[] = professional.categories || [];
+  const photos: string[] = professional.portfolio_photos || [];
+  const avgRating = professional.avg_rating ?? 0;
+  const totalReviews = professional.total_reviews ?? 0;
+
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Hero Section */}
-        <View style={styles.heroSection}>
-          {professional.portfolio_photos?.[0] ? (
-            <Image
-              source={{ uri: professional.portfolio_photos[0] }}
-              style={styles.heroImage}
-            />
-          ) : (
+    <LinearGradient
+      colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradient}
+    >
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        {/* Back button */}
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <ArrowLeft size={24} color={COLORS.white} />
+        </TouchableOpacity>
+
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+
+          {/* ── Profile Header ── */}
+          <View style={styles.profileHeader}>
+            <View style={[styles.avatarCircle, { backgroundColor: avatarBg }]}>
+              {professional.user?.avatar ? (
+                <Image source={{ uri: professional.user.avatar }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarInitials}>{initials}</Text>
+              )}
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.proName}>{professional.user?.name || 'Beauty Artist'}</Text>
+              <Text style={styles.proRole}>
+                {categories.length > 0
+                  ? categories.map((c: string) => CATEGORIES.find((cat) => cat.value === c)?.label).filter(Boolean).join(' and ') + ' Artist'
+                  : 'Beauty Professional'}
+              </Text>
+              <StarRating rating={avgRating} size={18} activeColor={COLORS.warning} inactiveColor="rgba(255,255,255,0.3)" spacing={2} />
+            </View>
+          </View>
+
+          {/* ── About Me ── */}
+          {professional.bio ? (
+            <View style={styles.card}>
+              <Text style={styles.cardLabel}>About Me</Text>
+              <Text style={styles.cardBody}>{professional.bio}</Text>
+            </View>
+          ) : null}
+
+          {/* ── Availability ── */}
+          <View style={styles.availabilityRow}>
             <LinearGradient
               colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-              style={styles.heroImage}
-            />
-          )}
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.6)']}
-            style={styles.heroOverlay}
-          />
-
-          {/* Header Actions */}
-          <SafeAreaView style={styles.headerActions} edges={['top']}>
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={() => navigation.goBack()}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.availabilityPill}
             >
-              <ArrowLeft size={22} color={COLORS.white} />
-            </TouchableOpacity>
-            <View style={styles.headerRight}>
-              <TouchableOpacity
-                style={styles.headerButton}
-                onPress={handleToggleFavorite}
-              >
-                <Heart
-                  size={22}
-                  color={isFavorite ? '#FF6B6B' : COLORS.white}
-                  fill={isFavorite ? '#FF6B6B' : 'transparent'}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.headerButton}
-                onPress={() => setShowOptionsModal(true)}
-              >
-                <MoreVertical size={22} color={COLORS.white} />
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-
-          {/* Profile Info Overlay */}
-          <View style={styles.profileOverlay}>
-            <View style={styles.profileHeader}>
-              <View style={styles.avatarWrapper}>
-                {professional.user?.avatar ? (
-                  <Image source={{ uri: professional.user.avatar }} style={styles.avatar} />
-                ) : (
-                  <LinearGradient
-                    colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-                    style={styles.avatar}
-                  >
-                    <Text style={styles.avatarText}>
-                      {professional.user?.name?.[0]?.toUpperCase() || '?'}
-                    </Text>
-                  </LinearGradient>
-                )}
-              </View>
-              <View style={styles.profileInfo}>
-                <View style={styles.proNameRow}>
-                  <Text style={styles.proName} numberOfLines={1}>
-                    {professional.user?.name || 'Beauty Professional'}
-                  </Text>
-                  {professional.is_verified && (
-                    <View style={styles.verifiedBadge}>
-                      <ShieldCheck size={12} color={COLORS.success} />
-                      <Text style={styles.verifiedBadgeText}>Verified</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.ratingRow}>
-                  <Star size={16} color="#FFB800" fill="#FFB800" />
-                  <Text style={styles.ratingText}>
-                    {professional.avg_rating?.toFixed(1) || '5.0'}
-                  </Text>
-                  <Text style={styles.reviewCount}>
-                    ({professional.total_reviews || 0} reviews)
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Main Content */}
-        <View style={styles.content}>
-          {/* Location & Categories */}
-          <View style={styles.infoSection}>
-            <View style={styles.infoRow}>
-              <MapPin size={16} color={COLORS.primary} />
-              <Text style={styles.infoText}>{professional.service_area || 'Metro Manila'}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              {professional.location_type === 'home_service' && (
-                <Home size={16} color={COLORS.primary} />
-              )}
-              {professional.location_type === 'salon' && (
-                <Building2 size={16} color={COLORS.primary} />
-              )}
-              {professional.location_type === 'both' && (
-                <>
-                  <Home size={16} color={COLORS.primary} />
-                  <Text style={styles.infoText}>&</Text>
-                  <Building2 size={16} color={COLORS.primary} />
-                </>
-              )}
-              <Text style={styles.infoText}>{getLocationLabel()}</Text>
-            </View>
-
-            <View style={styles.categoryChips}>
-              {professional.categories?.map((cat) => (
-                <View key={cat} style={styles.categoryChip}>
-                  <Text style={styles.categoryChipText}>
-                    {CATEGORIES.find((c) => c.value === cat)?.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
+              <Text style={styles.availabilityLabel}>Availability</Text>
+              <View style={styles.availabilityDivider} />
+              <Text style={styles.availabilityStatus}>
+                {professional.is_live ? 'Online' : 'Offline'}
+              </Text>
+              <Switch
+                value={!!professional.is_live}
+                disabled
+                trackColor={{ false: 'rgba(255,255,255,0.3)', true: '#4CAF50' }}
+                thumbColor={COLORS.white}
+                style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+              />
+            </LinearGradient>
           </View>
 
-          {/* Bio */}
-          {professional.bio && (
-            <View style={styles.bioSection}>
-              <Text style={styles.sectionTitle}>About</Text>
-              <Text style={styles.bioText}>{professional.bio}</Text>
-            </View>
-          )}
-
-          {/* Promotions Banner */}
-          {promotions.length > 0 && (
-            <View style={styles.promotionsBanner}>
-              {promotions.map((promo) => {
-                const isCopied = copiedCode === promo.code;
-                return (
-                  <TouchableOpacity
-                    key={promo.id}
-                    style={styles.promotionBannerCard}
-                    onPress={() => handleCopyCode(promo.code)}
-                    activeOpacity={0.75}
-                  >
-                    <View style={styles.promotionBannerLeft}>
-                      <Tag size={16} color={COLORS.primary} />
-                      <View style={styles.promotionBannerInfo}>
-                        <Text style={styles.promotionBannerTitle}>{promo.title}</Text>
-                        <Text style={styles.promotionBannerDiscount}>
-                          {promo.discount_type === 'percentage'
-                            ? `${promo.discount_value}% off`
-                            : `₱${promo.discount_value} off`}
-                          {promo.min_order_value > 0
-                            ? ` on orders ₱${promo.min_order_value}+`
-                            : ''}
-                        </Text>
-                      </View>
-                    </View>
-                    <View
-                      style={[
-                        styles.promotionCodeBadge,
-                        isCopied && styles.promotionCodeBadgeCopied,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.promotionCode,
-                          isCopied && styles.promotionCodeCopied,
-                        ]}
-                      >
-                        {isCopied ? 'Copied!' : promo.code}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-              <Text style={styles.promotionHint}>Tap a code to copy it</Text>
-            </View>
-          )}
-
-          {/* Tabs */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.tabsScroll}
-            contentContainerStyle={styles.tabs}
-          >
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'services' && styles.tabActive]}
-              onPress={() => setActiveTab('services')}
-            >
-              <Text
-                style={[styles.tabText, activeTab === 'services' && styles.tabTextActive]}
-                numberOfLines={1}
-              >
-                Services ({activeServices.length})
-              </Text>
-            </TouchableOpacity>
-            {packages.length > 0 && (
-              <TouchableOpacity
-                style={[styles.tab, activeTab === 'packages' && styles.tabActive]}
-                onPress={() => setActiveTab('packages')}
-              >
-                <Text
-                  style={[styles.tabText, activeTab === 'packages' && styles.tabTextActive]}
-                  numberOfLines={1}
-                >
-                  Packages ({packages.length})
-                </Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'portfolio' && styles.tabActive]}
-              onPress={() => setActiveTab('portfolio')}
-            >
-              <Text
-                style={[styles.tabText, activeTab === 'portfolio' && styles.tabTextActive]}
-                numberOfLines={1}
-              >
-                Portfolio
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'reviews' && styles.tabActive]}
-              onPress={() => setActiveTab('reviews')}
-            >
-              <Text
-                style={[styles.tabText, activeTab === 'reviews' && styles.tabTextActive]}
-                numberOfLines={1}
-              >
-                Reviews ({reviews.length})
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-
-          {/* Tab Content */}
-          <View style={styles.tabContent}>
-            {activeTab === 'services' && (
-              <>
-                {activeServices.length === 0 ? (
-                  <Text style={styles.emptyText}>No services available</Text>
-                ) : (
-                  activeServices.map(renderServiceCard)
-                )}
-              </>
-            )}
-            {activeTab === 'packages' && (
-              <>
-                {packages.map((pkg) => {
-                  const originalPrice = (pkg.package_services || []).reduce(
-                    (sum, ps) => sum + (ps.service?.price || 0),
-                    0
-                  );
-                  const totalDuration = (pkg.package_services || []).reduce(
-                    (sum, ps) => sum + (ps.service?.duration_minutes || 0),
-                    0
-                  );
-
+          {/* ── Services Offered ── */}
+          {categories.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Services Offered</Text>
+              <View style={styles.categoryTiles}>
+                {categories.map((cat: string) => {
+                  const catInfo = CATEGORIES.find((c) => c.value === cat);
                   return (
-                    <Card key={pkg.id} style={styles.serviceCard}>
-                      <View style={styles.serviceHeader}>
-                        <View style={styles.serviceInfo}>
-                          <Text style={styles.serviceName}>{pkg.name}</Text>
-                          {pkg.discount_pct > 0 && (
-                            <View style={styles.packageDiscountBadge}>
-                              <Text style={styles.packageDiscountText}>
-                                {pkg.discount_pct}% OFF
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                        <View style={styles.servicePricing}>
-                          {originalPrice > pkg.total_price && (
-                            <Text style={styles.packageOriginalPrice}>
-                              ₱{originalPrice.toLocaleString()}
-                            </Text>
-                          )}
-                          <Text style={styles.servicePrice}>
-                            ₱{pkg.total_price.toLocaleString()}
-                          </Text>
-                          <Text style={styles.depositText}>
-                            ₱{(pkg.total_price * DEPOSIT_PERCENTAGE).toLocaleString()} deposit
-                          </Text>
-                        </View>
-                      </View>
-
-                      {pkg.description && (
-                        <Text style={styles.packageDescriptionText}>
-                          {pkg.description}
-                        </Text>
-                      )}
-
-                      <View style={styles.packageServicesList}>
-                        {(pkg.package_services || []).map((ps) => (
-                          <View key={ps.id} style={styles.packageServiceItem}>
-                            <View style={styles.packageServiceDot} />
-                            <Text style={styles.packageServiceName}>
-                              {ps.service?.name || 'Service'}
-                            </Text>
-                            <Text style={styles.packageServiceDuration}>
-                              {ps.service?.duration_minutes || 0} mins
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-
-                      <View style={styles.serviceMeta}>
-                        <View style={styles.serviceMetaItem}>
-                          <Clock size={14} color={COLORS.textSecondary} />
-                          <Text style={styles.serviceMetaText}>
-                            {totalDuration} mins total
-                          </Text>
-                        </View>
-                      </View>
-
-                      <TouchableOpacity
-                        style={styles.bookButton}
-                        onPress={() => handleBookPackage(pkg)}
-                      >
-                        <LinearGradient
-                          colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.bookButtonGradient}
-                        >
-                          <Calendar size={16} color={COLORS.white} />
-                          <Text style={styles.bookButtonText}>Book Package</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    </Card>
+                    <LinearGradient
+                      key={cat}
+                      colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+                      style={styles.categoryTile}
+                    >
+                      <Text style={styles.categoryTileLabel}>{catInfo?.label || cat}</Text>
+                      <Text style={styles.categoryTileIcon}>{CATEGORY_ICONS[cat] || '✨'}</Text>
+                    </LinearGradient>
                   );
                 })}
-              </>
-            )}
-            {activeTab === 'portfolio' && renderPortfolio()}
-            {activeTab === 'reviews' && (
-              <>
-                {reviews.length === 0 ? (
-                  <Text style={styles.emptyText}>No reviews yet</Text>
-                ) : (
-                  reviews.map(renderReview)
-                )}
-              </>
-            )}
-          </View>
-        </View>
-      </ScrollView>
+              </View>
 
-      {/* Options modal */}
-      <Modal
-        visible={showOptionsModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowOptionsModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowOptionsModal(false)}
-        >
-          <View style={styles.optionsSheet}>
-            <TouchableOpacity
-              style={styles.optionRow}
-              onPress={handleToggleBlock}
-            >
-              <UserX size={20} color={isBlocked ? COLORS.textSecondary : COLORS.error} />
-              <Text style={[styles.optionText, isBlocked && { color: COLORS.textSecondary }]}>
-                {isBlocked ? `Unblock ${professional?.user?.name || 'Professional'}` : `Block ${professional?.user?.name || 'Professional'}`}
-              </Text>
-            </TouchableOpacity>
-            <View style={styles.optionDivider} />
-            <TouchableOpacity
-              style={styles.optionRow}
-              onPress={() => {
-                setShowOptionsModal(false);
-                setShowReportModal(true);
-              }}
-            >
-              <Flag size={20} color={COLORS.error} />
-              <Text style={[styles.optionText, { color: COLORS.error }]}>
-                Report {professional?.user?.name || 'Professional'}
-              </Text>
-            </TouchableOpacity>
-            <View style={styles.optionDivider} />
-            <TouchableOpacity
-              style={styles.optionRow}
-              onPress={() => setShowOptionsModal(false)}
-            >
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+              {/* Bookable services */}
+              {activeServices.length > 0 && (
+                <View style={styles.serviceList}>
+                  {activeServices.map((service: Service) => (
+                    <View key={service.id} style={styles.serviceRow}>
+                      <View style={styles.serviceInfo}>
+                        <Text style={styles.serviceName}>{service.name}</Text>
+                        <View style={styles.serviceMeta}>
+                          <Clock size={12} color="rgba(255,255,255,0.7)" />
+                          <Text style={styles.serviceMetaText}>{service.duration_minutes} mins</Text>
+                          <Text style={styles.servicePrice}>₱{service.price.toLocaleString()}</Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.bookBtn}
+                        onPress={() => handleBookService(service)}
+                      >
+                        <Calendar size={14} color={COLORS.white} />
+                        <Text style={styles.bookBtnText}>Book</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
 
-      {/* Report modal */}
-      <Modal
-        visible={showReportModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowReportModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.reportSheet}>
-            <Text style={styles.reportTitle}>Report Professional</Text>
-            <Text style={styles.reportSubtitle}>Select a reason:</Text>
-            <View style={styles.reasonGrid}>
-              {([
-                ['harassment', 'Harassment'],
-                ['inappropriate_content', 'Inappropriate Content'],
-                ['fraud', 'Fraud'],
-                ['unsafe_practices', 'Unsafe Practices'],
-                ['no_show', 'No-Show'],
-                ['spam', 'Spam'],
-                ['other', 'Other'],
-              ] as [ReportReason, string][]).map(([value, label]) => (
+          {/* ── Photo Gallery ── */}
+          {photos.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionRow}>
+                <Text style={styles.sectionTitle}>Photo Gallery</Text>
                 <TouchableOpacity
-                  key={value}
-                  style={[styles.reasonPill, selectedReason === value && styles.reasonPillSelected]}
-                  onPress={() => setSelectedReason(value)}
+                  onPress={() => navigation.navigate('Gallery', {
+                    photos,
+                    title: `${professional.user?.name || 'Artist'}'s Gallery`,
+                  })}
                 >
-                  <Text style={[styles.reasonPillText, selectedReason === value && styles.reasonPillTextSelected]}>
-                    {label}
-                  </Text>
+                  <Text style={styles.seeAll}>See all &gt;</Text>
                 </TouchableOpacity>
-              ))}
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
+                {photos.map((uri: string, i: number) => (
+                  <Image key={i} source={{ uri }} style={styles.galleryPhoto} />
+                ))}
+              </ScrollView>
             </View>
-            <TextInput
-              style={styles.reportInput}
-              value={reportDetails}
-              onChangeText={setReportDetails}
-              placeholder="Additional details (optional)..."
-              placeholderTextColor={COLORS.textSecondary}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-            <View style={styles.reportActions}>
-              <TouchableOpacity
-                style={[styles.reportBtn, styles.reportCancelBtn]}
-                onPress={() => { setShowReportModal(false); setSelectedReason(null); setReportDetails(''); }}
-              >
-                <Text style={styles.reportCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.reportBtn, styles.reportSubmitBtn, !selectedReason && styles.reportSubmitDisabled]}
-                onPress={handleSubmitReport}
-                disabled={!selectedReason || submittingReport}
-              >
-                <Text style={styles.reportSubmitText}>
-                  {submittingReport ? 'Submitting...' : 'Submit Report'}
-                </Text>
+          )}
+
+          {/* ── Ratings and Reviews ── */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Ratings and Reviews</Text>
+
+            {/* Summary card */}
+            <View style={styles.ratingSummary}>
+              <Text style={styles.ratingBig}>{avgRating.toFixed(1)}</Text>
+              <StarRating rating={avgRating} size={18} activeColor={COLORS.warning} inactiveColor="rgba(255,255,255,0.3)" spacing={2} />
+              <Text style={styles.ratingCount}>{totalReviews} reviews</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Reviews')}>
+                <Text style={styles.seeAll}>&gt;</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Individual reviews */}
+            {reviews.slice(0, 5).map((review: Review) => (
+              <View key={review.id} style={styles.reviewCard}>
+                <View style={styles.reviewerRow}>
+                  {review.reviewer?.avatar ? (
+                    <Image source={{ uri: review.reviewer.avatar }} style={styles.reviewerAvatar} />
+                  ) : (
+                    <View style={[styles.reviewerAvatar, styles.reviewerAvatarPlaceholder]}>
+                      <Text style={styles.reviewerInitial}>
+                        {review.reviewer?.name?.[0]?.toUpperCase() || '?'}
+                      </Text>
+                    </View>
+                  )}
+                  <View>
+                    <Text style={styles.reviewerName}>{review.reviewer?.name || 'Anonymous'}</Text>
+                    <StarRating rating={review.rating} size={14} activeColor={COLORS.warning} inactiveColor="rgba(255,255,255,0.3)" spacing={1} />
+                  </View>
+                </View>
+                <Text style={styles.reviewText}>{review.text}</Text>
+              </View>
+            ))}
+
+            {reviews.length === 0 && (
+              <Text style={styles.emptyText}>No reviews yet.</Text>
+            )}
           </View>
-        </View>
-      </Modal>
-    </View>
+
+          {/* Bottom spacer */}
+          <View style={{ height: SPACING.xl }} />
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  heroSection: {
-    height: 280,
-    position: 'relative',
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-  },
-  heroOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  headerActions: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-  },
-  headerButton: {
+  gradient: { flex: 1 },
+  safeArea: { flex: 1 },
+  scrollContent: { paddingBottom: SPACING.xl },
+  backBtn: {
+    marginLeft: SPACING.lg,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  profileOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: SPACING.lg,
-  },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { color: COLORS.white, fontSize: FONT_SIZES.md },
+
+  // Profile header
   profileHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.lg,
+    gap: SPACING.md,
   },
-  avatarWrapper: {
-    marginRight: SPACING.md,
-  },
-  avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    borderWidth: 3,
-    borderColor: COLORS.white,
+  avatarCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
-  avatarText: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: '600',
-    color: COLORS.white,
+  avatarImage: { width: 80, height: 80, borderRadius: 40 },
+  avatarInitials: { color: COLORS.white, fontWeight: '700', fontSize: 28 },
+  profileInfo: { flex: 1, gap: 4 },
+  proName: { fontSize: FONT_SIZES.xl, fontWeight: '700', color: COLORS.white },
+  proRole: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.8)' },
+
+  // About Me card
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    marginHorizontal: SPACING.lg,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
-  profileInfo: {
-    flex: 1,
+  cardLabel: { fontSize: FONT_SIZES.sm, fontWeight: '700', color: COLORS.white, marginBottom: SPACING.xs },
+  cardBody: { fontSize: FONT_SIZES.sm, color: 'rgba(255,255,255,0.9)', lineHeight: 20 },
+
+  // Availability
+  availabilityRow: {
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
   },
-  proNameRow: {
+  availabilityPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.xs,
-    flexWrap: 'wrap',
-  },
-  proName: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: RADIUS.round,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-  },
-  verifiedBadgeText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  ratingText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  reviewCount: {
-    fontSize: FONT_SIZES.sm,
-    color: 'rgba(255,255,255,0.8)',
-  },
-  content: {
-    padding: SPACING.lg,
-  },
-  infoSection: {
-    marginBottom: SPACING.lg,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  infoText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-  },
-  categoryChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-    marginTop: SPACING.sm,
-  },
-  categoryChip: {
-    backgroundColor: COLORS.chipBackground,
+    borderRadius: RADIUS.xxl,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.xl,
+    gap: SPACING.sm,
   },
-  categoryChipText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textPrimary,
-  },
-  bioSection: {
+  availabilityLabel: { color: COLORS.white, fontWeight: '600', fontSize: FONT_SIZES.sm },
+  availabilityDivider: { flex: 1 },
+  availabilityStatus: { color: COLORS.white, fontSize: FONT_SIZES.sm },
+
+  // Sections
+  section: {
+    paddingHorizontal: SPACING.lg,
     marginBottom: SPACING.lg,
   },
   sectionTitle: {
     fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
+    fontWeight: '700',
+    color: COLORS.white,
     marginBottom: SPACING.sm,
   },
-  bioText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    lineHeight: 22,
-  },
-  tabsScroll: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    marginBottom: SPACING.md,
-  },
-  tabs: {
-    flexDirection: 'row',
-  },
-  tab: {
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    alignItems: 'center',
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: COLORS.primary,
-  },
-  tabText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '500',
-    color: COLORS.textSecondary,
-  },
-  tabTextActive: {
-    color: COLORS.primary,
-  },
-  tabContent: {
-    minHeight: 200,
-  },
-  serviceCard: {
-    marginBottom: SPACING.md,
-  },
-  serviceHeader: {
+  sectionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  seeAll: { color: 'rgba(255,255,255,0.8)', fontSize: FONT_SIZES.sm },
+
+  // Category tiles
+  categoryTiles: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
     marginBottom: SPACING.md,
   },
-  serviceInfo: {
-    flex: 1,
-  },
-  serviceName: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.xs,
-  },
-  serviceMeta: {
-    flexDirection: 'row',
+  categoryTile: {
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
     alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  serviceMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    minWidth: 90,
     gap: SPACING.xs,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
-  serviceMetaText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
+  categoryTileLabel: { color: COLORS.white, fontSize: FONT_SIZES.xs, fontWeight: '600', textAlign: 'center' },
+  categoryTileIcon: { fontSize: 24 },
+
+  // Service list
+  serviceList: { gap: SPACING.sm },
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    gap: SPACING.md,
   },
-  categoryBadge: {
-    backgroundColor: COLORS.chipBackground,
+  serviceInfo: { flex: 1 },
+  serviceName: { color: COLORS.white, fontWeight: '600', fontSize: FONT_SIZES.sm, marginBottom: 4 },
+  serviceMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  serviceMetaText: { color: 'rgba(255,255,255,0.7)', fontSize: FONT_SIZES.xs },
+  servicePrice: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZES.sm },
+  bookBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.sm,
   },
-  categoryBadgeText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textPrimary,
-  },
-  servicePricing: {
-    alignItems: 'flex-end',
-  },
-  servicePrice: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
-  depositText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-  },
-  bookButton: {
+  bookBtnText: { color: COLORS.white, fontSize: FONT_SIZES.xs, fontWeight: '600' },
+
+  // Photo gallery
+  photoScroll: { marginTop: SPACING.xs },
+  galleryPhoto: {
+    width: 90,
+    height: 90,
     borderRadius: RADIUS.md,
-    overflow: 'hidden',
+    marginRight: SPACING.sm,
   },
-  bookButtonGradient: {
+
+  // Ratings
+  ratingSummary: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.sm,
     gap: SPACING.sm,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
   },
-  bookButtonText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  portfolioGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  portfolioItem: {
-    width: PORTFOLIO_IMAGE_SIZE,
-    height: PORTFOLIO_IMAGE_SIZE,
-    borderRadius: RADIUS.md,
-    overflow: 'hidden',
-  },
-  portfolioImage: {
-    width: '100%',
-    height: '100%',
-  },
+  ratingBig: { fontSize: FONT_SIZES.xl, fontWeight: '700', color: COLORS.white },
+  ratingCount: { color: 'rgba(255,255,255,0.8)', fontSize: FONT_SIZES.sm, flex: 1 },
+
+  // Review cards
   reviewCard: {
-    marginBottom: SPACING.md,
-  },
-  reviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: SPACING.sm,
-  },
-  reviewerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  reviewerAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  reviewerInitial: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  reviewerName: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  reviewService: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  reviewText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
-    marginBottom: SPACING.sm,
-  },
-  reviewDate: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textLight,
-  },
-  packageDiscountBadge: {
-    backgroundColor: COLORS.success,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
-    borderRadius: RADIUS.sm,
-    marginTop: SPACING.xs,
-    alignSelf: 'flex-start',
-  },
-  packageDiscountText: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
-    color: COLORS.white,
-  },
-  packageOriginalPrice: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textLight,
-    textDecorationLine: 'line-through',
-  },
-  packageDescriptionText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.sm,
-    lineHeight: 20,
-  },
-  packageServicesList: {
-    marginBottom: SPACING.sm,
-    paddingVertical: SPACING.sm,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: COLORS.border,
-  },
-  packageServiceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    paddingVertical: 3,
-  },
-  packageServiceDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.primary,
-  },
-  packageServiceName: {
-    flex: 1,
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textPrimary,
-  },
-  packageServiceDuration: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-  },
-  promotionsBanner: {
-    marginBottom: SPACING.md,
-    gap: SPACING.sm,
-  },
-  promotionBannerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.primaryLight,
-    borderRadius: RADIUS.md,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: RADIUS.lg,
     padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderStyle: 'dashed',
+    marginBottom: SPACING.sm,
   },
-  promotionBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-    flex: 1,
-  },
-  promotionBannerInfo: {
-    flex: 1,
-  },
-  promotionBannerTitle: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  promotionBannerDiscount: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.primary,
-    fontWeight: '500',
-  },
-  promotionCodeBadge: {
-    backgroundColor: COLORS.white,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: RADIUS.sm,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    minWidth: 70,
-    alignItems: 'center',
-  },
-  promotionCodeBadgeCopied: {
-    backgroundColor: COLORS.success,
-    borderColor: COLORS.success,
-  },
-  promotionCode: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '800',
-    color: COLORS.primary,
-    letterSpacing: 1,
-  },
-  promotionCodeCopied: {
-    color: COLORS.white,
-    letterSpacing: 0,
-  },
-  promotionHint: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  emptyText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    paddingVertical: SPACING.xl,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.lg,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    gap: SPACING.xs,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: COLORS.overlay,
-    justifyContent: 'flex-end',
-  },
-  optionsSheet: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.xl,
-    borderTopRightRadius: RADIUS.xl,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.xxl,
-    paddingHorizontal: SPACING.lg,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    paddingVertical: SPACING.md,
-  },
-  optionText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '500',
-    color: COLORS.textPrimary,
-  },
-  optionDivider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-  },
-  cancelText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    width: '100%',
-  },
-  reportSheet: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.xl,
-    borderTopRightRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    paddingBottom: SPACING.xxl,
-  },
-  reportTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-    marginBottom: 4,
-  },
-  reportSubtitle: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
-  },
-  reasonGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-    marginBottom: SPACING.md,
-  },
-  reasonPill: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.chipBackground,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  reasonPillSelected: {
-    backgroundColor: COLORS.primaryLight,
-    borderColor: COLORS.primary,
-  },
-  reasonPillText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  reasonPillTextSelected: {
-    color: COLORS.primary,
-    fontWeight: '700',
-  },
-  reportInput: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textPrimary,
-    minHeight: 80,
-    marginBottom: SPACING.lg,
-  },
-  reportActions: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-  },
-  reportBtn: {
-    flex: 1,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-  },
-  reportCancelBtn: { backgroundColor: COLORS.chipBackground },
-  reportSubmitBtn: { backgroundColor: COLORS.error },
-  reportSubmitDisabled: { opacity: 0.5 },
-  reportCancelText: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.textPrimary },
-  reportSubmitText: { fontSize: FONT_SIZES.md, fontWeight: '700', color: COLORS.white },
+  reviewerRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
+  reviewerAvatar: { width: 36, height: 36, borderRadius: 18 },
+  reviewerAvatarPlaceholder: { backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' },
+  reviewerInitial: { color: COLORS.white, fontWeight: '700', fontSize: FONT_SIZES.sm },
+  reviewerName: { color: COLORS.white, fontWeight: '600', fontSize: FONT_SIZES.sm, marginBottom: 2 },
+  reviewText: { color: 'rgba(255,255,255,0.85)', fontSize: FONT_SIZES.sm, lineHeight: 18 },
+  emptyText: { color: 'rgba(255,255,255,0.6)', fontSize: FONT_SIZES.sm, textAlign: 'center', paddingVertical: SPACING.md },
 });

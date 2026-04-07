@@ -17,8 +17,8 @@ export type AuthStackParamList = {
 
 // Client Tab Navigator
 export type ClientTabParamList = {
-  Discover: undefined;
-  Bookings: undefined;
+  Home: undefined;
+  Book: undefined;
   Messages: undefined;
   Profile: undefined;
 };
@@ -26,7 +26,8 @@ export type ClientTabParamList = {
 // Client Stack (within tabs)
 export type ClientStackParamList = {
   ClientTabs: NavigatorScreenParams<ClientTabParamList>;
-  ProfessionalProfile: { professional: ProfessionalProfile };
+  ProfessionalProfile: { professionalId: string; initialData?: any };
+  Bookings: undefined;
   BookingFlow: { professional: ProfessionalProfile };
   BookingDetail: { booking?: Booking; bookingId?: string };
   Chat: { bookingId: string };
@@ -37,6 +38,7 @@ export type ClientStackParamList = {
     professionalName: string;
     professionalAvatar: string | null;
   };
+  Gallery: { photos: string[]; title?: string };
   Reviews: undefined;
   Favorites: undefined;
   EditProfile: undefined;

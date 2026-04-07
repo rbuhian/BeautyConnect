@@ -1,25 +1,27 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Search, Calendar, MessageCircle, User } from 'lucide-react-native';
+import { Home, BookOpen, MessageCircle, User } from 'lucide-react-native';
 import { ClientStackParamList, ClientTabParamList } from './types';
 import { COLORS } from '../constants';
 import { useUnreadMessages } from '../hooks/useUnreadMessages';
 
-// Tab Screens (will be created later)
+// Tab Screens
+import HomeScreen from '../screens/client/HomeScreen';
 import DiscoverScreen from '../screens/client/DiscoverScreen';
-import BookingsScreen from '../screens/client/BookingsScreen';
 import MessagesScreen from '../screens/client/MessagesScreen';
 import ProfileScreen from '../screens/client/ProfileScreen';
 
-// Stack Screens (will be created later)
+// Stack Screens
 import ProfessionalProfileScreen from '../screens/client/ProfessionalProfileScreen';
 import BookingFlowScreen from '../screens/client/BookingFlowScreen';
 import BookingDetailScreen from '../screens/client/BookingDetailScreen';
+import BookingsScreen from '../screens/client/BookingsScreen';
 import ChatScreen from '../screens/shared/ChatScreen';
 import WriteReviewScreen from '../screens/client/WriteReviewScreen';
+import GalleryScreen from '../screens/client/GalleryScreen';
 import ClientReviewsScreen from '../screens/client/ClientReviewsScreen';
 import FavoritesScreen from '../screens/client/FavoritesScreen';
 import EditProfileScreen from '../screens/shared/EditProfileScreen';
@@ -30,6 +32,8 @@ import PaymentsScreen from '../screens/client/PaymentsScreen';
 const Tab = createBottomTabNavigator<ClientTabParamList>();
 const Stack = createNativeStackNavigator<ClientStackParamList>();
 
+const TAB_BG = '#2D1040';
+
 function ClientTabs() {
   const insets = useSafeAreaInsets();
   const { unreadCount } = useUnreadMessages();
@@ -39,38 +43,33 @@ function ClientTabs() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textLight,
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.5)',
         tabBarStyle: {
-          borderTopLeftRadius: 30,
-          borderTopRightRadius: 30,
+          borderTopWidth: 0,
           paddingTop: 10,
           paddingBottom: 10 + insets.bottom,
           height: 70 + insets.bottom,
-          backgroundColor: COLORS.white,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -5 },
-          shadowOpacity: 0.08,
-          shadowRadius: 20,
-          elevation: 20,
+          backgroundColor: TAB_BG,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          marginTop: 4,
+          marginTop: 2,
+          fontWeight: '500',
         },
       }}
     >
       <Tab.Screen
-        name="Discover"
-        component={DiscoverScreen}
+        name="Home"
+        component={HomeScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <Search size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
         }}
       />
       <Tab.Screen
-        name="Bookings"
-        component={BookingsScreen}
+        name="Book"
+        component={DiscoverScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <BookOpen size={size} color={color} />,
         }}
       />
       <Tab.Screen
@@ -105,8 +104,10 @@ export default function ClientNavigator() {
       <Stack.Screen name="ProfessionalProfile" component={ProfessionalProfileScreen} />
       <Stack.Screen name="BookingFlow" component={BookingFlowScreen as any} />
       <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
+      <Stack.Screen name="Bookings" component={BookingsScreen} />
       <Stack.Screen name="Chat" component={ChatScreen} />
       <Stack.Screen name="WriteReview" component={WriteReviewScreen} />
+      <Stack.Screen name="Gallery" component={GalleryScreen} />
       <Stack.Screen name="Reviews" component={ClientReviewsScreen} />
       <Stack.Screen name="Favorites" component={FavoritesScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />

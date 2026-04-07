@@ -36,7 +36,7 @@ import {
 } from '../../services/professional';
 import { getReviewsReceived, ReviewWithDetails } from '../../services/review';
 import { getActiveAds } from '../../services/ads';
-import { B2BBannerAd, BoostProfileCard } from '../../components/ads';
+import { B2BBannerAd } from '../../components/ads';
 import { useNotificationContext } from '../../contexts/NotificationContext';
 import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 
@@ -226,10 +226,6 @@ export default function DashboardScreen({
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Boost Profile CTA */}
-        <BoostProfileCard
-          onPress={() => navigation.navigate('BoostProfile' as never)}
-        />
 
         {/* Quick Stats */}
         <View style={styles.statsRow}>

@@ -1,837 +1,242 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   TextInput,
-  RefreshControl,
   FlatList,
-  Modal,
-  Dimensions,
+  Image,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Location from 'expo-location';
-import {
-  Search,
-  SlidersHorizontal,
-  Heart,
-  X,
-  Check,
-  Bell,
-  Map,
-  List,
-} from 'lucide-react-native';
-import { Card, Loading, EmptyState, SkeletonList, ProfessionalCard, DiscoverMapView } from '../../components';
-import { COLORS, SPACING, FONT_SIZES, RADIUS, CATEGORIES, LOCATION_TYPES, PRICE_RANGES, DISTANCE_OPTIONS } from '../../constants';
+import { MapPin, X } from 'lucide-react-native';
+import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
-import { ProfessionalFilters, Category, LocationType, PriceRange } from '../../types';
 import {
   getDiscoverProfessionals,
   searchProfessionals,
   ProfessionalWithDetails,
-  getFavorites,
-  toggleFavorite,
-  UserLocation,
 } from '../../services/client';
 import { getBlockedUserIds } from '../../services/reports';
-import { getFeaturedProfessionals, getActiveAds } from '../../services/ads';
-import { FeedAdCard, SponsoredContentCard } from '../../components/ads';
-import { AdCreative, DiscoverFeedItem } from '../../types';
-import { AD_CONFIG } from '../../constants';
-import { useNotificationContext } from '../../contexts/NotificationContext';
+import StarRating from '../../components/StarRating';
+import { Loading } from '../../components';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = width - SPACING.lg * 2;
+const AVATAR_COLORS = ['#4DD9C0', '#E85D8A', '#F5C842', '#6B8EF5', '#E07B3A'];
+
+function AvatarCircle({
+  uri,
+  name,
+  index,
+  size = 64,
+}: {
+  uri?: string | null;
+  name?: string | null;
+  index: number;
+  size?: number;
+}) {
+  const bg = AVATAR_COLORS[index % AVATAR_COLORS.length];
+  const initials = name
+    ? name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
+    : '?';
+
+  return (
+    <View style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }]}>
+      {uri ? (
+        <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
+      ) : (
+        <Text style={{ color: COLORS.white, fontWeight: '700', fontSize: size * 0.3 }}>{initials}</Text>
+      )}
+    </View>
+  );
+}
 
 export default function DiscoverScreen({ navigation }: any) {
   const { user } = useAuth();
-  const { unreadCount } = useNotificationContext();
   const [professionals, setProfessionals] = useState<ProfessionalWithDetails[]>([]);
-  const [feedItems, setFeedItems] = useState<DiscoverFeedItem[]>([]);
-  const [favorites, setFavorites] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<ProfessionalFilters>({});
-  const [tempFilters, setTempFilters] = useState<ProfessionalFilters>({});
-  const [userLocation, setUserLocation] = useState<UserLocation | undefined>();
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  const locationRequested = useRef(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Request location on mount
-  useEffect(() => {
-    if (locationRequested.current) return;
-    locationRequested.current = true;
-
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        setUserLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
-      } catch {
-        // Location unavailable — fallback to rating sort
-      }
-    })();
-  }, []);
-
-  const buildFeed = useCallback(
-    (
-      pros: ProfessionalWithDetails[],
-      featured: ProfessionalWithDetails[],
-      ads: AdCreative[],
-      sponsoredContent: AdCreative[]
-    ): DiscoverFeedItem[] => {
-      const items: DiscoverFeedItem[] = [];
-      const featuredIds = new Set(featured.map((p) => p.id));
-
-      // 1. Featured professionals first (max 3)
-      featured.slice(0, AD_CONFIG.FEATURED_MAX_POSITIONS).forEach((p) => {
-        items.push({ item_type: 'professional', data: { ...p, is_featured: true } });
-      });
-
-      // 2. Regular professionals with ad injection
-      const regularPros = pros.filter((p) => !featuredIds.has(p.id));
-      let adIndex = 0;
-      let scIndex = 0;
-      regularPros.forEach((pro, i) => {
-        items.push({ item_type: 'professional', data: pro });
-
-        // Inject a feed ad every N cards
-        if ((i + 1) % AD_CONFIG.FEED_AD_FREQUENCY === 0 && adIndex < ads.length) {
-          items.push({ item_type: 'ad', data: ads[adIndex] });
-          adIndex++;
-        }
-
-        // Inject sponsored content at positions 12 and 24
-        if ((i + 1 === 12 || i + 1 === 24) && scIndex < sponsoredContent.length) {
-          items.push({ item_type: 'sponsored_content', data: sponsoredContent[scIndex] });
-          scIndex++;
-        }
-      });
-
-      return items;
-    },
-    []
-  );
-
-  const fetchProfessionals = useCallback(async () => {
+  const fetchProfessionals = useCallback(async (query = '') => {
     try {
       let result;
-      if (searchText.trim()) {
-        result = await searchProfessionals(searchText.trim());
+      if (query.trim()) {
+        result = await searchProfessionals(query.trim());
       } else {
         const { data: blockedIds } = await getBlockedUserIds();
-        result = await getDiscoverProfessionals(filters, userLocation, blockedIds ?? []);
+        result = await getDiscoverProfessionals({}, undefined, blockedIds ?? []);
       }
-
-      // Fetch ads and featured listings in parallel
-      const [featuredResult, feedAdsResult, sponsoredResult] = await Promise.all([
-        getFeaturedProfessionals(),
-        getActiveAds('feed_card', 'client'),
-        getActiveAds('sponsored_content', 'client'),
-      ]);
-
-      const pros = result.data || [];
-      setProfessionals(pros);
-      setFeedItems(
-        buildFeed(
-          pros,
-          featuredResult.data || [],
-          feedAdsResult.data || [],
-          sponsoredResult.data || []
-        )
-      );
+      setProfessionals(result.data || []);
     } catch (err) {
       console.error('Error fetching professionals:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [filters, searchText, userLocation, buildFeed]);
-
-  const fetchFavorites = useCallback(async () => {
-    if (!user?.id) return;
-    const result = await getFavorites(user.id);
-    if (result.data) {
-      setFavorites(result.data);
-    }
-  }, [user?.id]);
+  }, []);
 
   useEffect(() => {
     fetchProfessionals();
-    fetchFavorites();
-  }, [fetchProfessionals, fetchFavorites]);
+  }, [fetchProfessionals]);
+
+  const handleSearchChange = (text: string) => {
+    setSearchText(text);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => {
+      setLoading(true);
+      fetchProfessionals(text);
+    }, 400);
+  };
+
+  const handleClear = () => {
+    setSearchText('');
+    setLoading(true);
+    fetchProfessionals('');
+  };
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchProfessionals();
-    fetchFavorites();
+    fetchProfessionals(searchText);
   };
 
-  const handleToggleFavorite = useCallback(async (professionalId: string) => {
-    if (!user?.id) return;
-
-    const isFavorite = favorites.includes(professionalId);
-    const newFavorites = isFavorite
-      ? favorites.filter((id) => id !== professionalId)
-      : [...favorites, professionalId];
-
-    setFavorites(newFavorites);
-    await toggleFavorite(user.id, professionalId, !isFavorite);
-  }, [user?.id, favorites]);
-
-  const handlePressCard = useCallback((professionalId: string) => {
-    navigation.navigate('ProfessionalProfile', { professionalId });
-  }, [navigation]);
-
-  const applyFilters = () => {
-    setFilters(tempFilters);
-    setShowFilters(false);
-  };
-
-  const clearFilters = () => {
-    setTempFilters({});
-    setFilters({});
-    setShowFilters(false);
-  };
-
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
-
-  const renderFeedItem = useCallback(({ item, index }: { item: DiscoverFeedItem; index: number }) => {
-    if (item.item_type === 'ad') {
-      return <FeedAdCard ad={item.data} position={index} />;
-    }
-    if (item.item_type === 'sponsored_content') {
-      return <SponsoredContentCard ad={item.data} position={index} />;
-    }
-    const pro = item.data;
-    const isFavorite = favorites.includes(pro.id);
-    return (
-      <ProfessionalCard
-        professional={pro as ProfessionalWithDetails}
-        isFavorite={isFavorite}
-        isFeatured={pro.is_featured}
-        onPress={() => handlePressCard(pro.id)}
-        onToggleFavorite={() => handleToggleFavorite(pro.id)}
-      />
-    );
-  }, [favorites, handlePressCard, handleToggleFavorite]);
-
-  const renderFilterModal = () => (
-    <Modal
-      visible={showFilters}
-      animationType="slide"
-      transparent
-      onRequestClose={() => setShowFilters(false)}
+  const renderItem = ({ item, index }: { item: ProfessionalWithDetails; index: number }) => (
+    <TouchableOpacity
+      style={styles.providerRow}
+      activeOpacity={0.85}
+      onPress={() => navigation.navigate('ProfessionalProfile', { professionalId: item.id, initialData: item })}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Filters</Text>
-            <TouchableOpacity onPress={() => setShowFilters(false)}>
-              <X size={24} color={COLORS.textPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Category Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Category</Text>
-              <View style={styles.filterOptions}>
-                {CATEGORIES.map((cat) => (
-                  <TouchableOpacity
-                    key={cat.value}
-                    style={[
-                      styles.filterChip,
-                      tempFilters.category === cat.value && styles.filterChipSelected,
-                    ]}
-                    onPress={() =>
-                      setTempFilters((prev) => ({
-                        ...prev,
-                        category: prev.category === cat.value ? undefined : cat.value,
-                      }))
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        tempFilters.category === cat.value && styles.filterChipTextSelected,
-                      ]}
-                    >
-                      {cat.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Location Type Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Service Location</Text>
-              <View style={styles.filterOptions}>
-                {LOCATION_TYPES.map((loc) => (
-                  <TouchableOpacity
-                    key={loc.value}
-                    style={[
-                      styles.filterChip,
-                      tempFilters.location_type === loc.value && styles.filterChipSelected,
-                    ]}
-                    onPress={() =>
-                      setTempFilters((prev) => ({
-                        ...prev,
-                        location_type: prev.location_type === loc.value ? undefined : loc.value,
-                      }))
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        tempFilters.location_type === loc.value && styles.filterChipTextSelected,
-                      ]}
-                    >
-                      {loc.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Price Range Filter */}
-            <View style={styles.filterSection}>
-              <Text style={styles.filterLabel}>Price Range</Text>
-              <View style={styles.filterOptions}>
-                {PRICE_RANGES.map((price) => (
-                  <TouchableOpacity
-                    key={price.value}
-                    style={[
-                      styles.filterChip,
-                      styles.priceChip,
-                      tempFilters.price_range === price.value && styles.filterChipSelected,
-                    ]}
-                    onPress={() =>
-                      setTempFilters((prev) => ({
-                        ...prev,
-                        price_range: prev.price_range === price.value ? undefined : price.value,
-                      }))
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.filterChipText,
-                        tempFilters.price_range === price.value && styles.filterChipTextSelected,
-                      ]}
-                    >
-                      {price.label}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.priceChipDesc,
-                        tempFilters.price_range === price.value && styles.filterChipTextSelected,
-                      ]}
-                    >
-                      {price.description}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Distance Filter */}
-            {userLocation && (
-              <View style={styles.filterSection}>
-                <Text style={styles.filterLabel}>Maximum Distance</Text>
-                <View style={styles.filterOptions}>
-                  {DISTANCE_OPTIONS.map((opt) => (
-                    <TouchableOpacity
-                      key={opt.value}
-                      style={[
-                        styles.filterChip,
-                        tempFilters.max_distance_km === opt.value && styles.filterChipSelected,
-                      ]}
-                      onPress={() =>
-                        setTempFilters((prev) => ({
-                          ...prev,
-                          max_distance_km: prev.max_distance_km === opt.value ? undefined : opt.value,
-                        }))
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.filterChipText,
-                          tempFilters.max_distance_km === opt.value && styles.filterChipTextSelected,
-                        ]}
-                      >
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-          </ScrollView>
-
-          <View style={styles.modalFooter}>
-            <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
-              <Text style={styles.clearButtonText}>Clear All</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
-              <LinearGradient
-                colors={[COLORS.gradientStart, COLORS.gradientEnd]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.applyButtonGradient}
-              >
-                <Check size={18} color={COLORS.white} />
-                <Text style={styles.applyButtonText}>Apply</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
+      <AvatarCircle uri={item.user?.avatar} name={item.user?.name} index={index} size={64} />
+      <View style={styles.providerInfo}>
+        <Text style={styles.providerName}>{item.user?.name || 'Artist'}</Text>
+        <StarRating
+          rating={item.avg_rating ?? 0}
+          size={18}
+          activeColor={COLORS.warning}
+          inactiveColor="rgba(255,255,255,0.3)"
+          spacing={2}
+        />
       </View>
-    </Modal>
-  );
-
-  const renderSkeletonLoading = () => (
-    <View style={styles.skeletonContainer}>
-      <SkeletonList type="professional" count={4} />
-    </View>
+    </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>
-            Hi, {user?.name?.split(' ')[0] || 'there'}!
-          </Text>
-          <Text style={styles.subtitle}>Find your perfect beauty pro</Text>
-        </View>
-        <View style={styles.headerActions}>
-          {/* Map toggle disabled until Google Maps API key is configured
-          <TouchableOpacity
-            style={styles.headerIconButton}
-            onPress={() => setViewMode((m) => (m === 'list' ? 'map' : 'list'))}
+    <LinearGradient
+      colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradient}
+    >
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        {/* Search Bar */}
+        <View style={styles.searchWrapper}>
+          <LinearGradient
+            colors={[COLORS.gradientStart, COLORS.gradientEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.searchBar}
           >
-            {viewMode === 'list'
-              ? <Map size={22} color={COLORS.primary} />
-              : <List size={22} color={COLORS.primary} />}
-          </TouchableOpacity>
-          */}
-          <TouchableOpacity
-            style={styles.headerIconButton}
-            onPress={() => navigation.navigate('Notifications')}
-          >
-            <Bell size={22} color={COLORS.primary} />
-            {unreadCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Text>
-              </View>
+            <MapPin size={18} color={COLORS.white} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by location or name..."
+              placeholderTextColor="rgba(255,255,255,0.65)"
+              value={searchText}
+              onChangeText={handleSearchChange}
+              returnKeyType="search"
+              onSubmitEditing={() => {
+                if (searchTimeout.current) clearTimeout(searchTimeout.current);
+                setLoading(true);
+                fetchProfessionals(searchText);
+              }}
+            />
+            {searchText.length > 0 && (
+              <TouchableOpacity onPress={handleClear}>
+                <X size={16} color={COLORS.white} />
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.headerIconButton}
-            onPress={() => navigation.navigate('Favorites')}
-          >
-            <Heart size={22} color={COLORS.primary} />
-          </TouchableOpacity>
+          </LinearGradient>
         </View>
-      </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchSection}>
-        <View style={styles.searchContainer}>
-          <Search size={20} color={COLORS.textSecondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name or location..."
-            placeholderTextColor={COLORS.textSecondary}
-            value={searchText}
-            onChangeText={setSearchText}
-            onSubmitEditing={fetchProfessionals}
-            returnKeyType="search"
-          />
-          {searchText.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchText('')}>
-              <X size={18} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            activeFilterCount > 0 && styles.filterButtonActive,
-          ]}
-          onPress={() => {
-            setTempFilters(filters);
-            setShowFilters(true);
-          }}
-        >
-          <SlidersHorizontal
-            size={20}
-            color={activeFilterCount > 0 ? COLORS.white : COLORS.primary}
-          />
-          {activeFilterCount > 0 && (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      {/* Category Pills */}
-      <View style={styles.categoryWrapper}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryScrollContent}
-        >
-        <TouchableOpacity
-          style={[
-            styles.categoryPill,
-            !filters.category && styles.categoryPillActive,
-          ]}
-          onPress={() => setFilters((prev) => ({ ...prev, category: undefined }))}
-        >
-          <Text
-            style={[
-              styles.categoryPillText,
-              !filters.category && styles.categoryPillTextActive,
-            ]}
-          >
-            All
-          </Text>
-        </TouchableOpacity>
-        {CATEGORIES.map((cat) => (
-          <TouchableOpacity
-            key={cat.value}
-            style={[
-              styles.categoryPill,
-              filters.category === cat.value && styles.categoryPillActive,
-            ]}
-            onPress={() =>
-              setFilters((prev) => ({
-                ...prev,
-                category: prev.category === cat.value ? undefined : cat.value,
-              }))
-            }
-          >
-            <Text
-              style={[
-                styles.categoryPillText,
-                filters.category === cat.value && styles.categoryPillTextActive,
-              ]}
-            >
-              {cat.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-        </ScrollView>
-      </View>
-
-      {/* Results */}
-      <View style={styles.resultsContainer}>
+        {/* Provider List */}
         {loading ? (
-          renderSkeletonLoading()
-        ) : viewMode === 'map' ? (
-          <DiscoverMapView
-            professionals={professionals}
-            userLocation={userLocation}
-            favorites={favorites}
-            onPressCard={handlePressCard}
-            onToggleFavorite={handleToggleFavorite}
-          />
+          <Loading fullScreen={false} />
         ) : professionals.length === 0 ? (
-          <EmptyState
-            type={searchText || activeFilterCount > 0 ? 'search' : 'professionals'}
-            actionLabel={activeFilterCount > 0 ? 'Clear Filters' : undefined}
-            onAction={activeFilterCount > 0 ? clearFilters : undefined}
-          />
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              {searchText ? `No results for "${searchText}"` : 'No service providers available.'}
+            </Text>
+          </View>
         ) : (
-        <FlatList
-          data={feedItems}
-          renderItem={renderFeedItem}
-          keyExtractor={(item, index) =>
-            item.item_type === 'professional'
-              ? item.data.id
-              : `${item.item_type}-${item.data.id}-${index}`
-          }
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        />
-      )}
-      </View>
-
-      {renderFilterModal()}
-    </SafeAreaView>
+          <FlatList
+            data={professionals}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.white} />
+            }
+          />
+        )}
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  gradient: { flex: 1 },
+  safeArea: { flex: 1 },
+  searchWrapper: {
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
   },
-  greeting: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  subtitle: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  headerActions: {
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  headerIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: COLORS.error,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  notificationBadgeText: {
-    color: COLORS.white,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  searchSection: {
-    flexDirection: 'row',
-    paddingHorizontal: SPACING.lg,
-    gap: SPACING.sm,
-  },
-  searchContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.sm,
-    height: 44,
+    borderRadius: RADIUS.xxl,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
     gap: SPACING.sm,
   },
   searchInput: {
     flex: 1,
     fontSize: FONT_SIZES.sm,
-    color: COLORS.textPrimary,
-  },
-  filterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterButtonActive: {
-    backgroundColor: COLORS.primary,
-  },
-  filterBadge: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: COLORS.error,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
     color: COLORS.white,
-  },
-  categoryWrapper: {
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.xs,
-  },
-  categoryScrollContent: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.xs,
-    gap: SPACING.sm,
-    alignItems: 'center',
-  },
-  categoryPill: {
-    paddingHorizontal: SPACING.md,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  categoryPillActive: {
-    backgroundColor: COLORS.primary,
-  },
-  categoryPillText: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    lineHeight: 20,
-  },
-  categoryPillTextActive: {
-    color: COLORS.white,
-  },
-  resultsContainer: {
-    flex: 1,
-  },
-  skeletonContainer: {
-    padding: SPACING.md,
+    padding: 0,
   },
   listContent: {
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.lg,
-    gap: SPACING.sm,
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.xl,
-    borderTopRightRadius: RADIUS.xl,
-    maxHeight: '80%',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
     paddingBottom: SPACING.xl,
+    gap: SPACING.lg,
   },
-  modalHeader: {
+  providerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  modalTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-  },
-  filterSection: {
-    padding: SPACING.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  filterLabel: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: '500',
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
-  },
-  filterOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  filterChip: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.xl,
-    backgroundColor: COLORS.chipBackground,
-  },
-  filterChipSelected: {
-    backgroundColor: COLORS.primary,
-  },
-  filterChipText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textPrimary,
-  },
-  filterChipTextSelected: {
-    color: COLORS.white,
-  },
-  priceChip: {
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-    minWidth: 100,
-  },
-  priceChipDesc: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    padding: SPACING.lg,
     gap: SPACING.md,
   },
-  clearButton: {
+  providerInfo: {
     flex: 1,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
+    gap: SPACING.xs,
   },
-  clearButtonText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '500',
-    color: COLORS.textSecondary,
-  },
-  applyButton: {
-    flex: 1,
-  },
-  applyButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    gap: SPACING.sm,
-  },
-  applyButtonText: {
+  providerName: {
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
     color: COLORS.white,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+  },
+  emptyText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: FONT_SIZES.md,
+    textAlign: 'center',
   },
 });

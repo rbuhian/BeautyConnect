@@ -76,7 +76,7 @@ export default function FavoritesScreen({ navigation }: any) {
     return (
       <TouchableOpacity
         style={styles.card}
-        onPress={() => navigation.navigate('ProfessionalProfile', { professionalId: item.id })}
+        onPress={() => navigation.navigate('ProfessionalProfile', { professionalId: item.id, initialData: item })}
         activeOpacity={0.9}
       >
         <View style={styles.cardImageContainer}>
