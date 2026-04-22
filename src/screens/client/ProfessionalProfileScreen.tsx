@@ -29,9 +29,19 @@ const PHOTO_SIZE = (width - SPACING.lg * 2 - SPACING.sm * 3) / 4;
 const CATEGORY_ICONS: Record<string, string> = {
   makeup: '💄',
   hair: '✂️',
-  nails: '💅',
-  lash: '👁️',
-  brow: '🪮',
+  bridal: '💍',
+  wedding: '🎀',
+  event: '🎉',
+  glam: '⭐',
+  aesthetic: '✨',
+  prosthetic: '🎭',
+  fantasy: '🪄',
+  light: '☀️',
+  modelling: '📸',
+  pageant: '🏆',
+  festival: '🎵',
+  funeral: '🌸',
+  others: '💫',
 };
 
 const AVATAR_COLORS = ['#4DD9C0', '#E85D8A', '#F5C842', '#6B8EF5', '#E07B3A'];
@@ -93,12 +103,13 @@ export default function ProfessionalProfileScreen({ navigation, route }: any) {
     );
   }
 
-  const activeServices = professional.services?.filter((s: Service) => s.is_active) || [];
+  const validCategories = new Set(CATEGORIES.map((c) => c.value));
+  const activeServices = professional.services?.filter((s: Service) => s.is_active && validCategories.has(s.category as any)) || [];
   const avatarBg = AVATAR_COLORS[0];
   const initials = professional.user?.name
     ? professional.user.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
     : '?';
-  const categories: string[] = professional.categories || [];
+  const categories: string[] = (professional.categories || []).filter((c: string) => validCategories.has(c as any));
   const photos: string[] = professional.portfolio_photos || [];
   const totalReviews = reviews.length > 0 ? reviews.length : (professional.total_reviews ?? 0);
   const avgRating = reviews.length > 0
