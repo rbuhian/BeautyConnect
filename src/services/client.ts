@@ -179,7 +179,7 @@ export async function searchProfessionals(
         services:services(*)
       `)
       .eq('is_live', true)
-      .or(`bio.ilike.%${searchText}%,service_area.ilike.%${searchText}%`);
+      .or(`bio.ilike.%${searchText}%,service_area.ilike.%${searchText}%,salon_address.ilike.%${searchText}%`);
 
     if (error) {
       return { data: null, error: { message: error.message, code: error.code } };
