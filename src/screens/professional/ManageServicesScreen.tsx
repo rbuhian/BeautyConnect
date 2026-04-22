@@ -30,13 +30,15 @@ export default function ManageServicesScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const validCategories = new Set(CATEGORIES.map((c) => c.value));
+
   const fetchServices = useCallback(async () => {
     if (!professionalProfile?.id) return;
 
     try {
       const result = await getServices(professionalProfile.id);
       if (result.data) {
-        setServices(result.data);
+        setServices(result.data.filter((s) => validCategories.has(s.category as any)));
       }
     } catch (err) {
       console.error('Error fetching services:', err);

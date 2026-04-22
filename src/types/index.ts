@@ -13,7 +13,7 @@ export interface User {
 }
 
 // Professional types
-export type Category = 'makeup' | 'hair' | 'nails' | 'lash' | 'brow';
+export type Category = 'makeup' | 'hair' | 'bridal' | 'wedding' | 'event' | 'glam' | 'aesthetic' | 'prosthetic' | 'fantasy' | 'light' | 'modelling' | 'pageant' | 'festival' | 'funeral' | 'others';
 export type LocationType = 'home_service' | 'salon' | 'both';
 export type BookingType = 'instant' | 'request';
 export type VerificationStatus = 'unverified' | 'pending' | 'verified' | 'rejected';

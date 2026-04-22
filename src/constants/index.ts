@@ -91,9 +91,19 @@ export const RADIUS = {
 export const CATEGORIES: { value: Category; label: string; icon: string }[] = [
   { value: 'makeup', label: 'Makeup', icon: 'brush' },
   { value: 'hair', label: 'Hair', icon: 'cut' },
-  { value: 'nails', label: 'Nails', icon: 'color-palette' },
-  { value: 'lash', label: 'Lash', icon: 'eye' },
-  { value: 'brow', label: 'Brow', icon: 'eye-outline' },
+  { value: 'bridal', label: 'Bridal', icon: 'heart' },
+  { value: 'wedding', label: 'Wedding', icon: 'ribbon' },
+  { value: 'event', label: 'Event', icon: 'calendar' },
+  { value: 'glam', label: 'Glam', icon: 'star' },
+  { value: 'aesthetic', label: 'Aesthetic', icon: 'sparkles' },
+  { value: 'prosthetic', label: 'Prosthetic', icon: 'construct' },
+  { value: 'fantasy', label: 'Fantasy', icon: 'color-wand' },
+  { value: 'light', label: 'Light', icon: 'sunny' },
+  { value: 'modelling', label: 'Modelling', icon: 'camera' },
+  { value: 'pageant', label: 'Pageant', icon: 'trophy' },
+  { value: 'festival', label: 'Festival', icon: 'musical-notes' },
+  { value: 'funeral', label: 'Funeral', icon: 'flower' },
+  { value: 'others', label: 'Others', icon: 'ellipsis-horizontal' },
 ];
 
 // Location types
