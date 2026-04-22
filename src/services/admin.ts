@@ -1243,12 +1243,31 @@ export async function reviewReport(
 export async function sendAdminAnnouncement(message: string): Promise<ServiceResponse> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
+
+    // Save to announcements table
     const { error } = await supabase.from('announcements').insert({
       message,
       sent_by: user?.id || null,
       created_at: new Date().toISOString(),
     });
     if (error) return { data: null, error: { message: error.message } };
+
+    // Call edge function to log + push to all users (service role needed)
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-send-announcement`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({ message, adminSecret: ADMIN_FUNCTION_SECRET }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.warn('Announcement edge function error:', body?.error);
+    }
+
     return { data: null, error: null };
   } catch (err) {
     return { data: null, error: { message: 'Failed to send announcement' } };

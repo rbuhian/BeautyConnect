@@ -470,21 +470,23 @@ export async function getBookingById(
   bookingId: string
 ): Promise<ServiceResponse<Booking>> {
   try {
+    // First fetch booking + service only (minimal, avoids join RLS issues)
     const { data, error } = await supabase
       .from('bookings')
       .select(`
         *,
         service:services(*),
         professional:professional_profiles(
-          *,
+          id, user_id, bio, categories, location_type, service_area,
+          salon_address, is_live, avg_rating, total_reviews,
           user:users!professional_profiles_user_id_fkey(id, name, avatar, phone)
-        ),
-        staff_member:staff_members(id, name, avatar)
+        )
       `)
       .eq('id', bookingId)
       .single();
 
     if (error) {
+      console.error('getBookingById error:', error.message, error.code);
       return { data: null, error: { message: error.message, code: error.code } };
     }
 

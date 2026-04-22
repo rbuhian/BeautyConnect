@@ -172,8 +172,37 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     flex: 1,
   },
-  avatarButton: {
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
     marginLeft: SPACING.md,
+  },
+  bellButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: COLORS.error,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  notificationBadgeText: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  avatarButton: {
+    marginLeft: SPACING.xs,
   },
   headerAvatar: {
     width: 44,

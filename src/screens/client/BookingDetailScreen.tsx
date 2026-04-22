@@ -81,7 +81,6 @@ export default function BookingDetailScreen({ navigation, route }: any) {
           }
         }
       }
-      // If fetch fails but we have initialBooking, keep showing it
     } catch (err) {
       console.error('Error fetching booking:', err);
     } finally {

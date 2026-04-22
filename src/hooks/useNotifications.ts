@@ -9,6 +9,7 @@ import {
   getUnreadNotificationCount,
   NotificationData,
 } from '../services/notifications';
+import { supabase } from '../services/supabase';
 
 // Dynamic import to prevent crashes
 let Notifications: typeof import('expo-notifications') | null = null;
@@ -97,52 +98,42 @@ export function useNotifications() {
 
   // Handle notification response (when user taps notification)
   const handleNotificationResponse = useCallback(
-    (response: any) => {
+    async (response: any) => {
       const data = response?.notification?.request?.content?.data as NotificationData;
 
       if (!data?.type) return;
 
-      switch (data.type) {
-        case 'booking_new':
-        case 'booking_confirmed':
-        case 'booking_declined':
-        case 'booking_cancelled':
-        case 'reminder':
-        case 'staff_assigned':
-          if (data.bookingId) {
-            navigation.navigate('BookingDetail', { bookingId: data.bookingId });
-          }
-          break;
-
-        case 'message':
-          if (data.bookingId) {
-            navigation.navigate('Chat', { bookingId: data.bookingId });
-          }
-          break;
-
-        case 'review_request':
-          if (data.bookingId) {
-            navigation.navigate('BookingDetail', { bookingId: data.bookingId });
-          }
-          break;
-      }
-
-      // Refresh unread count after handling
       refreshUnreadCount();
+
+      const BOOKING_TYPES = [
+        'booking_new', 'booking_confirmed', 'booking_declined',
+        'booking_cancelled', 'reminder', 'staff_assigned', 'review_request',
+      ];
+
+      if (data.type === 'message' && data.bookingId) {
+        navigation.navigate('Chat', { bookingId: data.bookingId });
+      } else if (BOOKING_TYPES.includes(data.type) && data.bookingId) {
+        // Verify booking exists before navigating
+        const { data: booking, error } = await supabase
+          .from('bookings')
+          .select('id')
+          .eq('id', data.bookingId)
+          .single();
+        if (booking && !error) {
+          navigation.navigate('BookingDetail', { bookingId: data.bookingId });
+        } else {
+          navigation.navigate('Notifications');
+        }
+      } else {
+        // announcement or unknown — open notifications list
+        navigation.navigate('Notifications');
+      }
     },
     [navigation, refreshUnreadCount]
   );
 
-  // Check if app was opened via notification (cold start)
-  useEffect(() => {
-    if (!user?.id || !Notifications) return;
-
-    Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response) {
-        handleNotificationResponse(response);
-      }
-    });
-  }, [user?.id, handleNotificationResponse]);
+  // Note: getLastNotificationResponseAsync intentionally removed —
+  // it replays stale taps from previous sessions and causes incorrect navigation.
 
   // Set up notification listeners
   useEffect(() => {

@@ -19,6 +19,7 @@ import {
   CheckCircle,
   UserPlus,
   CheckCheck,
+  Megaphone,
 } from 'lucide-react-native';
 import { Loading, EmptyState } from '../../components';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
@@ -30,6 +31,7 @@ import {
   markAllNotificationsAsRead,
   NotificationType,
 } from '../../services/notifications';
+import { supabase } from '../../services/supabase';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
 const NOTIFICATION_ICONS: Record<NotificationType, { icon: any; color: string; bg: string }> = {
@@ -41,6 +43,7 @@ const NOTIFICATION_ICONS: Record<NotificationType, { icon: any; color: string; b
   reminder: { icon: Clock, color: '#F57F17', bg: '#FFFDE7' },
   review_request: { icon: Star, color: '#7B1FA2', bg: '#F3E5F5' },
   staff_assigned: { icon: UserPlus, color: '#00695C', bg: '#E0F2F1' },
+  announcement: { icon: Megaphone, color: '#C9A0DC', bg: '#F3E5F5' },
 };
 
 interface NotificationLog {
@@ -90,7 +93,7 @@ export default function NotificationsScreen({ navigation }: any) {
   const handleTapNotification = async (notification: NotificationLog) => {
     // Mark as read if unread
     if (!notification.read_at) {
-      await markNotificationAsRead(notification.id);
+      markNotificationAsRead(notification.id).catch(() => {});
       setNotifications((prev) =>
         prev.map((n) =>
           n.id === notification.id ? { ...n, read_at: new Date().toISOString() } : n
@@ -99,28 +102,30 @@ export default function NotificationsScreen({ navigation }: any) {
       refreshUnreadCount();
     }
 
-    // Navigate based on type
+    const BOOKING_TYPES: NotificationType[] = [
+      'booking_new', 'booking_confirmed', 'booking_declined',
+      'booking_cancelled', 'reminder', 'review_request', 'staff_assigned',
+    ];
+
     const data = notification.data || {};
     const bookingId = data.bookingId || notification.related_id;
 
-    switch (notification.type) {
-      case 'booking_new':
-      case 'booking_confirmed':
-      case 'booking_declined':
-      case 'booking_cancelled':
-      case 'reminder':
-      case 'review_request':
-      case 'staff_assigned':
-        if (bookingId) {
-          navigation.navigate('BookingDetail', { bookingId });
-        }
-        break;
-      case 'message':
-        if (bookingId) {
-          navigation.navigate('Chat', { bookingId });
-        }
-        break;
+    if (!bookingId) return; // no navigation target
+
+    if (notification.type === 'message') {
+      navigation.navigate('Chat', { bookingId });
+    } else if (BOOKING_TYPES.includes(notification.type)) {
+      // Verify booking exists and is accessible before navigating
+      const { data: booking, error } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('id', bookingId)
+        .single();
+      if (booking && !error) {
+        navigation.navigate('BookingDetail', { bookingId });
+      }
     }
+    // announcement and unknown types: do nothing (just mark as read above)
   };
 
   const handleMarkAllRead = async () => {
@@ -139,7 +144,9 @@ export default function NotificationsScreen({ navigation }: any) {
     const config = NOTIFICATION_ICONS[item.type] || NOTIFICATION_ICONS.booking_new;
     const Icon = config.icon;
     const isUnread = !item.read_at;
-    const timeAgo = formatDistanceToNow(parseISO(item.sent_at), { addSuffix: true });
+    const timeAgo = item.sent_at
+      ? formatDistanceToNow(parseISO(item.sent_at), { addSuffix: true })
+      : 'just now';
 
     return (
       <TouchableOpacity

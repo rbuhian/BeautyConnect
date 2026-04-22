@@ -24,7 +24,8 @@ export type NotificationType =
   | 'message'
   | 'reminder'
   | 'review_request'
-  | 'staff_assigned';
+  | 'staff_assigned'
+  | 'announcement';
 
 export interface NotificationData {
   type: NotificationType;
@@ -660,6 +661,64 @@ export async function sendReviewRequestNotification(
     sendPushToUser(clientUserId, title, body, data, 'bookings'),
     scheduleLocalNotification(title, body, data),
   ]);
+}
+
+/**
+ * Send announcement notification to ALL users (admin broadcast)
+ */
+export async function sendAnnouncementToAllUsers(message: string): Promise<void> {
+  const title = 'Announcement';
+
+  try {
+    // 1. Fetch all active push tokens + their user IDs
+    const { data: tokenRows, error: tokenError } = await supabase
+      .from('push_tokens')
+      .select('user_id, token')
+      .eq('is_active', true);
+
+    if (!tokenError && tokenRows && tokenRows.length > 0) {
+      // Send push notifications in batches of 100
+      const messages = tokenRows.map((row: any) => ({
+        to: row.token,
+        title,
+        body: message,
+        sound: 'default' as const,
+        channelId: 'default',
+        priority: 'high' as const,
+      }));
+
+      for (let i = 0; i < messages.length; i += 100) {
+        const batch = messages.slice(i, i + 100);
+        await fetch(EXPO_PUSH_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(batch),
+        }).catch(() => { /* fire-and-forget */ });
+      }
+    }
+
+    // 2. Log the announcement to notification_logs for every user
+    const { data: users } = await supabase
+      .from('users')
+      .select('id')
+      .neq('role', 'admin');
+
+    if (users && users.length > 0) {
+      const logs = users.map((u: any) => ({
+        user_id: u.id,
+        title,
+        body: message,
+        type: 'announcement',
+      }));
+
+      // Insert in batches of 100
+      for (let i = 0; i < logs.length; i += 100) {
+        await supabase.from('notification_logs').insert(logs.slice(i, i + 100));
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to send announcement notifications:', err);
+  }
 }
 
 /**
