@@ -843,6 +843,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
+    flex: 1,
+    marginRight: SPACING.sm,
   },
   clientAvatar: {
     width: 40,
