@@ -29,17 +29,15 @@ interface WeekTimelineProps {
 }
 
 const SLOT_HEIGHT = 60; // Height for 30-min slot
-const START_HOUR = 8; // 8 AM
-const END_HOUR = 20; // 8 PM
+const START_HOUR = 0; // 12 AM
+const END_HOUR = 23; // 11 PM
 
 // Generate time slots from start to end hour
 const generateTimeSlots = (): string[] => {
   const slots: string[] = [];
   for (let hour = START_HOUR; hour <= END_HOUR; hour++) {
     slots.push(`${hour.toString().padStart(2, '0')}:00`);
-    if (hour < END_HOUR) {
-      slots.push(`${hour.toString().padStart(2, '0')}:30`);
-    }
+    slots.push(`${hour.toString().padStart(2, '0')}:30`);
   }
   return slots;
 };
@@ -87,7 +85,7 @@ const WeekTimeline = React.memo(function WeekTimeline({
     const now = new Date();
     const currentHour = now.getHours();
 
-    if (currentHour >= START_HOUR && currentHour <= END_HOUR) {
+    if (currentHour >= START_HOUR) {
       const scrollPosition = ((currentHour - START_HOUR) * 2) * SLOT_HEIGHT;
       setTimeout(() => {
         scrollViewRef.current?.scrollTo({ y: scrollPosition, animated: true });

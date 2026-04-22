@@ -29,8 +29,8 @@ const DAYS = [
 ];
 
 // Generate time options from 6am to 10pm
-const TIME_OPTIONS = Array.from({ length: 17 }, (_, i) => {
-  const hour = i + 6; // Start from 6am
+const TIME_OPTIONS = Array.from({ length: 24 }, (_, i) => {
+  const hour = i; // 0 (12 AM) to 23 (11 PM)
   const hourStr = hour.toString().padStart(2, '0');
   const ampm = hour >= 12 ? 'PM' : 'AM';
   const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
@@ -64,7 +64,7 @@ export default function AvailabilityScreen({ navigation }: any) {
       defaultSchedule[day.value] = {
         is_available: day.value >= 1 && day.value <= 5, // Mon-Fri by default
         start_time: '09:00',
-        end_time: '18:00',
+        end_time: '23:00',
       };
     });
     return defaultSchedule;

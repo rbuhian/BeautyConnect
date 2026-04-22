@@ -479,7 +479,7 @@ export async function getBookingById(
         professional:professional_profiles(
           id, user_id, bio, categories, location_type, service_area,
           salon_address, is_live, avg_rating, total_reviews,
-          user:users!professional_profiles_user_id_fkey(id, name, avatar, phone)
+          user:users!professional_profiles_user_id_fkey(id, name, avatar)
         )
       `)
       .eq('id', bookingId)
@@ -585,102 +585,26 @@ export async function getAvailableTimeSlots(
   serviceDuration: number
 ): Promise<ServiceResponse<string[]>> {
   try {
-    // Get day of week (0-6)
-    const dayOfWeek = new Date(date).getDay();
-
-    // Check if this professional has a business (salon)
-    const { data: professional } = await supabase
-      .from('professional_profiles')
-      .select('id, business_id')
-      .eq('id', professionalId)
-      .single();
-
-    let startTime = '09:00';
-    let endTime = '18:00';
-    let hasAvailability = false;
-
-    if (professional?.business_id) {
-      // This is a salon - check staff availability
-      const { data: staffAvailability } = await supabase
-        .from('staff_availability')
-        .select('*, staff_member:staff_members!inner(id, business_id, is_active)')
-        .eq('staff_member.business_id', professional.business_id)
-        .eq('staff_member.is_active', true)
-        .eq('day_of_week', dayOfWeek)
-        .eq('is_available', true);
-
-      if (staffAvailability && staffAvailability.length > 0) {
-        // Find the earliest start and latest end time across all available staff
-        const startTimes = staffAvailability.map(a => a.start_time);
-        const endTimes = staffAvailability.map(a => a.end_time);
-        startTime = startTimes.sort()[0]; // Earliest start
-        endTime = endTimes.sort().reverse()[0]; // Latest end
-        hasAvailability = true;
-      }
-    } else {
-      // Individual professional - check regular availability
-      const { data: availability } = await supabase
-        .from('availability')
-        .select('*')
-        .eq('professional_id', professionalId)
-        .eq('day_of_week', dayOfWeek)
-        .eq('is_available', true)
-        .single();
-
-      if (availability) {
-        startTime = availability.start_time;
-        endTime = availability.end_time;
-        hasAvailability = true;
-      }
-    }
-
-    if (!hasAvailability) {
-      return { data: [], error: null };
-    }
-
-    // For solo professionals, check if the date is blocked
-    if (!professional?.business_id) {
-      const { data: blockedDate } = await supabase
-        .from('professional_blocked_dates')
-        .select('id')
-        .eq('professional_id', professionalId)
-        .eq('date', date)
-        .single();
-
-      if (blockedDate) {
-        return { data: [], error: null };
-      }
-    }
-
-    // Get existing bookings for that date
+    // Get existing bookings for that date to filter out already-booked slots
     const { data: existingBookings } = await supabase
       .from('bookings')
-      .select('time_slot, staff_member_id, service:services(duration_minutes)')
+      .select('time_slot, service:services(duration_minutes)')
       .eq('professional_id', professionalId)
       .eq('date', date)
       .in('status', ['pending', 'confirmed']);
 
-    // Generate available time slots
+    // Generate all 24-hour slots (00:00 - 23:30)
     const slots: string[] = [];
-    const startHour = parseInt(startTime.split(':')[0]);
-    const endHour = parseInt(endTime.split(':')[0]);
-
-    for (let hour = startHour; hour < endHour; hour++) {
+    for (let hour = 0; hour <= 23; hour++) {
       for (const minutes of ['00', '30']) {
         const slot = `${hour.toString().padStart(2, '0')}:${minutes}`;
-
-        // Check if slot conflicts with existing bookings
         const slotMinutes = hour * 60 + parseInt(minutes);
         const slotEndMinutes = slotMinutes + serviceDuration;
 
-        // For salons, we only block the slot if ALL staff are booked
-        // For individuals, any booking blocks the slot
         const hasConflict = (existingBookings || []).some((booking) => {
-          const bookingHour = parseInt(booking.time_slot.split(':')[0]);
-          const bookingMinutes = parseInt(booking.time_slot.split(':')[1]);
-          const bookingStart = bookingHour * 60 + bookingMinutes;
+          const [bh, bm] = booking.time_slot.split(':').map(Number);
+          const bookingStart = bh * 60 + bm;
           const bookingEnd = bookingStart + ((booking.service as any)?.duration_minutes || 60);
-
           return (
             (slotMinutes >= bookingStart && slotMinutes < bookingEnd) ||
             (slotEndMinutes > bookingStart && slotEndMinutes <= bookingEnd) ||
@@ -688,10 +612,7 @@ export async function getAvailableTimeSlots(
           );
         });
 
-        // Don't show slots that would extend past closing time
-        const wouldExceedEndTime = slotEndMinutes > endHour * 60;
-
-        if (!hasConflict && !wouldExceedEndTime) {
+        if (!hasConflict) {
           slots.push(slot);
         }
       }

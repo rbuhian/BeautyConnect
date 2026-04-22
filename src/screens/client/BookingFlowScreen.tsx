@@ -418,19 +418,21 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
                 </TouchableOpacity>
               </View>
             ) : (
-              <View style={styles.timeGrid}>
-                {availableSlots.map((slot) => (
-                  <TouchableOpacity
-                    key={slot}
-                    style={[styles.timeSlot, selectedTime === slot && styles.timeSlotSelected]}
-                    onPress={() => { setSelectedTime(slot); setShowTimeModal(false); }}
-                  >
-                    <Text style={[styles.timeSlotText, selectedTime === slot && styles.timeSlotTextSelected]}>
-                      {formatTime(slot)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                <View style={styles.timeGrid}>
+                  {availableSlots.map((slot) => (
+                    <TouchableOpacity
+                      key={slot}
+                      style={[styles.timeSlot, selectedTime === slot && styles.timeSlotSelected]}
+                      onPress={() => { setSelectedTime(slot); setShowTimeModal(false); }}
+                    >
+                      <Text style={[styles.timeSlotText, selectedTime === slot && styles.timeSlotTextSelected]}>
+                        {formatTime(slot)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
             )}
           </View>
         </View>
@@ -652,7 +654,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
     padding: SPACING.lg,
-    maxHeight: '80%',
+    maxHeight: '85%',
+    flex: 1,
   },
   modalHeader: {
     flexDirection: 'row',
