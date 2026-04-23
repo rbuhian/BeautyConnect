@@ -1,7 +1,7 @@
 import { Category } from '../types';
 
 // App info
-export const APP_NAME = 'BeautyConnect';
+export const APP_NAME = 'Maquillage.Ph';
 export const APP_TAGLINE = 'Discover. Book. Transform.';
 
 // Colors - matching the mockup gradient theme

@@ -410,7 +410,7 @@ export default function ProfileScreen({ navigation }: any) {
 
         {/* App Version */}
         <View style={styles.versionSection}>
-          <Text style={styles.versionText}>BeautyConnect v1.0.0</Text>
+          <Text style={styles.versionText}>Maquillage.Ph v1.0.0</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

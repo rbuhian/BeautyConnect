@@ -225,12 +225,12 @@ export default function SettingsScreen({ navigation }: any) {
           onPress: () => {
             Alert.alert(
               'Help Center',
-              'Visit our help center for answers to common questions and guides on using BeautyConnect.',
+              'Visit our help center for answers to common questions and guides on using Maquillage.Ph.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
                   text: 'Visit',
-                  onPress: () => Linking.openURL('https://beautyconnect.ph/help'),
+                  onPress: () => Linking.openURL('https://maquillage.ph/help'),
                 },
               ]
             );
@@ -239,8 +239,8 @@ export default function SettingsScreen({ navigation }: any) {
         {
           icon: Mail,
           label: 'Contact Support',
-          subtitle: 'support@beautyconnect.ph',
-          onPress: () => Linking.openURL('mailto:support@beautyconnect.ph'),
+          subtitle: 'support@maquillage.ph',
+          onPress: () => Linking.openURL('mailto:support@maquillage.ph'),
         },
       ],
     },
@@ -249,11 +249,11 @@ export default function SettingsScreen({ navigation }: any) {
       items: [
         {
           icon: Info,
-          label: 'About BeautyConnect',
+          label: 'About Maquillage.Ph',
           onPress: () => {
             Alert.alert(
-              'BeautyConnect',
-              'BeautyConnect is the premier platform connecting beauty professionals with clients in the Philippines.\n\nVersion 1.0.0\nBuild 1',
+              'Maquillage.Ph',
+              'Maquillage.Ph is the premier platform connecting beauty professionals with clients in the Philippines.\n\nVersion 1.0.0\nBuild 1',
               [{ text: 'OK' }]
             );
           },
@@ -269,12 +269,12 @@ export default function SettingsScreen({ navigation }: any) {
           onPress: () => {
             Alert.alert(
               'Terms of Service',
-              'By using BeautyConnect, you agree to our terms of service which govern the use of our platform.',
+              'By using Maquillage.Ph, you agree to our terms of service which govern the use of our platform.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
                   text: 'Read Terms',
-                  onPress: () => Linking.openURL('https://beautyconnect.ph/terms'),
+                  onPress: () => Linking.openURL('https://maquillage.ph/terms'),
                 },
               ]
             );
@@ -291,7 +291,7 @@ export default function SettingsScreen({ navigation }: any) {
                 { text: 'Cancel', style: 'cancel' },
                 {
                   text: 'Read Policy',
-                  onPress: () => Linking.openURL('https://beautyconnect.ph/privacy'),
+                  onPress: () => Linking.openURL('https://maquillage.ph/privacy'),
                 },
               ]
             );
@@ -370,8 +370,8 @@ export default function SettingsScreen({ navigation }: any) {
 
         {/* App Version */}
         <View style={styles.versionSection}>
-          <Text style={styles.versionText}>BeautyConnect v1.0.0</Text>
-          <Text style={styles.versionSubtext}>© 2026 BeautyConnect Philippines</Text>
+          <Text style={styles.versionText}>Maquillage.Ph v1.0.0</Text>
+          <Text style={styles.versionSubtext}>© 2026 Maquillage.Ph Philippines</Text>
           {pushToken && (
             <Text style={styles.tokenText} numberOfLines={1}>
               Push Token: ...{pushToken.slice(-20)}

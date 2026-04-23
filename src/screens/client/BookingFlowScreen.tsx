@@ -67,6 +67,9 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
   const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showCancellationModal, setShowCancellationModal] = useState(false);
 
   const showLocationStep =
     professional.location_type === 'both' || professional.location_type === 'home_service';
@@ -322,11 +325,66 @@ export default function BookingFlowScreen({ navigation, route }: BookingFlowProp
             </TouchableOpacity>
           </View>
 
+          {/* Terms and Conditions */}
+          <View style={styles.termsRow}>
+            <TouchableOpacity
+              onPress={() => setTermsAccepted(v => !v)}
+              activeOpacity={0.7}
+              style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}
+            >
+              {termsAccepted && <Text style={styles.checkmark}>✓</Text>}
+            </TouchableOpacity>
+            <Text style={styles.termsText}>
+              I agree to the{' '}
+              <Text style={styles.termsLink} onPress={() => setShowTermsModal(true)}>Terms and Conditions</Text>
+              {' '}and{' '}
+              <Text style={styles.termsLink} onPress={() => setShowCancellationModal(true)}>Cancellation Policy</Text>
+            </Text>
+          </View>
+
+          {/* Terms Modal */}
+          <Modal visible={showTermsModal} transparent animationType="slide" onRequestClose={() => setShowTermsModal(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalSheet, { maxHeight: '80%' }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Terms and Conditions</Text>
+                  <TouchableOpacity onPress={() => setShowTermsModal(false)}>
+                    <X size={22} color={COLORS.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.termsBody}>
+                    {`By using Maquillage.Ph, you agree to the following:\n\n1. BOOKING\nBookings are confirmed upon acceptance by the service provider. Prices shown are final at time of booking.\n\n2. PAYMENTS\nPayment is made directly to the service provider using the selected payment method. Maquillage.Ph does not process payments.\n\n3. CONDUCT\nBoth clients and professionals are expected to behave respectfully. Harassment or misconduct will result in account termination.\n\n4. ACCURACY\nYou are responsible for providing accurate booking information including date, time, and location.\n\n5. CHANGES\nMaquillage.Ph reserves the right to update these terms at any time. Continued use of the app constitutes acceptance of updated terms.`}
+                  </Text>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Cancellation Policy Modal */}
+          <Modal visible={showCancellationModal} transparent animationType="slide" onRequestClose={() => setShowCancellationModal(false)}>
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalSheet, { maxHeight: '80%' }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Cancellation Policy</Text>
+                  <TouchableOpacity onPress={() => setShowCancellationModal(false)}>
+                    <X size={22} color={COLORS.textPrimary} />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <Text style={styles.termsBody}>
+                    {`Cancellation terms for bookings on Maquillage.Ph:\n\n1. CLIENT CANCELLATIONS\nClients may cancel a booking before it is confirmed by the service provider at no penalty.\n\nOnce confirmed, cancellations are subject to the service provider's individual policy.\n\n2. PROVIDER CANCELLATIONS\nIf a service provider cancels a confirmed booking, the client will be notified immediately and may rebook with another provider.\n\n3. NO-SHOWS\nFailure to appear at the scheduled time without prior notice may result in account warnings or restrictions.\n\n4. DISPUTES\nAny disputes regarding cancellations should be resolved directly between the client and service provider. Maquillage.Ph is not liable for losses resulting from cancellations.`}
+                  </Text>
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+
           {/* Confirm */}
           <TouchableOpacity
-            style={[styles.confirmBtn, (!selectedDate || !selectedTime || !selectedPaymentMethod || submitting) && styles.confirmBtnDisabled]}
+            style={[styles.confirmBtn, (!selectedDate || !selectedTime || !selectedPaymentMethod || !termsAccepted || submitting) && styles.confirmBtnDisabled]}
             onPress={handleConfirmBooking}
-            disabled={!selectedDate || !selectedTime || !selectedPaymentMethod || submitting}
+            disabled={!selectedDate || !selectedTime || !selectedPaymentMethod || !termsAccepted || submitting}
           >
             <LinearGradient
               colors={['#E91E8C', '#FF6B35']}
@@ -630,6 +688,49 @@ const styles = StyleSheet.create({
   depositValue: { color: COLORS.warning, fontSize: FONT_SIZES.sm, fontWeight: '600' },
 
   // Confirm
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+    paddingHorizontal: SPACING.xs,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    flexShrink: 0,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.white,
+  },
+  checkmark: {
+    color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  termsText: {
+    flex: 1,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.white,
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: COLORS.white,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
+  termsBody: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    lineHeight: 22,
+  },
   confirmBtn: { marginTop: SPACING.xl },
   confirmBtnDisabled: { opacity: 0.5 },
   confirmGradient: {
