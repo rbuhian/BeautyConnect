@@ -43,6 +43,7 @@ import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import { useAuth } from '../../hooks/useAuth';
 import { updateProfessionalProfile } from '../../services/professional';
 import { getStaffMemberByUserId } from '../../services/business';
+import { supabase } from '../../services/supabase';
 import { StaffMember } from '../../types';
 
 export default function ProfileScreen({ navigation }: any) {
@@ -51,12 +52,31 @@ export default function ProfileScreen({ navigation }: any) {
   const [toggling, setToggling] = useState(false);
   const [isStaffMember, setIsStaffMember] = useState(false);
   const [staffMemberInfo, setStaffMemberInfo] = useState<StaffMember | null>(null);
+  const [avgRating, setAvgRating] = useState<number>(professionalProfile?.avg_rating || 0);
+  const [totalReviews, setTotalReviews] = useState<number>(professionalProfile?.total_reviews || 0);
 
-  // Refresh profile every time screen comes into focus (e.g. returning from EditProfile)
+  const fetchReviewStats = useCallback(async () => {
+    if (!user?.id) return;
+    const { data } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('reviewee_id', user.id);
+    if (data && data.length > 0) {
+      const avg = data.reduce((sum, r) => sum + r.rating, 0) / data.length;
+      setAvgRating(Math.round(avg * 10) / 10);
+      setTotalReviews(data.length);
+    } else {
+      setAvgRating(0);
+      setTotalReviews(0);
+    }
+  }, [user?.id]);
+
+  // Refresh profile and review stats every time screen comes into focus
   useFocusEffect(
     useCallback(() => {
       refreshProfessionalProfile();
-    }, [])
+      fetchReviewStats();
+    }, [fetchReviewStats])
   );
 
   // Debug logging
@@ -190,13 +210,13 @@ export default function ProfileScreen({ navigation }: any) {
     {
       icon: Star,
       label: 'Rating',
-      value: professionalProfile?.avg_rating?.toFixed(1) || '0.0',
+      value: avgRating > 0 ? avgRating.toFixed(1) : '0.0',
       color: '#FFB800',
     },
     {
       icon: CheckCircle,
       label: 'Reviews',
-      value: professionalProfile?.total_reviews || 0,
+      value: totalReviews,
       color: COLORS.success,
     },
   ];
