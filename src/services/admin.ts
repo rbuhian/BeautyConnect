@@ -1372,3 +1372,16 @@ export async function adminDeleteAccount(userId: string): Promise<ServiceRespons
     return { data: null, error: { message: 'Failed to delete account' } };
   }
 }
+
+export async function adminElevateToAdmin(userId: string): Promise<ServiceResponse> {
+  try {
+    const { error } = await supabase
+      .from('users')
+      .update({ role: 'admin' })
+      .eq('id', userId);
+    if (error) return { data: null, error: { message: error.message } };
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to elevate account' } };
+  }
+}

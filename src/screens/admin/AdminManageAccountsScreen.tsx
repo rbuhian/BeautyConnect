@@ -23,6 +23,7 @@ import {
   adminResetUserEmail,
   adminFreezeAccount,
   adminDeleteAccount,
+  adminElevateToAdmin,
   AccountSearchResult,
 } from '../../services/admin';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -131,6 +132,37 @@ export default function AdminManageAccountsScreen({ navigation }: Props) {
               setSelectedAccount(updated);
               setResults((prev) => prev.map((r) => r.id === updated.id ? updated : r));
               Alert.alert('Success', isFrozen ? 'Account unfrozen.' : 'Account frozen.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleElevateToAdmin = () => {
+    if (!selectedAccount) return;
+    if (selectedAccount.role === 'admin') {
+      Alert.alert('Already Admin', 'This account already has admin privileges.');
+      return;
+    }
+    Alert.alert(
+      'Elevate to Admin',
+      `Grant admin privileges to ${selectedAccount.name || selectedAccount.email}? This will give them full admin access to the app.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Elevate',
+          onPress: async () => {
+            setActionLoading(true);
+            const result = await adminElevateToAdmin(selectedAccount.id);
+            setActionLoading(false);
+            if (result.error) {
+              Alert.alert('Error', result.error.message);
+            } else {
+              const updated = { ...selectedAccount, role: 'admin' };
+              setSelectedAccount(updated);
+              setResults((prev) => prev.map((r) => r.id === updated.id ? updated : r));
+              Alert.alert('Success', `${selectedAccount.name || selectedAccount.email} is now an admin.`);
             }
           },
         },
@@ -280,6 +312,12 @@ export default function AdminManageAccountsScreen({ navigation }: Props) {
               label={selectedAccount.is_suspended ? 'Unfreeze Account' : 'Freeze Account'}
               onPress={handleFreezeAccount}
             />
+            <ActionButton
+              label={selectedAccount.role === 'admin' ? 'Already an Admin' : 'Elevate to Admin'}
+              onPress={handleElevateToAdmin}
+              disabled={selectedAccount.role === 'admin'}
+              accent
+            />
             <ActionButton label="Delete Account" onPress={handleDeleteAccount} danger />
           </View>
         )}
@@ -355,18 +393,33 @@ function ActionButton({
   label,
   onPress,
   danger,
+  accent,
+  disabled,
 }: {
   label: string;
   onPress: () => void;
   danger?: boolean;
+  accent?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <TouchableOpacity
-      style={[styles.actionButton, danger && styles.actionButtonDanger]}
+      style={[
+        styles.actionButton,
+        danger && styles.actionButtonDanger,
+        accent && styles.actionButtonAccent,
+        disabled && styles.actionButtonDisabled,
+      ]}
       onPress={onPress}
       activeOpacity={0.8}
+      disabled={disabled}
     >
-      <Text style={[styles.actionButtonText, danger && styles.actionButtonTextDanger]}>
+      <Text style={[
+        styles.actionButtonText,
+        danger && styles.actionButtonTextDanger,
+        accent && styles.actionButtonTextAccent,
+        disabled && styles.actionButtonTextDisabled,
+      ]}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -570,6 +623,13 @@ const styles = StyleSheet.create({
   actionButtonDanger: {
     borderColor: COLORS.error,
   },
+  actionButtonAccent: {
+    borderColor: '#7B2D8B',
+    backgroundColor: '#F3E5F5',
+  },
+  actionButtonDisabled: {
+    opacity: 0.45,
+  },
   actionButtonText: {
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
@@ -577,6 +637,12 @@ const styles = StyleSheet.create({
   },
   actionButtonTextDanger: {
     color: COLORS.error,
+  },
+  actionButtonTextAccent: {
+    color: '#7B2D8B',
+  },
+  actionButtonTextDisabled: {
+    color: COLORS.textSecondary,
   },
   // Modal
   modalOverlay: {
