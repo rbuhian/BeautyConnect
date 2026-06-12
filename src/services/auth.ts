@@ -66,6 +66,69 @@ export async function signUpWithPassword(
   }
 }
 
+// Send a password reset OTP code (no email link / no domain redirect required).
+// shouldCreateUser is false so we never create an account for an unknown email.
+export async function sendPasswordResetOtp(email: string): Promise<AuthResponse> {
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false },
+    });
+
+    if (error) {
+      // Supabase returns an error when the user does not exist (since shouldCreateUser is false)
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to send reset code. Please try again.' } };
+  }
+}
+
+// Verify a password reset OTP code. Unlike verifyOtp(), this does not run the
+// signup seed-migration/onboarding side-effects — it only establishes a session
+// so the password can be updated.
+export async function verifyResetOtp(
+  email: string,
+  token: string
+): Promise<AuthResponse> {
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email',
+    });
+
+    if (error) {
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    if (!data.user?.id) {
+      return { data: null, error: { message: 'Verification failed. Please try again.' } };
+    }
+
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to verify code. Please try again.' } };
+  }
+}
+
+// Update the current user's password (requires an active session, e.g. after verifyResetOtp).
+export async function updatePassword(newPassword: string): Promise<AuthResponse> {
+  try {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (error) {
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    return { data: null, error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to update password. Please try again.' } };
+  }
+}
+
 // Sign in with email and password
 export async function signInWithPassword(
   email: string,

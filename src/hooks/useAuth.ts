@@ -18,6 +18,7 @@ export function useAuth() {
     loading: store.loading,
     initialized: store.initialized,
     error: store.error,
+    recoveringPassword: store.recoveringPassword,
 
     // Computed
     isAuthenticated: !!store.user,
@@ -30,6 +31,9 @@ export function useAuth() {
     verifyOtp: store.verifyOtp,
     signUp: store.signUp,
     signIn: store.signIn,
+    sendPasswordResetOtp: store.sendPasswordResetOtp,
+    verifyResetOtp: store.verifyResetOtp,
+    updatePassword: store.updatePassword,
     updateProfile: store.updateProfile,
     setRole: store.setRole,
     refreshProfessionalProfile: store.refreshProfessionalProfile,
