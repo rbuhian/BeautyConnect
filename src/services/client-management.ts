@@ -39,7 +39,7 @@ export async function getClientList(
   try {
     const { data, error } = await supabase
       .from('bookings')
-      .select('client_id, total_price, date, status, service:services(name), client:users!bookings_client_id_fkey(id, name, avatar, phone)')
+      .select('client_id, total_price, date, status, service:services(name), client:users!bookings_client_id_fkey(id, name, avatar, email)')
       .eq('professional_id', professionalId)
       .order('date', { ascending: false });
 
@@ -51,7 +51,7 @@ export async function getClientList(
     const clientMap = new Map<string, {
       name: string;
       avatar: string | null;
-      phone: string;
+      email: string;
       bookings: any[];
     }>();
 

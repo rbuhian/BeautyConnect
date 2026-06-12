@@ -237,7 +237,7 @@ export async function getProfessionalById(
       .from('professional_profiles')
       .select(`
         *,
-        user:users!professional_profiles_user_id_fkey(id, name, avatar, phone),
+        user:users!professional_profiles_user_id_fkey(id, name, avatar, email),
         services:services(*)
       `)
       .eq('id', professionalId)
