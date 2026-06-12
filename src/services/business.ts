@@ -383,6 +383,36 @@ export async function removeStaffBlockedDate(
   if (error) throw error;
 }
 
+/**
+ * Update a staff member's blocked entry (time range and/or reason)
+ */
+export async function updateStaffBlockedDate(
+  id: string,
+  fields: { date?: string; reason?: string | null; start_time?: string | null; end_time?: string | null }
+): Promise<StaffBlockedDate> {
+  const { data, error } = await supabase
+    .from('staff_blocked_dates')
+    .update(fields)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Remove a single staff blocked entry by id
+ */
+export async function deleteStaffBlockedDate(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('staff_blocked_dates')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
 // ============================================
 // STAFF AVAILABILITY CHECK FUNCTIONS
 // ============================================

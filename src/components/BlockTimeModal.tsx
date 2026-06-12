@@ -31,6 +31,19 @@ interface BlockTimeModalProps {
   initialDate?: string;
   staffMembers?: StaffMember[];
   isSalon: boolean;
+  // When set, the modal edits an existing block instead of creating one.
+  editingBlock?: {
+    date: string;
+    reason: string | null;
+    start_time: string | null;
+    end_time: string | null;
+  } | null;
+  onUpdateBlock?: (blockData: {
+    date: string;
+    reason?: string;
+    startTime?: string;
+    endTime?: string;
+  }) => Promise<void>;
 }
 
 // Generate next 30 days for date selection
@@ -69,7 +82,10 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
   initialDate,
   staffMembers = [],
   isSalon,
+  editingBlock,
+  onUpdateBlock,
 }: BlockTimeModalProps) {
+  const isEditing = !!editingBlock;
   // Form state
   const [selectedDate, setSelectedDate] = useState(
     initialDate || format(new Date(), 'yyyy-MM-dd')
@@ -86,20 +102,29 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
 
   const dateOptions = generateDateOptions(new Date());
 
-  // Reset form when modal opens
+  // Reset / prefill form when modal opens
   useEffect(() => {
     if (visible) {
-      setSelectedDate(initialDate || format(new Date(), 'yyyy-MM-dd'));
+      if (editingBlock) {
+        setSelectedDate(editingBlock.date);
+        setReason(editingBlock.reason || '');
+        const wholeDay = !editingBlock.start_time || !editingBlock.end_time;
+        setBlockWholeDay(wholeDay);
+        setStartTime(editingBlock.start_time || '09:00');
+        setEndTime(editingBlock.end_time || '17:00');
+      } else {
+        setSelectedDate(initialDate || format(new Date(), 'yyyy-MM-dd'));
+        setReason('');
+        setBlockWholeDay(true);
+        setStartTime('09:00');
+        setEndTime('17:00');
+      }
       setSelectedStaffIds([]);
-      setReason('');
       setShowDatePicker(false);
-      setBlockWholeDay(true);
-      setStartTime('09:00');
-      setEndTime('17:00');
       setShowStartPicker(false);
       setShowEndPicker(false);
     }
-  }, [visible, initialDate]);
+  }, [visible, initialDate, editingBlock]);
 
   const handleStaffToggle = (staffId: string) => {
     if (selectedStaffIds.includes(staffId)) {
@@ -118,8 +143,8 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
   };
 
   const handleSubmit = async () => {
-    // Validation
-    if (isSalon && selectedStaffIds.length === 0) {
+    // Validation (staff selection only applies when creating)
+    if (!isEditing && isSalon && selectedStaffIds.length === 0) {
       Alert.alert('Validation Error', 'Please select at least one staff member');
       return;
     }
@@ -131,13 +156,20 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
 
     setLoading(true);
     try {
-      await onBlockTime({
+      const payload = {
         date: selectedDate,
-        staffMemberIds: isSalon ? selectedStaffIds : [],
         reason: reason.trim() || undefined,
         startTime: blockWholeDay ? undefined : startTime,
         endTime: blockWholeDay ? undefined : endTime,
-      });
+      };
+      if (isEditing && onUpdateBlock) {
+        await onUpdateBlock(payload);
+      } else {
+        await onBlockTime({
+          ...payload,
+          staffMemberIds: isSalon ? selectedStaffIds : [],
+        });
+      }
       onClose();
     } catch (error) {
       console.error('Error blocking time:', error);
@@ -157,7 +189,7 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
       <SafeAreaView style={styles.container} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Block Time</Text>
+          <Text style={styles.headerTitle}>{isEditing ? 'Edit Blocked Time' : 'Block Time'}</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <X size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
@@ -307,8 +339,8 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
             )}
           </View>
 
-          {/* Staff Selection (Salon only) */}
-          {isSalon && staffMembers.length > 0 && (
+          {/* Staff Selection (Salon only, not when editing a single block) */}
+          {!isEditing && isSalon && staffMembers.length > 0 && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Staff Members</Text>
@@ -384,7 +416,11 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
             style={styles.footerButton}
           />
           <Button
-            title={loading ? 'Blocking...' : 'Block Time'}
+            title={
+              loading
+                ? isEditing ? 'Saving...' : 'Blocking...'
+                : isEditing ? 'Save Changes' : 'Block Time'
+            }
             onPress={handleSubmit}
             variant="primary"
             style={styles.footerButton}

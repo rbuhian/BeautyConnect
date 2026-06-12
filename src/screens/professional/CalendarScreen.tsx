@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
@@ -23,12 +24,14 @@ import {
   Filter,
   Plus,
   Ban,
+  Pencil,
+  Trash2,
 } from 'lucide-react-native';
 
 import { useAuth } from '../../hooks/useAuth';
 import { Booking, BookingStatus, StaffMember, Service } from '../../types';
-import { getBookingsByDateRange, getBusinessBookingsByDateRange, createProfessionalBooking, blockProfessionalDate } from '../../services/calendar';
-import { getActiveStaffMembers, addStaffBlockedDate } from '../../services/business';
+import { getBookingsByDateRange, getBusinessBookingsByDateRange, createProfessionalBooking, blockProfessionalDate, getProfessionalBlockedDates, updateProfessionalBlockedDate, deleteProfessionalBlockedDate } from '../../services/calendar';
+import { getActiveStaffMembers, addStaffBlockedDate, getStaffBlockedDates, updateStaffBlockedDate, deleteStaffBlockedDate } from '../../services/business';
 import { getServices } from '../../services/professional';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../../constants';
 import Card from '../../components/Card';
@@ -41,6 +44,25 @@ import CreateBookingModal from '../../components/CreateBookingModal';
 import BlockTimeModal from '../../components/BlockTimeModal';
 
 type ViewMode = 'month' | 'week';
+
+// A unified blocked-time entry for both solo professionals and salon staff.
+type BlockedItem = {
+  id: string;
+  kind: 'solo' | 'staff';
+  staffMemberId?: string;
+  staffName?: string;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  reason: string | null;
+};
+
+const formatBlockTime = (t: string): string => {
+  const [h, m] = t.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
+};
 
 export default function CalendarScreen({ navigation }: any) {
   const { user, professionalProfile } = useAuth();
@@ -63,6 +85,8 @@ export default function CalendarScreen({ navigation }: any) {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockedItems, setBlockedItems] = useState<BlockedItem[]>([]);
+  const [editingBlock, setEditingBlock] = useState<BlockedItem | null>(null);
 
   const isSalon = !!professionalProfile?.business;
   const businessId = professionalProfile?.business?.id;
@@ -147,6 +171,53 @@ export default function CalendarScreen({ navigation }: any) {
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
+
+  // Fetch blocked times (solo: own blocks; salon: across all active staff)
+  const fetchBlockedItems = useCallback(async () => {
+    if (!professionalProfile) return;
+    const today = format(new Date(), 'yyyy-MM-dd');
+    try {
+      if (isSalon && staffMembers.length > 0) {
+        const perStaff = await Promise.all(
+          staffMembers.map(async (staff) => {
+            const rows = await getStaffBlockedDates(staff.id, today);
+            return rows.map((r): BlockedItem => ({
+              id: r.id,
+              kind: 'staff',
+              staffMemberId: staff.id,
+              staffName: staff.name,
+              date: r.date,
+              start_time: r.start_time,
+              end_time: r.end_time,
+              reason: r.reason,
+            }));
+          })
+        );
+        const all = perStaff.flat();
+        all.sort((a, b) => (a.date + (a.start_time || '')).localeCompare(b.date + (b.start_time || '')));
+        setBlockedItems(all);
+      } else {
+        const res = await getProfessionalBlockedDates(professionalProfile.id, today);
+        const rows = res.data || [];
+        const items = rows.map((r): BlockedItem => ({
+          id: r.id,
+          kind: 'solo',
+          date: r.date,
+          start_time: r.start_time,
+          end_time: r.end_time,
+          reason: r.reason,
+        }));
+        items.sort((a, b) => (a.date + (a.start_time || '')).localeCompare(b.date + (b.start_time || '')));
+        setBlockedItems(items);
+      }
+    } catch (err) {
+      console.error('Error fetching blocked times:', err);
+    }
+  }, [professionalProfile, isSalon, staffMembers]);
+
+  useEffect(() => {
+    fetchBlockedItems();
+  }, [fetchBlockedItems]);
 
   // Get status color
   const getStatusColor = useCallback((status: string): string => {
@@ -324,6 +395,7 @@ export default function CalendarScreen({ navigation }: any) {
       try {
         await Promise.all(promises);
         await fetchBookings();
+        await fetchBlockedItems();
       } catch (error) {
         console.error('Error blocking staff time:', error);
         throw error;
@@ -343,8 +415,80 @@ export default function CalendarScreen({ navigation }: any) {
       }
 
       await fetchBookings();
+      await fetchBlockedItems();
     }
-  }, [isSalon, staffMembers, professionalProfile, fetchBookings]);
+  }, [isSalon, staffMembers, professionalProfile, fetchBookings, fetchBlockedItems]);
+
+  // Open the edit modal for a blocked item
+  const handleEditBlock = useCallback((item: BlockedItem) => {
+    setEditingBlock(item);
+    setShowBlockModal(true);
+  }, []);
+
+  // Save edits to an existing blocked item
+  const handleUpdateBlock = useCallback(async (blockData: {
+    date: string;
+    reason?: string;
+    startTime?: string;
+    endTime?: string;
+  }) => {
+    if (!editingBlock) return;
+    const fields = {
+      date: blockData.date,
+      reason: blockData.reason ?? null,
+      start_time: blockData.startTime ?? null,
+      end_time: blockData.endTime ?? null,
+    };
+
+    if (editingBlock.kind === 'staff') {
+      await updateStaffBlockedDate(editingBlock.id, fields);
+    } else {
+      const result = await updateProfessionalBlockedDate(editingBlock.id, fields);
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+    }
+
+    await fetchBookings();
+    await fetchBlockedItems();
+  }, [editingBlock, fetchBookings, fetchBlockedItems]);
+
+  // Remove a blocked item
+  const handleRemoveBlock = useCallback((item: BlockedItem) => {
+    Alert.alert(
+      'Remove Blocked Time',
+      'Are you sure you want to remove this blocked time?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (item.kind === 'staff') {
+                await deleteStaffBlockedDate(item.id);
+              } else {
+                const result = await deleteProfessionalBlockedDate(item.id);
+                if (result.error) {
+                  throw new Error(result.error.message);
+                }
+              }
+              await fetchBookings();
+              await fetchBlockedItems();
+            } catch (error) {
+              console.error('Error removing blocked time:', error);
+              Alert.alert('Error', 'Failed to remove blocked time. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  }, [fetchBookings, fetchBlockedItems]);
+
+  const closeBlockModal = useCallback(() => {
+    setShowBlockModal(false);
+    setEditingBlock(null);
+  }, []);
 
   if (loading) {
     return <Loading />;
@@ -536,6 +680,49 @@ export default function CalendarScreen({ navigation }: any) {
             />
           </View>
 
+          {/* Blocked Times list */}
+          {blockedItems.length > 0 && (
+            <View style={styles.blockedSection}>
+              <Text style={styles.blockedSectionTitle}>Blocked Times</Text>
+              {blockedItems.map((item) => (
+                <Card key={item.id} style={styles.blockedCard}>
+                  <View style={styles.blockedRow}>
+                    <View style={styles.blockedInfo}>
+                      <Text style={styles.blockedDate}>
+                        {format(parseISO(item.date), 'EEE, MMM d, yyyy')}
+                      </Text>
+                      <Text style={styles.blockedTime}>
+                        {item.start_time && item.end_time
+                          ? `${formatBlockTime(item.start_time)} – ${formatBlockTime(item.end_time)}`
+                          : 'Whole day'}
+                      </Text>
+                      {item.staffName ? (
+                        <Text style={styles.blockedMeta}>Staff: {item.staffName}</Text>
+                      ) : null}
+                      {item.reason ? (
+                        <Text style={styles.blockedMeta}>{item.reason}</Text>
+                      ) : null}
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleEditBlock(item)}
+                      style={styles.blockedAction}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Pencil size={18} color={COLORS.primary} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleRemoveBlock(item)}
+                      style={styles.blockedAction}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Trash2 size={18} color={COLORS.error} />
+                    </TouchableOpacity>
+                  </View>
+                </Card>
+              ))}
+            </View>
+          )}
+
           <View style={{ height: 50 }} />
         </ScrollView>
       ) : (
@@ -585,11 +772,13 @@ export default function CalendarScreen({ navigation }: any) {
         isSalon={isSalon}
       />
 
-      {/* Block Time Modal */}
+      {/* Block Time Modal (create + edit) */}
       <BlockTimeModal
         visible={showBlockModal}
-        onClose={() => setShowBlockModal(false)}
+        onClose={closeBlockModal}
         onBlockTime={handleBlockTime}
+        onUpdateBlock={handleUpdateBlock}
+        editingBlock={editingBlock}
         initialDate={selectedDate}
         staffMembers={staffMembers}
         isSalon={isSalon}
@@ -747,5 +936,45 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     marginBottom: SPACING.sm,
+  },
+  blockedSection: {
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.lg,
+  },
+  blockedSectionTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+  },
+  blockedCard: {
+    marginBottom: SPACING.sm,
+  },
+  blockedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  blockedInfo: {
+    flex: 1,
+  },
+  blockedDate: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  blockedTime: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.primary,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  blockedMeta: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  blockedAction: {
+    padding: SPACING.sm,
+    marginLeft: SPACING.xs,
   },
 });

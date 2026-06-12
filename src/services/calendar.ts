@@ -245,6 +245,55 @@ export async function unblockProfessionalDate(
 }
 
 /**
+ * Update a solo professional's blocked entry (time range and/or reason)
+ */
+export async function updateProfessionalBlockedDate(
+  id: string,
+  fields: { date?: string; reason?: string | null; start_time?: string | null; end_time?: string | null }
+): Promise<ServiceResponse<ProfessionalBlockedDate>> {
+  try {
+    const { data, error } = await supabase
+      .from('professional_blocked_dates')
+      .update(fields)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating professional blocked date:', error);
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    return { data, error: null };
+  } catch (err) {
+    console.error('Unexpected error in updateProfessionalBlockedDate:', err);
+    return { data: null, error: { message: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' } };
+  }
+}
+
+/**
+ * Remove a single blocked entry by id (for a solo professional)
+ */
+export async function deleteProfessionalBlockedDate(id: string): Promise<ServiceResponse<void>> {
+  try {
+    const { error } = await supabase
+      .from('professional_blocked_dates')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting professional blocked date:', error);
+      return { data: null, error: { message: error.message, code: error.code } };
+    }
+
+    return { data: undefined, error: null };
+  } catch (err) {
+    console.error('Unexpected error in deleteProfessionalBlockedDate:', err);
+    return { data: null, error: { message: 'Unexpected error occurred', code: 'UNKNOWN_ERROR' } };
+  }
+}
+
+/**
  * Get blocked dates for a solo professional within a date range
  */
 export async function getProfessionalBlockedDates(
