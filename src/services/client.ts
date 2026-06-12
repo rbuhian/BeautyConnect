@@ -593,6 +593,14 @@ export async function getAvailableTimeSlots(
       .eq('date', date)
       .in('status', ['pending', 'confirmed']);
 
+    // When booking for today, exclude slots whose start time has already passed.
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1)
+      .toString()
+      .padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+    const isToday = date === todayStr;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
     // Generate all 24-hour slots (00:00 - 23:30)
     const slots: string[] = [];
     for (let hour = 0; hour <= 23; hour++) {
@@ -600,6 +608,11 @@ export async function getAvailableTimeSlots(
         const slot = `${hour.toString().padStart(2, '0')}:${minutes}`;
         const slotMinutes = hour * 60 + parseInt(minutes);
         const slotEndMinutes = slotMinutes + serviceDuration;
+
+        // Skip past times for same-day bookings.
+        if (isToday && slotMinutes <= nowMinutes) {
+          continue;
+        }
 
         const hasConflict = (existingBookings || []).some((booking) => {
           const [bh, bm] = booking.time_slot.split(':').map(Number);
