@@ -294,7 +294,7 @@ export default function BookingDetailScreen({ navigation, route }: any) {
           onPress: async () => {
             setLoading(true);
             try {
-              const result = await updateBookingStatus(booking.id, 'cancelled', 'professional');
+              const result = await updateBookingStatus(booking.id, 'cancelled', user?.id);
               if (result.data) {
                 setBooking(result.data);
 
@@ -391,7 +391,7 @@ export default function BookingDetailScreen({ navigation, route }: any) {
         onPress: async () => {
           setLoading(true);
           try {
-            const result = await updateBookingStatus(booking.id, 'cancelled', 'professional');
+            const result = await updateBookingStatus(booking.id, 'cancelled', user?.id);
             if (result.data) {
               setBooking(result.data);
 
@@ -749,7 +749,7 @@ export default function BookingDetailScreen({ navigation, route }: any) {
               <X size={24} color={COLORS.error} />
               <Text style={styles.cancelledText}>
                 This booking was cancelled
-                {booking.cancelled_by === 'professional' ? ' by you' : ' by the client'}
+                {booking.cancelled_by === booking.client_id ? ' by the client' : ' by you'}
               </Text>
             </View>
           )}
