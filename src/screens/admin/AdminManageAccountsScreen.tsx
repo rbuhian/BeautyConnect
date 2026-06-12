@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Settings2, ChevronLeft, User, Eye, EyeOff } from 'lucide-react-native';
 import { COLORS, FONT_SIZES, SPACING, RADIUS } from '../../constants';
 import {
+  getAllAccounts,
   searchAccountByEmail,
   adminResetUserPassword,
   adminResetUserEmail,
@@ -46,8 +47,29 @@ export default function AdminManageAccountsScreen({ navigation }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
 
+  // Load all accounts so names appear below by default (no search required).
+  const loadAllAccounts = useCallback(async () => {
+    setSearching(true);
+    setSelectedAccount(null);
+    const result = await getAllAccounts();
+    setSearching(false);
+    if (result.data) {
+      setResults(result.data);
+    } else {
+      Alert.alert('Error', result.error?.message || 'Failed to load accounts.');
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAllAccounts();
+  }, [loadAllAccounts]);
+
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+    // Empty query → show the full list again.
+    if (!searchQuery.trim()) {
+      loadAllAccounts();
+      return;
+    }
     setSearching(true);
     setSelectedAccount(null);
     const result = await searchAccountByEmail(searchQuery.trim());
@@ -223,7 +245,10 @@ export default function AdminManageAccountsScreen({ navigation }: Props) {
               placeholder="Search account"
               placeholderTextColor={COLORS.textSecondary}
               value={searchQuery}
-              onChangeText={setSearchQuery}
+              onChangeText={(t) => {
+                setSearchQuery(t);
+                if (!t.trim()) loadAllAccounts();
+              }}
               onSubmitEditing={handleSearch}
               autoCapitalize="none"
               keyboardType="email-address"

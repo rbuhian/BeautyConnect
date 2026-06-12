@@ -1287,6 +1287,26 @@ export interface AccountSearchResult {
   avatar: string | null;
 }
 
+/**
+ * List all client and professional accounts (for the Manage Accounts screen),
+ * so names appear by default without requiring a search.
+ */
+export async function getAllAccounts(): Promise<ServiceResponse<AccountSearchResult[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, email, role, is_suspended, avatar')
+      .in('role', ['client', 'professional'])
+      .order('name', { ascending: true, nullsFirst: false })
+      .limit(500);
+
+    if (error) return { data: null, error: { message: error.message } };
+    return { data: (data || []) as AccountSearchResult[], error: null };
+  } catch (err) {
+    return { data: null, error: { message: 'Failed to load accounts' } };
+  }
+}
+
 export async function searchAccountByEmail(
   query: string
 ): Promise<ServiceResponse<AccountSearchResult[]>> {
