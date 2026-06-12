@@ -10,6 +10,9 @@ import ClientOnboardingScreen from '../screens/auth/ClientOnboardingScreen';
 import ProfessionalOnboardingScreen from '../screens/auth/ProfessionalOnboardingScreen';
 import EmailInputScreen from '../screens/auth/EmailInputScreen';
 import OtpVerificationScreen from '../screens/auth/OtpVerificationScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import ResetPasswordOtpScreen from '../screens/auth/ResetPasswordOtpScreen';
+import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -34,6 +37,9 @@ export default function AuthNavigator({ initialRoute = 'Splash' }: AuthNavigator
       <Stack.Screen name="ProfessionalOnboarding" component={ProfessionalOnboardingScreen} />
       <Stack.Screen name="EmailInput" component={EmailInputScreen} />
       <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="ResetPasswordOtp" component={ResetPasswordOtpScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
     </Stack.Navigator>
   );
 }

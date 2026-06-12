@@ -14,7 +14,7 @@ import AdminNavigator from './AdminNavigator';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
-  const { user, loading, initialized } = useAuth();
+  const { user, loading, initialized, recoveringPassword } = useAuth();
 
   // Show loading until auth is initialized
   if (!initialized || loading) {
@@ -54,7 +54,7 @@ export default function RootNavigator() {
 
   return (
     <NavigationContainer>
-      {!user || needsOnboarding ? (
+      {!user || needsOnboarding || recoveringPassword ? (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Auth">
             {() => <AuthNavigator initialRoute={initialRoute} />}

@@ -11,6 +11,9 @@ export type AuthStackParamList = {
   CreateAccount: { role: 'client' | 'professional' };
   EmailInput: { role?: 'client' | 'professional' } | undefined;
   OtpVerification: { email: string; role?: 'client' | 'professional' };
+  ForgotPassword: undefined;
+  ResetPasswordOtp: { email: string };
+  ResetPassword: undefined;
   ClientOnboarding: undefined;
   ProfessionalOnboarding: undefined;
 };

@@ -7,6 +7,9 @@ import {
   verifyOtp,
   signUpWithPassword,
   signInWithPassword,
+  sendPasswordResetOtp,
+  verifyResetOtp,
+  updatePassword,
   getCurrentUser,
   updateUserProfile,
   createProfessionalProfile,
@@ -21,6 +24,9 @@ interface AuthState {
   loading: boolean;
   initialized: boolean;
   error: string | null;
+  // True while a password-reset flow is in progress. Keeps the user in the Auth
+  // stack even though verifying the reset OTP creates a temporary session.
+  recoveringPassword: boolean;
 
   // Actions
   initialize: () => Promise<void>;
@@ -28,6 +34,9 @@ interface AuthState {
   verifyOtp: (email: string, token: string) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
   signUp: (name: string, email: string, password: string, role: 'client' | 'professional') => Promise<{ success: boolean; error?: string }>;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  sendPasswordResetOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
+  verifyResetOtp: (email: string, token: string) => Promise<{ success: boolean; error?: string }>;
+  updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   updateProfile: (updates: Partial<Pick<User, 'name' | 'avatar' | 'role'>>) => Promise<{ success: boolean; error?: string }>;
   setRole: (role: 'client' | 'professional') => Promise<{ success: boolean; error?: string }>;
   refreshProfessionalProfile: () => Promise<void>;
@@ -42,6 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: true,
   initialized: false,
   error: null,
+  recoveringPassword: false,
 
   initialize: async () => {
     try {
@@ -65,7 +75,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       supabase.auth.onAuthStateChange(async (event, session) => {
         set({ session });
 
-        if (event === 'SIGNED_IN' && session?.user) {
+        // During a password reset, verifying the OTP creates a session and fires
+        // SIGNED_IN. Skip loading the user here so RootNavigator stays on the Auth
+        // stack (user stays null) and the ResetPassword screen isn't reset away.
+        if (event === 'SIGNED_IN' && session?.user && !get().recoveringPassword) {
           const { data: user } = await getCurrentUser();
           set({ user });
 
@@ -138,6 +151,45 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (user?.role === 'professional') {
       const { data: proProfile } = await getProfessionalProfile(user.id);
       set({ professionalProfile: proProfile });
+    }
+
+    return { success: true };
+  },
+
+  sendPasswordResetOtp: async (email: string) => {
+    set({ error: null });
+    const { error } = await sendPasswordResetOtp(email);
+
+    if (error) {
+      set({ error: error.message });
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  },
+
+  verifyResetOtp: async (email: string, token: string) => {
+    // Set the flag BEFORE verifying: verifyOtp creates a session and fires
+    // SIGNED_IN, and the onAuthStateChange handler checks this flag to avoid
+    // loading the user (which would reset the Auth navigator away from reset).
+    set({ error: null, recoveringPassword: true });
+    const { error } = await verifyResetOtp(email, token);
+
+    if (error) {
+      set({ error: error.message, recoveringPassword: false });
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  },
+
+  updatePassword: async (newPassword: string) => {
+    set({ error: null });
+    const { error } = await updatePassword(newPassword);
+
+    if (error) {
+      set({ error: error.message });
+      return { success: false, error: error.message };
     }
 
     return { success: true };
@@ -246,6 +298,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       professionalProfile: null,
       loading: false,
       error: null,
+      recoveringPassword: false,
     });
   },
 

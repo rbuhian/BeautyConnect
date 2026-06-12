@@ -146,6 +146,9 @@ export const MIN_BIO_LENGTH = 50;
 export const MAX_BIO_LENGTH = 500;
 
 // API
+// NOTE: EXPO_PUBLIC_* values are inlined from .env at build/bundle time.
+// If these are empty in a release build, Supabase throws "supabaseUrl is required"
+// on launch — ensure .env exists and the JS bundle is rebuilt (not cached).
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 

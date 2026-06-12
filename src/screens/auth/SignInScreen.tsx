@@ -86,6 +86,13 @@ export default function SignInScreen({ navigation }: AuthScreenProps<'SignIn'>) 
             />
           </View>
 
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ForgotPassword')}
+            style={styles.forgotPasswordWrapper}
+          >
+            <Text style={styles.forgotPasswordLink}>Forgot password?</Text>
+          </TouchableOpacity>
+
           <GradientButton
             title={loading ? 'Signing in...' : 'Sign in'}
             onPress={handleSignIn}
@@ -134,5 +141,13 @@ const styles = StyleSheet.create({
   },
   signInButton: {
     marginTop: SPACING.md,
+  },
+  forgotPasswordWrapper: {
+    alignSelf: 'flex-end',
+  },
+  forgotPasswordLink: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.primary,
+    fontWeight: '500',
   },
 });
