@@ -312,11 +312,13 @@ export default function CalendarScreen({ navigation }: any) {
     date: string;
     staffMemberIds: string[];
     reason?: string;
+    startTime?: string;
+    endTime?: string;
   }) => {
     if (isSalon && staffMembers.length > 0) {
       // Salon: block time for each selected staff member
       const promises = blockData.staffMemberIds.map(staffId =>
-        addStaffBlockedDate(staffId, blockData.date, blockData.reason)
+        addStaffBlockedDate(staffId, blockData.date, blockData.reason, blockData.startTime, blockData.endTime)
       );
 
       try {
@@ -331,7 +333,9 @@ export default function CalendarScreen({ navigation }: any) {
       const result = await blockProfessionalDate(
         professionalProfile.id,
         blockData.date,
-        blockData.reason
+        blockData.reason,
+        blockData.startTime,
+        blockData.endTime
       );
 
       if (result.error) {

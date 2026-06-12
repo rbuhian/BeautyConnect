@@ -347,7 +347,9 @@ export async function getStaffBlockedDates(
 export async function addStaffBlockedDate(
   staffMemberId: string,
   date: string,
-  reason?: string
+  reason?: string,
+  startTime?: string,
+  endTime?: string
 ): Promise<StaffBlockedDate> {
   const { data, error } = await supabase
     .from('staff_blocked_dates')
@@ -355,6 +357,8 @@ export async function addStaffBlockedDate(
       staff_member_id: staffMemberId,
       date,
       reason: reason || null,
+      start_time: startTime || null,
+      end_time: endTime || null,
     })
     .select()
     .single();
@@ -464,15 +468,18 @@ export async function getBusinessAvailableSlots(
     if (availError && availError.code !== 'PGRST116') throw availError;
     if (!availability) continue;
 
-    // Check if date is blocked
-    const { data: blocked } = await supabase
+    // Skip this staff entirely only when the whole day is blocked; partial
+    // (time-range) blocks are handled per-slot by is_staff_available below.
+    const { data: blockedRows } = await supabase
       .from('staff_blocked_dates')
-      .select('id')
+      .select('start_time, end_time')
       .eq('staff_member_id', staff.id)
-      .eq('date', date)
-      .single();
+      .eq('date', date);
 
-    if (blocked) continue;
+    const wholeDayBlocked = (blockedRows || []).some(
+      (b) => !b.start_time || !b.end_time
+    );
+    if (wholeDayBlocked) continue;
 
     // Generate time slots and check availability
     const startHour = parseInt(availability.start_time.split(':')[0]);

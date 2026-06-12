@@ -102,6 +102,9 @@ export interface StaffBlockedDate {
   staff_member_id: string;
   date: string;
   reason: string | null;
+  // NULL = whole day; otherwise the blocked range [start_time, end_time)
+  start_time: string | null;
+  end_time: string | null;
 }
 
 export interface ProfessionalBlockedDate {
@@ -110,6 +113,9 @@ export interface ProfessionalBlockedDate {
   date: string;
   reason: string | null;
   created_at: string;
+  // NULL = whole day; otherwise the blocked range [start_time, end_time)
+  start_time: string | null;
+  end_time: string | null;
 }
 
 // Service types

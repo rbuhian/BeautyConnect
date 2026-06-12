@@ -176,7 +176,9 @@ export async function getBusinessBookingsByDateRange(
 export async function blockProfessionalDate(
   professionalId: string,
   date: string,
-  reason?: string
+  reason?: string,
+  startTime?: string,
+  endTime?: string
 ): Promise<ServiceResponse<ProfessionalBlockedDate>> {
   try {
     const { data, error } = await supabase
@@ -185,6 +187,8 @@ export async function blockProfessionalDate(
         professional_id: professionalId,
         date,
         reason: reason || null,
+        start_time: startTime || null,
+        end_time: endTime || null,
       })
       .select()
       .single();

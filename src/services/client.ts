@@ -601,6 +601,28 @@ export async function getAvailableTimeSlots(
     const isToday = date === todayStr;
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
+    // Fetch the professional's blocked times for this date.
+    const { data: blocks } = await supabase
+      .from('professional_blocked_dates')
+      .select('start_time, end_time')
+      .eq('professional_id', professionalId)
+      .eq('date', date);
+
+    // A block with no times blocks the whole day → no slots available.
+    const wholeDayBlocked = (blocks || []).some((b: any) => !b.start_time || !b.end_time);
+    if (wholeDayBlocked) {
+      return { data: [], error: null };
+    }
+
+    const toMinutes = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+    const blockedRanges = (blocks || []).map((b: any) => ({
+      start: toMinutes(b.start_time),
+      end: toMinutes(b.end_time),
+    }));
+
     // Generate all 24-hour slots (00:00 - 23:30)
     const slots: string[] = [];
     for (let hour = 0; hour <= 23; hour++) {
@@ -611,6 +633,14 @@ export async function getAvailableTimeSlots(
 
         // Skip past times for same-day bookings.
         if (isToday && slotMinutes <= nowMinutes) {
+          continue;
+        }
+
+        // Skip slots that overlap a blocked time range.
+        const inBlockedRange = blockedRanges.some(
+          (r) => slotMinutes < r.end && slotEndMinutes > r.start
+        );
+        if (inBlockedRange) {
           continue;
         }
 
