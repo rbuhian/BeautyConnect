@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Calendar } from 'lucide-react-native';
+import { X, Calendar, Clock } from 'lucide-react-native';
 import { format, parseISO, addDays } from 'date-fns';
 import { COLORS, SPACING, FONT_SIZES, RADIUS } from '../constants';
 import { StaffMember } from '../types';
@@ -23,10 +24,26 @@ interface BlockTimeModalProps {
     date: string;
     staffMemberIds: string[];
     reason?: string;
+    // When omitted, the whole day is blocked.
+    startTime?: string;
+    endTime?: string;
   }) => Promise<void>;
   initialDate?: string;
   staffMembers?: StaffMember[];
   isSalon: boolean;
+  // When set, the modal edits an existing block instead of creating one.
+  editingBlock?: {
+    date: string;
+    reason: string | null;
+    start_time: string | null;
+    end_time: string | null;
+  } | null;
+  onUpdateBlock?: (blockData: {
+    date: string;
+    reason?: string;
+    startTime?: string;
+    endTime?: string;
+  }) => Promise<void>;
 }
 
 // Generate next 30 days for date selection
@@ -38,6 +55,26 @@ const generateDateOptions = (startDate: Date): Date[] => {
   return dates;
 };
 
+// 30-minute time options (00:00 - 23:30) as 'HH:mm'
+const TIME_OPTIONS: string[] = [];
+for (let h = 0; h < 24; h++) {
+  for (const m of ['00', '30']) {
+    TIME_OPTIONS.push(`${h.toString().padStart(2, '0')}:${m}`);
+  }
+}
+
+const toMinutes = (t: string): number => {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+};
+
+const formatTimeLabel = (t: string): string => {
+  const [h, m] = t.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h % 12 || 12;
+  return `${hour12}:${m.toString().padStart(2, '0')} ${period}`;
+};
+
 const BlockTimeModal = React.memo(function BlockTimeModal({
   visible,
   onClose,
@@ -45,7 +82,10 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
   initialDate,
   staffMembers = [],
   isSalon,
+  editingBlock,
+  onUpdateBlock,
 }: BlockTimeModalProps) {
+  const isEditing = !!editingBlock;
   // Form state
   const [selectedDate, setSelectedDate] = useState(
     initialDate || format(new Date(), 'yyyy-MM-dd')
@@ -54,18 +94,37 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [blockWholeDay, setBlockWholeDay] = useState(true);
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('17:00');
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
 
   const dateOptions = generateDateOptions(new Date());
 
-  // Reset form when modal opens
+  // Reset / prefill form when modal opens
   useEffect(() => {
     if (visible) {
-      setSelectedDate(initialDate || format(new Date(), 'yyyy-MM-dd'));
+      if (editingBlock) {
+        setSelectedDate(editingBlock.date);
+        setReason(editingBlock.reason || '');
+        const wholeDay = !editingBlock.start_time || !editingBlock.end_time;
+        setBlockWholeDay(wholeDay);
+        setStartTime(editingBlock.start_time || '09:00');
+        setEndTime(editingBlock.end_time || '17:00');
+      } else {
+        setSelectedDate(initialDate || format(new Date(), 'yyyy-MM-dd'));
+        setReason('');
+        setBlockWholeDay(true);
+        setStartTime('09:00');
+        setEndTime('17:00');
+      }
       setSelectedStaffIds([]);
-      setReason('');
       setShowDatePicker(false);
+      setShowStartPicker(false);
+      setShowEndPicker(false);
     }
-  }, [visible, initialDate]);
+  }, [visible, initialDate, editingBlock]);
 
   const handleStaffToggle = (staffId: string) => {
     if (selectedStaffIds.includes(staffId)) {
@@ -84,19 +143,33 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
   };
 
   const handleSubmit = async () => {
-    // Validation
-    if (isSalon && selectedStaffIds.length === 0) {
+    // Validation (staff selection only applies when creating)
+    if (!isEditing && isSalon && selectedStaffIds.length === 0) {
       Alert.alert('Validation Error', 'Please select at least one staff member');
+      return;
+    }
+
+    if (!blockWholeDay && toMinutes(endTime) <= toMinutes(startTime)) {
+      Alert.alert('Validation Error', 'End time must be after start time');
       return;
     }
 
     setLoading(true);
     try {
-      await onBlockTime({
+      const payload = {
         date: selectedDate,
-        staffMemberIds: isSalon ? selectedStaffIds : [],
         reason: reason.trim() || undefined,
-      });
+        startTime: blockWholeDay ? undefined : startTime,
+        endTime: blockWholeDay ? undefined : endTime,
+      };
+      if (isEditing && onUpdateBlock) {
+        await onUpdateBlock(payload);
+      } else {
+        await onBlockTime({
+          ...payload,
+          staffMemberIds: isSalon ? selectedStaffIds : [],
+        });
+      }
       onClose();
     } catch (error) {
       console.error('Error blocking time:', error);
@@ -116,7 +189,7 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
       <SafeAreaView style={styles.container} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Block Time</Text>
+          <Text style={styles.headerTitle}>{isEditing ? 'Edit Blocked Time' : 'Block Time'}</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <X size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
@@ -171,8 +244,103 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
             )}
           </View>
 
-          {/* Staff Selection (Salon only) */}
-          {isSalon && staffMembers.length > 0 && (
+          {/* Time Range */}
+          <View style={styles.section}>
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabelWrap}>
+                <Text style={styles.sectionTitle}>Block entire day</Text>
+                <Text style={styles.sectionDescription}>
+                  Turn off to block only a specific time range
+                </Text>
+              </View>
+              <Switch
+                value={blockWholeDay}
+                onValueChange={(v) => {
+                  setBlockWholeDay(v);
+                  setShowStartPicker(false);
+                  setShowEndPicker(false);
+                }}
+                trackColor={{ false: COLORS.border, true: COLORS.primary }}
+              />
+            </View>
+
+            {!blockWholeDay && (
+              <View style={styles.timeRow}>
+                {/* Start time */}
+                <View style={styles.timeCol}>
+                  <Text style={styles.timeLabel}>Start</Text>
+                  <TouchableOpacity
+                    style={styles.dateButton}
+                    onPress={() => {
+                      setShowStartPicker(!showStartPicker);
+                      setShowEndPicker(false);
+                    }}
+                  >
+                    <Clock size={18} color={COLORS.textSecondary} />
+                    <Text style={styles.dateText}>{formatTimeLabel(startTime)}</Text>
+                  </TouchableOpacity>
+                  {showStartPicker && (
+                    <View style={styles.datePicker}>
+                      <ScrollView style={styles.datePickerScroll} nestedScrollEnabled>
+                        {TIME_OPTIONS.map((t) => (
+                          <TouchableOpacity
+                            key={t}
+                            style={[styles.dateOption, t === startTime && styles.dateOptionSelected]}
+                            onPress={() => {
+                              setStartTime(t);
+                              setShowStartPicker(false);
+                            }}
+                          >
+                            <Text style={[styles.dateOptionText, t === startTime && styles.dateOptionTextSelected]}>
+                              {formatTimeLabel(t)}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                {/* End time */}
+                <View style={styles.timeCol}>
+                  <Text style={styles.timeLabel}>End</Text>
+                  <TouchableOpacity
+                    style={styles.dateButton}
+                    onPress={() => {
+                      setShowEndPicker(!showEndPicker);
+                      setShowStartPicker(false);
+                    }}
+                  >
+                    <Clock size={18} color={COLORS.textSecondary} />
+                    <Text style={styles.dateText}>{formatTimeLabel(endTime)}</Text>
+                  </TouchableOpacity>
+                  {showEndPicker && (
+                    <View style={styles.datePicker}>
+                      <ScrollView style={styles.datePickerScroll} nestedScrollEnabled>
+                        {TIME_OPTIONS.map((t) => (
+                          <TouchableOpacity
+                            key={t}
+                            style={[styles.dateOption, t === endTime && styles.dateOptionSelected]}
+                            onPress={() => {
+                              setEndTime(t);
+                              setShowEndPicker(false);
+                            }}
+                          >
+                            <Text style={[styles.dateOptionText, t === endTime && styles.dateOptionTextSelected]}>
+                              {formatTimeLabel(t)}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Staff Selection (Salon only, not when editing a single block) */}
+          {!isEditing && isSalon && staffMembers.length > 0 && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Staff Members</Text>
@@ -248,7 +416,11 @@ const BlockTimeModal = React.memo(function BlockTimeModal({
             style={styles.footerButton}
           />
           <Button
-            title={loading ? 'Blocking...' : 'Block Time'}
+            title={
+              loading
+                ? isEditing ? 'Saving...' : 'Blocking...'
+                : isEditing ? 'Save Changes' : 'Block Time'
+            }
             onPress={handleSubmit}
             variant="primary"
             style={styles.footerButton}
@@ -329,6 +501,28 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     color: COLORS.textPrimary,
     flex: 1,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+  },
+  switchLabelWrap: {
+    flex: 1,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+    marginTop: SPACING.md,
+  },
+  timeCol: {
+    flex: 1,
+  },
+  timeLabel: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
   },
   datePicker: {
     marginTop: SPACING.sm,
