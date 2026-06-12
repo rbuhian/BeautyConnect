@@ -550,7 +550,7 @@ export async function getAdminDashboardStats(): Promise<ServiceResponse<AdminDas
       supabase.from('professional_profiles').select('is_live'),
       supabase.from('users').select('role', { count: 'exact' }).eq('role', 'client'),
       supabase.from('bookings').select('*', { count: 'exact', head: true }),
-      supabase.from('bookings').select('total_amount').eq('status', 'completed'),
+      supabase.from('bookings').select('total_price').eq('status', 'completed'),
     ]);
 
     const ads = adsResult.data || [];
@@ -579,7 +579,10 @@ export async function getAdminDashboardStats(): Promise<ServiceResponse<AdminDas
 
     const totalBookings = bookingsResult.count || 0;
     const completedBookings = earningsResult.data || [];
-    const totalEarnings = completedBookings.reduce((sum: number, b: any) => sum + (b.total_amount || 0), 0);
+    // Platform earnings = 10% commission on completed bookings.
+    const PLATFORM_COMMISSION_RATE = 0.1;
+    const completedGross = completedBookings.reduce((sum: number, b: any) => sum + (b.total_price || 0), 0);
+    const totalEarnings = Math.round(completedGross * PLATFORM_COMMISSION_RATE * 100) / 100;
 
     return {
       data: {
