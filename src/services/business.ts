@@ -103,7 +103,7 @@ export async function getStaffMembers(businessId: string): Promise<StaffMember[]
     .from('staff_members')
     .select(`
       *,
-      user:users(id, name, avatar, phone)
+      user:users(id, name, avatar, email)
     `)
     .eq('business_id', businessId)
     .order('name');
@@ -120,7 +120,7 @@ export async function getActiveStaffMembers(businessId: string): Promise<StaffMe
     .from('staff_members')
     .select(`
       *,
-      user:users(id, name, avatar, phone)
+      user:users(id, name, avatar, email)
     `)
     .eq('business_id', businessId)
     .eq('is_active', true)
@@ -138,7 +138,7 @@ export async function getStaffMemberById(staffMemberId: string): Promise<StaffMe
     .from('staff_members')
     .select(`
       *,
-      user:users(id, name, avatar, phone)
+      user:users(id, name, avatar, email)
     `)
     .eq('id', staffMemberId)
     .single();
